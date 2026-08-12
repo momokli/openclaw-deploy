@@ -1,0 +1,334 @@
+---
+# Deploy OpenClaw on the home server
+# Prerequisites on control machine:
+#   export DEEPSEEK_API_KEY="sk-..."
+#   export KAGI_API="..."
+#   export TELEGRAM_BOT_TOKEN="123:abc"
+#
+# Run: ansible-playbook playbooks/openclaw.yml
+
+- hosts: openclaw
+  gather_facts: yes
+
+  vars:
+    deploy_dir: /opt/apps/openclaw
+    deepseek_api_key: "{{ lookup('env', 'DEEPSEEK_API_KEY') }}"
+    kagi_api_key: "{{ lookup('env', 'KAGI_API') }}"
+    telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
+    # Preserve existing token if already deployed, else generate new
+    gateway_token: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+
+  tasks:
+    # ── Prerequisites ─────────────────────────────────────────────
+
+    - name: Check required env vars
+      ansible.builtin.assert:
+        that:
+          - deepseek_api_key | length > 0
+          - kagi_api_key | length > 0
+          - telegram_bot_token | length > 0
+        fail_msg: >
+          Missing required environment variables.
+          Set DEEPSEEK_API_KEY, KAGI_API, and TELEGRAM_BOT_TOKEN before running.
+
+    # ── Lab repo (mounted into OpenClaw as /lab:ro) ──────────────
+    # Canonical remote: git@git.sr.ht:~momoy/lab
+    # The container runs as uid 1000, so the repo must be world-readable.
+
+    - name: Ensure git is installed
+      ansible.builtin.package:
+        name: git
+        state: present
+      become: yes
+
+    - name: Clone or update lab repo from sourcehut
+      ansible.builtin.git:
+        repo: git@git.sr.ht:~momoy/lab
+        dest: /opt/apps/lab
+        update: yes
+        version: main
+        accept_hostkey: yes
+        ssh_opts: "-i /home/momo/.ssh/id_ed25519"
+      become: no
+
+    - name: Ensure lab repo is world-readable (container uid 1000)
+      ansible.builtin.file:
+        path: /opt/apps/lab
+        mode: u=rwX,go=rX
+        recurse: yes
+      become: yes
+
+    # ── Directory structure ───────────────────────────────────────
+
+    - name: Create deploy directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      become: yes
+      loop:
+        - "{{ deploy_dir }}"
+        - "{{ deploy_dir }}/config"
+        - "{{ deploy_dir }}/workspace"
+
+    # ── Deploy files ──────────────────────────────────────────────
+
+    - name: Deploy docker-compose.yml
+      ansible.builtin.copy:
+        src: ../../services/openclaw/docker-compose.yml
+        dest: "{{ deploy_dir }}/docker-compose.yml"
+        mode: "0644"
+      become: yes
+
+    - name: Deploy openclaw.json
+      ansible.builtin.copy:
+        src: ../../services/openclaw/config/openclaw.json
+        dest: "{{ deploy_dir }}/config/openclaw.json"
+        mode: "0644"
+      become: yes
+
+    - name: Deploy workspace files
+      ansible.builtin.copy:
+        src: "../../services/openclaw/workspace/{{ item }}"
+        dest: "{{ deploy_dir }}/workspace/{{ item }}"
+        mode: "0644"
+        owner: "1000"
+        group: "1000"
+      become: yes
+      loop:
+        - SOUL.md
+        - AGENTS.md
+        - USER.md
+        - MEMORY.md
+
+    - name: Fix workspace ownership for container
+      ansible.builtin.file:
+        path: "{{ deploy_dir }}/workspace"
+        owner: "1000"
+        group: "1000"
+        recurse: yes
+      become: yes
+
+    - name: Deploy agent personas (pipeline agents)
+      ansible.builtin.copy:
+        src: "../../services/openclaw/config/agents/{{ item }}.md"
+        dest: "{{ deploy_dir }}/config/agents/{{ item }}.md"
+        mode: "0644"
+      become: yes
+      loop:
+        - orchestrator
+        - planner
+        - setup
+        - developer
+        - verifier
+        - tester
+        - reviewer
+
+    - name: Deploy build-and-deploy script
+      ansible.builtin.copy:
+        src: ../../services/openclaw/build-and-deploy.sh
+        dest: "{{ deploy_dir }}/build-and-deploy.sh"
+        mode: "0755"
+      become: yes
+
+    - name: Install systemd build timer
+      ansible.builtin.copy:
+        src: "../../services/openclaw/openclaw-build.{{ item }}"
+        dest: "/etc/systemd/system/openclaw-build.{{ item }}"
+        mode: "0644"
+      become: yes
+      loop:
+        - service
+        - timer
+      notify: reload systemd
+
+    - name: Enable build timer
+      ansible.builtin.systemd:
+        name: openclaw-build.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      become: yes
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+      become: yes
+
+    # ── Docker Compose ────────────────────────────────────────────
+    # ── Secrets (.env) — preserve existing token if present ───────
+
+    - name: Read existing token if any
+      ansible.builtin.slurp:
+        src: "{{ deploy_dir }}/config/.env"
+      register: existing_env
+      failed_when: false
+      become: yes
+
+    - name: Extract existing gateway token
+      ansible.builtin.set_fact:
+        existing_token: "{{ (existing_env.content | default('') | b64decode | regex_search('OPENCLAW_GATEWAY_TOKEN=(.+)', '\\1')) | default('') }}"
+      when: existing_env.content is defined
+
+    - name: Use existing or new token
+      ansible.builtin.set_fact:
+        gateway_token: "{{ existing_token if existing_token | length > 0 else gateway_token }}"
+
+    - name: Deploy .env with secrets
+      ansible.builtin.copy:
+        content: |
+          DEEPSEEK_API_KEY={{ deepseek_api_key }}
+          KAGI_API={{ kagi_api_key }}
+          TELEGRAM_BOT_TOKEN={{ telegram_bot_token }}
+          OPENCLAW_GATEWAY_TOKEN={{ gateway_token }}
+        dest: "{{ deploy_dir }}/config/.env"
+        mode: "0600"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      become: yes
+      no_log: true
+
+    # ── Docker Compose ────────────────────────────────────────────
+
+    - name: Pull images
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: "{{ deploy_dir }}"
+      become: yes
+      changed_when: false
+
+    - name: Start containers
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ deploy_dir }}"
+      become: yes
+      changed_when: false
+
+    - name: Wait for gateway to be healthy
+      ansible.builtin.uri:
+        url: http://127.0.0.1:18789/healthz
+        status_code: 200
+      register: health
+      until: health.status == 200
+      retries: 30
+      delay: 2
+
+    # ── Install DeepSeek provider plugin ──────────────────────────
+
+    - name: Install DeepSeek provider plugin
+      ansible.builtin.command:
+        cmd: docker compose exec -T openclaw openclaw plugins install @openclaw/deepseek-provider
+        chdir: "{{ deploy_dir }}"
+      become: yes
+      register: plugin_install
+      changed_when: false
+      failed_when:
+        - plugin_install.rc != 0
+        - "'already installed' not in plugin_install.stderr"
+
+    - name: Restart OpenClaw to load plugin
+      ansible.builtin.command:
+        cmd: docker compose restart openclaw
+        chdir: "{{ deploy_dir }}"
+      become: yes
+      changed_when: true
+
+    - name: Wait for gateway after restart
+      ansible.builtin.uri:
+        url: http://127.0.0.1:18789/healthz
+        status_code: 200
+      register: health2
+      until: health2.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Deploy agent personas into container
+      ansible.builtin.shell: |
+        for agent in orchestrator planner setup developer verifier tester reviewer; do
+          id="feature-dev-$agent"
+          [ "$agent" = "orchestrator" ] && id="coding-orchestrator"
+          docker exec openclaw mkdir -p /home/node/.openclaw/agents/$id/agent 2>/dev/null
+          docker cp {{ deploy_dir }}/config/agents/$agent.md openclaw:/home/node/.openclaw/agents/$id/agent/AGENTS.md
+        done
+      become: yes
+      changed_when: false
+
+    # ── Add agents (idempotent) ───────────────────────────────────
+
+    - name: Check if coding agent exists
+      ansible.builtin.command:
+        cmd: docker compose exec -T openclaw openclaw agents list
+        chdir: "{{ deploy_dir }}"
+      become: yes
+      register: agent_list
+      changed_when: false
+
+    - name: Add coding agent
+      ansible.builtin.command:
+        cmd: >-
+          docker compose exec -T openclaw openclaw agents add coding
+          --model deepseek/deepseek-v4-pro
+          --workspace /home/node/.openclaw/workspace-coding
+        chdir: "{{ deploy_dir }}"
+      become: yes
+      when: "'coding' not in agent_list.stdout"
+
+    - name: Add diary agent
+      ansible.builtin.command:
+        cmd: >-
+          docker compose exec -T openclaw openclaw agents add diary
+          --model deepseek/deepseek-v4-flash
+          --workspace /home/node/.openclaw/workspace-diary
+        chdir: "{{ deploy_dir }}"
+      become: yes
+      when: "'diary' not in agent_list.stdout"
+
+    # ── Caddy reverse proxy ───────────────────────────────────────
+
+    - name: Clean up any old openclaw Caddy blocks
+      ansible.builtin.shell: |
+        sed -i '/^# BEGIN ANSIBLE OPENCLAW/,/^# END ANSIBLE OPENCLAW/d' ~/caddy/Caddyfile
+        sed -i '/^openclaw.simonklimke.de {/,/^}/d' ~/caddy/Caddyfile
+      changed_when: false
+
+    - name: Add openclaw block to Caddyfile
+      ansible.builtin.blockinfile:
+        path: ~/caddy/Caddyfile
+        marker: "# {mark} ANSIBLE OPENCLAW"
+        insertafter: EOF
+        block: |
+          openclaw.simonklimke.de {
+              reverse_proxy openclaw:18789
+              encode gzip
+          }
+
+    # ── DNS ───────────────────────────────────────────────────────
+
+    - name: Add domain to home_domains.txt
+      ansible.builtin.lineinfile:
+        path: ~/home_domains.txt
+        line: openclaw.simonklimke.de
+        state: present
+
+    # ── Reload Caddy ──────────────────────────────────────────────
+
+    - name: Reload Caddy
+      ansible.builtin.command:
+        cmd: docker exec caddy-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+      become: yes
+      changed_when: true
+
+    # ── Summary ───────────────────────────────────────────────────
+
+    - name: Print gateway token
+      ansible.builtin.debug:
+        msg:
+          - "✅ OpenClaw deployed!"
+          - "🌐 https://openclaw.simonklimke.de"
+          - "🔑 Token: {{ gateway_token }}"
+          - ""
+          - "Pair Telegram: DM @momomemos_bot → get code →"
+          - "  ssh momo@192.168.178.149 docker exec openclaw openclaw pairing approve telegram <CODE>"
+          - ""
+          - "Syncthing UI: ssh -L 18384:127.0.0.1:18384 momo@192.168.178.149"

@@ -1,0 +1,11 @@
+[Unit]
+Description=OpenClaw image build and deploy
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=momo
+ExecStart=/opt/apps/openclaw/build-and-deploy.sh
+StandardOutput=journal
+StandardError=journal

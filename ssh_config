@@ -1,0 +1,12 @@
+Host github.com
+    StrictHostKeyChecking accept-new
+    User git
+
+Host git.sr.ht
+    StrictHostKeyChecking accept-new
+    User git
+
+Host dev.klimk.es
+    StrictHostKeyChecking accept-new
+    User git
+    Port 2222

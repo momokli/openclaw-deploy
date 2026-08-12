@@ -1,0 +1,70 @@
+services:
+  # ── Syncthing: syncs ~/quill from Mac ─────────────────────────
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: openclaw-syncthing
+    hostname: openclaw-host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+    volumes:
+      - ./syncthing-config:/config
+      - quill_data:/data/quill
+    ports:
+      - "127.0.0.1:18384:8384"
+      - "22001:22000/tcp"
+      - "22001:22000/udp"
+      - "21028:21027/udp"
+    restart: unless-stopped
+
+  # ── OpenClaw: AI agent gateway ─────────────────────────────────
+  openclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openclaw-local:latest
+    container_name: openclaw
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:18789:18789"
+
+    volumes:
+      - ./config:/home/node/.openclaw
+      - ./workspace:/home/node/.openclaw/workspace
+      - /opt/apps/lab:/lab:ro
+      - quill_data:/quill:ro
+      - ${HOME}/.ssh/id_ed25519:/home/node/.ssh/id_ed25519:ro
+      - repos:/home/node/repos
+
+    env_file:
+      - ./config/.env
+
+    environment:
+      - OPENCLAW_GATEWAY_BIND=lan
+      - OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=true
+      - TZ=Europe/Berlin
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    networks:
+      - default
+      - caddy
+
+    depends_on:
+      - syncthing
+
+networks:
+  caddy:
+    external: true
+    name: caddy_default
+
+volumes:
+  quill_data:
+  repos:

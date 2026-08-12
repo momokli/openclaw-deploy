@@ -1,0 +1,10 @@
+# Secrets
+.env
+*.env
+
+# Docker state
+state/
+syncthing-config/
+
+# Build artifacts
+/tmp/
