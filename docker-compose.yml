@@ -71,6 +71,10 @@ networks:
 
 volumes:
   quill_data:
+    name: openclaw_quill_data
   repos:
+    name: openclaw_repos
   openclaw_home:
+    name: openclaw_home
   openclaw_workspace:
+    name: openclaw_workspace
