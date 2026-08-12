@@ -6,6 +6,6 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=momo
-ExecStart=/opt/apps/openclaw/build-and-deploy.sh
+ExecStart=/opt/apps/openclaw/scripts/build-and-deploy.sh
 StandardOutput=journal
 StandardError=journal
