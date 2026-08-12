@@ -109,3 +109,30 @@ Never committed to this repo. Set via environment variables or `.env` file on th
 - `GH_TOKEN` — GitHub PR creation
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
+
+## Config vs Runtime State (Trennung)
+
+Das Deployment trennt sauber **Git-Config** (versioniert) von **Runtime-State** (nicht versioniert):
+
+```
+Git (openclaw-deploy Repo)          Runtime (Docker Named Volumes)
+─────────────────────────────       ─────────────────────────────────
+config/openclaw.json  ──(ro)──►    openclaw_home:/home/node/.openclaw
+config/agents/*.md    ──(copy)─►     ├── state/       (SQLite: Sessions, Pairing)
+workspace/*.md        ──(copy)─►     ├── credentials/ (Channel-Creds)
+config/.env           ──(copy)─►     ├── devices/     (Device-Pairing)
+                                     ├── npm/         (Plugins: deepseek)
+                                     └── agents/      (Per-Agent Sessions)
+                                    openclaw_workspace:/home/node/.openclaw/workspace
+```
+
+- `config/` wird **read-only** als `/openclaw-config` gemountet (Source of Truth)
+- Der `entrypoint.sh` synct Config/Persons beim Start in den Runtime-Home
+- Runtime-State (Sessions, Pairing, Plugins) lebt in **Named Volumes** — überlebt Deploys, verschmutzt kein `git status`
+- Secrets (`.env`) werden aus `config/.env` gelesen und in den Container injiziert
+
+### Migration (einmalig, schon erledigt)
+
+```sh
+ssh lan "cd /opt/apps/openclaw && ./scripts/migrate-state.sh"
+```
