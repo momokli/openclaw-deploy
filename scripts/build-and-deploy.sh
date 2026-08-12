@@ -6,16 +6,25 @@ set -euo pipefail
 
 BUILD_HOST="root@projectmellon.de"
 BUILD_DIR="/tmp/openclaw-build"
+REPO="https://github.com/momokli/openclaw-deploy"
 LOCAL_DIR="/opt/apps/openclaw"
-HASH_FILE="$LOCAL_DIR/.dockerfile-hash"
+HASH_FILE="$LOCAL_DIR/.deploy-hash"
 IMAGE_NAME="openclaw-local:latest"
 TARBALL="/tmp/openclaw-local.tar.gz"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
 # ── Check if Dockerfile changed ──────────────────────────────────
+# ── Pull latest from GitHub ──────────────────────────────────────
+log "Pulling latest from $REPO..."
+if [ -d "$LOCAL_DIR/.git" ]; then
+    git -C "$LOCAL_DIR" pull origin main
+else
+    git clone "$REPO" "$LOCAL_DIR"
+fi
+
 OLD_HASH="$(cat "$HASH_FILE" 2>/dev/null || echo '')"
-NEW_HASH="$(md5sum "$LOCAL_DIR/Dockerfile" "$LOCAL_DIR/ssh_config" | md5sum | cut -d' ' -f1)"
+NEW_HASH="$(git -C "$LOCAL_DIR" rev-parse HEAD)"
 
 if [ "$OLD_HASH" = "$NEW_HASH" ]; then
     log "No changes — skipping build"
@@ -27,18 +36,19 @@ log "Dockerfile changed — starting build on $BUILD_HOST"
 # ── Copy build context to build host ─────────────────────────────
 scp -q "$LOCAL_DIR/Dockerfile" "$LOCAL_DIR/ssh_config" "$BUILD_HOST:$BUILD_DIR/"
 
-# ── Build on fast server ─────────────────────────────────────────
-log "Building image on $BUILD_HOST..."
-ssh "$BUILD_HOST" "cd $BUILD_DIR && docker build --no-cache -t $IMAGE_NAME ."
+# ── Build on fast server (with commit tag) ───────────────────────
+IMAGE_TAG="openclaw:${NEW_HASH:0:8}"
+log "Building image $IMAGE_TAG on $BUILD_HOST..."
+ssh "$BUILD_HOST" "cd $BUILD_DIR && docker build -t $IMAGE_TAG -t openclaw-local:latest ."
 
 # ── Validate ─────────────────────────────────────────────────────
 log "Validating image..."
-ssh "$BUILD_HOST" "docker run --rm $IMAGE_NAME which himalaya > /dev/null"
+ssh "$BUILD_HOST" "docker run --rm $IMAGE_TAG which himalaya > /dev/null"
 log "Image OK"
 
 # ── Transfer to local host ───────────────────────────────────────
 log "Transferring image..."
-ssh "$BUILD_HOST" "docker save $IMAGE_NAME | gzip" > "$TARBALL"
+ssh "$BUILD_HOST" "docker save $IMAGE_TAG | gzip" > "$TARBALL"
 docker load < "$TARBALL"
 
 # ── Deploy ───────────────────────────────────────────────────────
