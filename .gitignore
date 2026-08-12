@@ -1,10 +1,38 @@
-# Secrets
+# Secrets — never commit
 .env
 *.env
+!*.env.example
 
-# Docker state
-state/
-syncthing-config/
+# OpenClaw runtime state (written into config/ by the bind mount)
+config/credentials/
+config/devices/
+config/logs/
+config/media/
+config/npm/
+config/identity/
+config/plugin-skills/
+config/skill-workshop/
+config/workspace-attestations/
+config/workspace-coding/
+config/workspace-diary/
+config/agents/main/
+config/openclaw.json.bak*
+config/openclaw.json.clobbered.*
+config/openclaw.json.last-good
+config/exec-approvals.json
+config/state/
+config/*.db
+config/*.sqlite*
+
+# Runtime workspace state
+workspace/HEARTBEAT.md
+workspace/IDENTITY.md
+workspace/TOOLS.md
+workspace/media/
+workspace/momos-music-manager/
+workspace/openclaw-deploy/
+workspace/openclaw-workspace-state.json
 
 # Build artifacts
 /tmp/
+.deploy-hash
