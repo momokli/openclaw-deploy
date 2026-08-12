@@ -37,8 +37,12 @@ RUN mkdir -p /home/node/repos && chown node:node /home/node/repos
 # Install himalaya (email CLI) — prebuilt binary
 RUN curl -fsSL https://github.com/pimalaya/himalaya/releases/download/v2.0.0/himalaya.x86_64-linux.tgz | tar xz -C /tmp && mv /tmp/himalaya /usr/local/bin/ && chmod +x /usr/local/bin/himalaya
 
-# Install gifgrep (GIF search) — compile from source
-RUN cargo install gifgrep 2>/dev/null || echo "gifgrep not available — skipping"
 
 # Back to non-root user
 USER node
+
+# ── Entrypoint: sync git config into runtime home ────────────────
+COPY --chown=node:node entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["node", "openclaw.mjs", "gateway"]
