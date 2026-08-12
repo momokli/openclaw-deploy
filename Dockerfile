@@ -42,3 +42,8 @@ RUN cargo install gifgrep 2>/dev/null || echo "gifgrep not available — skippin
 
 # Back to non-root user
 USER node
+
+# ── Entrypoint: sync git config into runtime home ────────────────
+COPY --chown=node:node entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
