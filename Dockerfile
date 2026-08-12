@@ -45,3 +45,4 @@ USER node
 COPY --chown=node:node entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
+CMD ["node", "openclaw.mjs", "gateway"]
