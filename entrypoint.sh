@@ -35,12 +35,17 @@ for f in "$SRC"/agents/*.md; do
 done
 log "agent personas synced"
 
-# 4. Main agent workspace personas — seed only if missing (don't clobber runtime)
+# 4. Main agent personas — ALWAYS copy from git (source of truth).
+#    MEMORY.md is seeded only if missing (agent writes to it at runtime).
 mkdir -p "$HOME_DIR/workspace"
 for f in "$SRC"/workspace/*.md; do
     [ -f "$f" ] || continue
     base="$(basename "$f")"
-    [ -f "$HOME_DIR/workspace/$base" ] || cp "$f" "$HOME_DIR/workspace/$base"
+    if [ "$base" = "MEMORY.md" ]; then
+        [ -f "$HOME_DIR/workspace/$base" ] || cp "$f" "$HOME_DIR/workspace/$base"
+    else
+        cp "$f" "$HOME_DIR/workspace/$base"
+    fi
 done
 
 # 5. Start gateway (original entrypoint: tini)
