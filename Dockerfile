@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     libsqlite3-dev \
+    python3-pip \
+    python3-venv \
+    sshpass \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -36,6 +39,9 @@ RUN mkdir -p /home/node/repos && chown node:node /home/node/repos
 # ── Extra CLI tools for skills ──────────────────────────────────
 # Install himalaya (email CLI) — prebuilt binary
 RUN curl -fsSL https://github.com/pimalaya/himalaya/releases/download/v2.0.0/himalaya.x86_64-linux.tgz | tar xz -C /tmp && mv /tmp/himalaya /usr/local/bin/ && chmod +x /usr/local/bin/himalaya
+
+# Install Ansible (for deploying user projects)
+RUN pip3 install --break-system-packages ansible
 
 
 # Back to non-root user
