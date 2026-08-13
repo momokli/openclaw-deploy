@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-venv \
     sshpass \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -43,9 +44,6 @@ RUN curl -fsSL https://github.com/pimalaya/himalaya/releases/download/v2.0.0/him
 # Install Ansible (for deploying user projects)
 RUN pip3 install --break-system-packages ansible
 
-
-# Back to non-root user
-USER node
 
 # ── Entrypoint: sync git config into runtime home ────────────────
 COPY --chown=node:node entrypoint.sh /entrypoint.sh

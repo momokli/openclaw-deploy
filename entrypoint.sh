@@ -48,5 +48,9 @@ for f in "$SRC"/workspace/*.md; do
     fi
 done
 
-# 5. Start gateway (original entrypoint: tini)
-exec tini -s -- "$@"
+# 5. Ensure runtime home is owned by node (entrypoint runs as root)
+chown -R node:node "$HOME_DIR" 2>/dev/null || true
+chown -R node:node "$HOME_DIR/workspace" 2>/dev/null || true
+
+# 6. Start gateway as node (original entrypoint: tini)
+exec gosu node tini -s -- "$@"
