@@ -52,5 +52,20 @@ done
 chown -R node:node "$HOME_DIR" 2>/dev/null || true
 chown -R node:node "$HOME_DIR/workspace" 2>/dev/null || true
 
+# 5b. Seed DeepSeek auth profile on main so sub-agents inherit via read-through.
+#     env-only auth does NOT reach sub-agent model auth (they resolve through
+#     their own store + read-through to main's store), so persist the key once.
+if [ -n "$DEEPSEEK_API_KEY" ]; then
+    if ! gosu node openclaw models auth list --agent main --provider deepseek 2>/dev/null | grep -q 'deepseek'; then
+        if printf '%s\n' "$DEEPSEEK_API_KEY" | gosu node openclaw models auth --agent main paste-api-key --provider deepseek; then
+            log "seeded deepseek auth profile on main"
+        else
+            log "WARN: failed to seed deepseek auth profile on main"
+        fi
+    else
+        log "deepseek auth profile already present on main"
+    fi
+fi
+
 # 6. Start gateway as node (original entrypoint: tini)
 exec gosu node tini -s -- "$@"
