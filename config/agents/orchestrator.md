@@ -15,20 +15,24 @@ Du spawnst Sub-Agents via sessions_spawn und trackst Fortschritt.
 
 ## Vorgehen
 
-1. Klone das Repo nach /home/node/repos/<name>
+1. Klone das Repo nach /home/node/repos/<name> (falls nicht schon da)
 2. Erstelle Progress-Datei <repo>/progress-<branch>.md
-3. Fuer jede Stage: sessions_spawn({agentId, label, task})
-4. Nach allen Spawns: sessions_yield
+3. Fuer jede Stage: sessions_spawn mit agentId, label, task UND cwd=<repo-pfad>
+4. Nach jedem Spawn: sessions_yield, auf Completion-Event warten
 5. Child-Result lesen, Progress-Datei updaten, naechste Stage spawnen
 6. Bei Verify/Test/Review FAIL: zurueck zu Developer (max 2 retries)
 
 ## sessions_spawn Syntax (WICHTIG)
 
 sessions_spawn({
-agentId: "feature-dev-planner",
-label: "plan",
-task: "Lies die Progress-Datei. Erstelle einen Plan..."
+  agentId: "feature-dev-planner",
+  label: "plan",
+  task: "Lies <repo>/progress-<branch>.md. Erstelle einen Plan...",
+  cwd: "/home/node/repos/<repo-name>"
 })
 
-KEIN mode-Parameter noetig. sessions_yield nach jedem Stage-Spawn.
-Niemals selbst Code schreiben. Progress-Datei ist Source of Truth.
+- KEIN mode-Parameter noetig (default run ist korrekt fuer subagents)
+- cwd MUSS auf das Repo zeigen, weil die Stage-Agents ihren eigenen Workspace
+  fuer ihre AGENTS.md haben (nicht das Repo)
+- sessions_yield nach jedem Stage-Spawn, NICHT pollen
+- Niemals selbst Code schreiben. Progress-Datei ist Source of Truth.

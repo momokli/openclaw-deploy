@@ -2,14 +2,18 @@
   "gateway": {
     "bind": "lan",
     "mode": "local",
-    "trustedProxies": ["172.17.0.1"],
+    "trustedProxies": [
+      "172.17.0.1"
+    ],
     "auth": {
       "mode": "token",
       "token": "${OPENCLAW_GATEWAY_TOKEN}",
       "allowTailscale": false
     },
     "controlUi": {
-      "allowedOrigins": ["https://openclaw.simonklimke.de"]
+      "allowedOrigins": [
+        "https://openclaw.simonklimke.de"
+      ]
     }
   },
   "env": {
@@ -48,37 +52,37 @@
       },
       {
         "id": "coding-orchestrator",
-        "workspace": "/home/node/repos",
+        "workspace": "/home/node/.openclaw/workspaces/coding-orchestrator",
         "model": "deepseek/deepseek-v4-pro"
       },
       {
         "id": "feature-dev-planner",
-        "workspace": "/home/node/repos",
+        "workspace": "/home/node/.openclaw/workspaces/feature-dev-planner",
         "model": "deepseek/deepseek-v4-pro"
       },
       {
         "id": "feature-dev-setup",
-        "workspace": "/home/node/repos",
+        "workspace": "/home/node/.openclaw/workspaces/feature-dev-setup",
         "model": "deepseek/deepseek-v4-pro"
       },
       {
         "id": "feature-dev-developer",
-        "workspace": "/home/node/repos",
+        "workspace": "/home/node/.openclaw/workspaces/feature-dev-developer",
         "model": "deepseek/deepseek-v4-pro"
       },
       {
         "id": "feature-dev-verifier",
-        "workspace": "/home/node/repos",
+        "workspace": "/home/node/.openclaw/workspaces/feature-dev-verifier",
         "model": "deepseek/deepseek-v4-pro"
       },
       {
         "id": "feature-dev-tester",
-        "workspace": "/home/node/repos",
+        "workspace": "/home/node/.openclaw/workspaces/feature-dev-tester",
         "model": "deepseek/deepseek-v4-pro"
       },
       {
         "id": "feature-dev-reviewer",
-        "workspace": "/home/node/repos",
+        "workspace": "/home/node/.openclaw/workspaces/feature-dev-reviewer",
         "model": "deepseek/deepseek-v4-pro"
       }
     ]
@@ -97,7 +101,10 @@
   },
   "messages": {
     "groupChat": {
-      "mentionPatterns": ["@molty", "@openclaw"]
+      "mentionPatterns": [
+        "@molty",
+        "@openclaw"
+      ]
     }
   },
   "tools": {
@@ -106,19 +113,23 @@
         {
           "provider": "groq",
           "model": "whisper-large-v3-turbo",
-          "capabilities": ["audio"]
+          "capabilities": [
+            "audio"
+          ]
         },
         {
           "provider": "deepgram",
           "model": "nova-3",
           "language": "de",
-          "capabilities": ["audio"]
+          "capabilities": [
+            "audio"
+          ]
         }
       ],
       "audio": {
         "enabled": true,
         "echoTranscript": true,
-        "echoFormat": "\ud83c\udf99\ufe0f {transcript}"
+        "echoFormat": "🎙️ {transcript}"
       }
     }
   },

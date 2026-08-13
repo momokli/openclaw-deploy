@@ -21,7 +21,8 @@ if [ -f "$SRC/.env" ]; then
     chmod 600 "$HOME_DIR/.env"
 fi
 
-# 3. Agent personas — map flat git files to per-agent AGENTS.md
+# 3. Agent personas — map flat git files to per-agent WORKSPACE AGENTS.md.
+#    (OpenClaw only injects bootstrap files from the agent workspace, NOT agentDir.)
 for f in "$SRC"/agents/*.md; do
     [ -f "$f" ] || continue
     base="$(basename "$f" .md)"
@@ -30,8 +31,8 @@ for f in "$SRC"/agents/*.md; do
     else
         id="feature-dev-$base"
     fi
-    mkdir -p "$HOME_DIR/agents/$id/agent"
-    cp "$f" "$HOME_DIR/agents/$id/agent/AGENTS.md"
+    mkdir -p "$HOME_DIR/workspaces/$id"
+    cp "$f" "$HOME_DIR/workspaces/$id/AGENTS.md"
 done
 log "agent personas synced"
 
@@ -51,6 +52,7 @@ done
 # 5. Ensure runtime home is owned by node (entrypoint runs as root)
 chown -R node:node "$HOME_DIR" 2>/dev/null || true
 chown -R node:node "$HOME_DIR/workspace" 2>/dev/null || true
+chown -R node:node "$HOME_DIR/workspaces" 2>/dev/null || true
 
 # 5b. Seed DeepSeek auth profile on main so sub-agents inherit via read-through.
 #     env-only auth does NOT reach sub-agent model auth (they resolve through
