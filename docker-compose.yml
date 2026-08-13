@@ -20,10 +20,7 @@ services:
 
   # ── OpenClaw: AI agent gateway ─────────────────────────────────
   openclaw:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: openclaw-local:latest
+    image: ghcr.io/momokli/openclaw-deploy:latest
     container_name: openclaw
     restart: unless-stopped
 
