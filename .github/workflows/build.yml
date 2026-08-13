@@ -1,0 +1,36 @@
+name: Build & Push Image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  IMAGE: ghcr.io/momokli/openclaw
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t $IMAGE:${{ github.sha }} .
+
+      - name: Test image (entrypoint + tools present)
+        run: |
+          docker run --rm $IMAGE:${{ github.sha }} which cargo rustc ansible gh himalaya
+
+      # Only push to GHCR on main (not on PRs)
+      - name: Login to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
