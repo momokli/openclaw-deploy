@@ -35,8 +35,8 @@ fi
 
 log "Changes detected — recreating container..."
 
-# ── 4. Atomic swap (compose re-creates container) ───────────────
-docker compose up -d openclaw
+# ── 4. Atomic swap — force recreate so entrypoint re-copies config ──
+docker compose up -d --force-recreate openclaw
 
 # ── 5. Wait for healthy ─────────────────────────────────────────
 for i in $(seq 1 30); do
