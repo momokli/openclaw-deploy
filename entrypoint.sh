@@ -38,10 +38,12 @@ log "agent personas synced"
 
 # 4. Main agent personas — ALWAYS copy from git (source of truth).
 #    MEMORY.md is seeded only if missing (agent writes to it at runtime).
+#    Explicit list (not a glob) so runtime files like HEARTBEAT/IDENTITY/TOOLS
+#    in the workspace are never overwritten from git.
 mkdir -p "$HOME_DIR/workspace"
-for f in "$SRC"/workspace/*.md; do
+for base in SOUL.md AGENTS.md USER.md MEMORY.md; do
+    f="$SRC/workspace/$base"
     [ -f "$f" ] || continue
-    base="$(basename "$f")"
     if [ "$base" = "MEMORY.md" ]; then
         [ -f "$HOME_DIR/workspace/$base" ] || cp "$f" "$HOME_DIR/workspace/$base"
     else

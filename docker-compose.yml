@@ -30,6 +30,7 @@ services:
     volumes:
       # Git-tracked config (read-only source of truth)
       - ./config:/openclaw-config:ro
+      - ./workspace:/openclaw-config/workspace:ro
       # Runtime state (named volumes — NOT in git)
       - openclaw_home:/home/node/.openclaw
       - openclaw_workspace:/home/node/.openclaw/workspace

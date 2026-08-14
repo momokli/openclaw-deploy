@@ -36,4 +36,6 @@ workspace/openclaw-workspace-state.json
 # Build artifacts
 /tmp/
 .deploy-hash
+.deploy-git-hash
+.deploy-img-hash
 syncthing-config/

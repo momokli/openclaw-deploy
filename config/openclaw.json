@@ -2,18 +2,14 @@
   "gateway": {
     "bind": "lan",
     "mode": "local",
-    "trustedProxies": [
-      "172.17.0.1"
-    ],
+    "trustedProxies": ["172.17.0.1"],
     "auth": {
       "mode": "token",
       "token": "${OPENCLAW_GATEWAY_TOKEN}",
       "allowTailscale": false
     },
     "controlUi": {
-      "allowedOrigins": [
-        "https://openclaw.simonklimke.de"
-      ]
+      "allowedOrigins": ["https://openclaw.simonklimke.de"]
     }
   },
   "env": {
@@ -101,10 +97,7 @@
   },
   "messages": {
     "groupChat": {
-      "mentionPatterns": [
-        "@molty",
-        "@openclaw"
-      ]
+      "mentionPatterns": ["@molty", "@openclaw"]
     }
   },
   "tools": {
@@ -113,23 +106,27 @@
         {
           "provider": "groq",
           "model": "whisper-large-v3-turbo",
-          "capabilities": [
-            "audio"
-          ]
+          "capabilities": ["audio"]
         },
         {
           "provider": "deepgram",
           "model": "nova-3",
           "language": "de",
-          "capabilities": [
-            "audio"
-          ]
+          "capabilities": ["audio"]
+        },
+        {
+          "provider": "google",
+          "model": "gemini-3-flash-preview",
+          "capabilities": ["image"]
         }
       ],
       "audio": {
         "enabled": true,
         "echoTranscript": true,
         "echoFormat": "🎙️ {transcript}"
+      },
+      "image": {
+        "enabled": true
       }
     }
   },

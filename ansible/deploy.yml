@@ -1,11 +1,9 @@
 ---
-# Deploy OpenClaw on the home server
-# Prerequisites on control machine:
-#   export DEEPSEEK_API_KEY="sk-..."
-#   export KAGI_API="..."
-#   export TELEGRAM_BOT_TOKEN="123:abc"
+# Deploy OpenClaw on the home server.
+# Prerequisites on the control machine (source of truth = this repo):
+#   set -a; source ../.env; set +a    # full secret set, see ../.env.example
 #
-# Run: ansible-playbook playbooks/openclaw.yml
+# Run: ansible-playbook -i inventory.ini deploy.yml
 
 - hosts: openclaw
   gather_facts: yes
@@ -15,6 +13,10 @@
     deepseek_api_key: "{{ lookup('env', 'DEEPSEEK_API_KEY') }}"
     kagi_api_key: "{{ lookup('env', 'KAGI_API') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
+    gh_token: "{{ lookup('env', 'GH_TOKEN') }}"
+    groq_api_key: "{{ lookup('env', 'GROQ_API_KEY') }}"
+    deepgram_api_key: "{{ lookup('env', 'DEEPGRAM_API_KEY') }}"
+    gemini_api_key: "{{ lookup('env', 'GEMINI_API_KEY') }}"
     # Preserve existing token if already deployed, else generate new
     gateway_token: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
 
@@ -27,9 +29,15 @@
           - deepseek_api_key | length > 0
           - kagi_api_key | length > 0
           - telegram_bot_token | length > 0
+          - gh_token | length > 0
+          - groq_api_key | length > 0
+          - deepgram_api_key | length > 0
+          - gemini_api_key | length > 0
         fail_msg: >
           Missing required environment variables.
-          Set DEEPSEEK_API_KEY, KAGI_API, and TELEGRAM_BOT_TOKEN before running.
+          Set all keys from .env.example (DEEPSEEK_API_KEY, KAGI_API,
+          TELEGRAM_BOT_TOKEN, GH_TOKEN, GROQ_API_KEY, DEEPGRAM_API_KEY,
+          GEMINI_API_KEY) before running.
 
     # ── Lab repo (mounted into OpenClaw as /lab:ro) ──────────────
     # Canonical remote: git@git.sr.ht:~momoy/lab
@@ -69,27 +77,27 @@
       loop:
         - "{{ deploy_dir }}"
         - "{{ deploy_dir }}/config"
-        - "{{ deploy_dir }}/workspace"
+        - "{{ deploy_dir }}/scripts"
 
     # ── Deploy files ──────────────────────────────────────────────
 
     - name: Deploy docker-compose.yml
       ansible.builtin.copy:
-        src: ../../services/openclaw/docker-compose.yml
+        src: "{{ playbook_dir }}/../docker-compose.yml"
         dest: "{{ deploy_dir }}/docker-compose.yml"
         mode: "0644"
       become: yes
 
     - name: Deploy openclaw.json
       ansible.builtin.copy:
-        src: ../../services/openclaw/config/openclaw.json
+        src: "{{ playbook_dir }}/../config/openclaw.json"
         dest: "{{ deploy_dir }}/config/openclaw.json"
         mode: "0644"
       become: yes
 
     - name: Deploy workspace files
       ansible.builtin.copy:
-        src: "../../services/openclaw/workspace/{{ item }}"
+        src: "{{ playbook_dir }}/../workspace/{{ item }}"
         dest: "{{ deploy_dir }}/workspace/{{ item }}"
         mode: "0644"
         owner: "1000"
@@ -111,7 +119,7 @@
 
     - name: Deploy agent personas (pipeline agents)
       ansible.builtin.copy:
-        src: "../../services/openclaw/config/agents/{{ item }}.md"
+        src: "{{ playbook_dir }}/../config/agents/{{ item }}.md"
         dest: "{{ deploy_dir }}/config/agents/{{ item }}.md"
         mode: "0644"
       become: yes
@@ -126,14 +134,14 @@
 
     - name: Deploy build-and-deploy script
       ansible.builtin.copy:
-        src: ../../services/openclaw/build-and-deploy.sh
-        dest: "{{ deploy_dir }}/build-and-deploy.sh"
+        src: "{{ playbook_dir }}/../scripts/build-and-deploy.sh"
+        dest: "{{ deploy_dir }}/scripts/build-and-deploy.sh"
         mode: "0755"
       become: yes
 
     - name: Install systemd build timer
       ansible.builtin.copy:
-        src: "../../services/openclaw/openclaw-build.{{ item }}"
+        src: "{{ playbook_dir }}/../scripts/openclaw-build.{{ item }}"
         dest: "/etc/systemd/system/openclaw-build.{{ item }}"
         mode: "0644"
       become: yes
@@ -150,21 +158,13 @@
         daemon_reload: yes
       become: yes
 
-  handlers:
-    - name: reload systemd
-      ansible.builtin.systemd:
-        daemon_reload: yes
-      become: yes
-
-    # ── Docker Compose ────────────────────────────────────────────
     # ── Secrets (.env) — preserve existing token if present ───────
 
-    - name: Read existing token if any
+    - name: Read existing .env
       ansible.builtin.slurp:
         src: "{{ deploy_dir }}/config/.env"
       register: existing_env
       failed_when: false
-      become: yes
 
     - name: Extract existing gateway token
       ansible.builtin.set_fact:
@@ -175,19 +175,23 @@
       ansible.builtin.set_fact:
         gateway_token: "{{ existing_token if existing_token | length > 0 else gateway_token }}"
 
-    - name: Deploy .env with secrets
-      ansible.builtin.copy:
-        content: |
-          DEEPSEEK_API_KEY={{ deepseek_api_key }}
-          KAGI_API={{ kagi_api_key }}
-          TELEGRAM_BOT_TOKEN={{ telegram_bot_token }}
-          OPENCLAW_GATEWAY_TOKEN={{ gateway_token }}
-        dest: "{{ deploy_dir }}/config/.env"
+    - name: Deploy .env with secrets (non-destructive)
+      ansible.builtin.lineinfile:
+        path: "{{ deploy_dir }}/config/.env"
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ item.value }}"
+        create: yes
         mode: "0600"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-      become: yes
       no_log: true
+      loop:
+        - { key: DEEPSEEK_API_KEY, value: "{{ deepseek_api_key }}" }
+        - { key: KAGI_API, value: "{{ kagi_api_key }}" }
+        - { key: TELEGRAM_BOT_TOKEN, value: "{{ telegram_bot_token }}" }
+        - { key: OPENCLAW_GATEWAY_TOKEN, value: "{{ gateway_token }}" }
+        - { key: GH_TOKEN, value: "{{ gh_token }}" }
+        - { key: GROQ_API_KEY, value: "{{ groq_api_key }}" }
+        - { key: DEEPGRAM_API_KEY, value: "{{ deepgram_api_key }}" }
+        - { key: GEMINI_API_KEY, value: "{{ gemini_api_key }}" }
 
     # ── Docker Compose ────────────────────────────────────────────
 
@@ -242,17 +246,6 @@
       until: health2.status == 200
       retries: 30
       delay: 2
-
-    - name: Deploy agent personas into container
-      ansible.builtin.shell: |
-        for agent in orchestrator planner setup developer verifier tester reviewer; do
-          id="feature-dev-$agent"
-          [ "$agent" = "orchestrator" ] && id="coding-orchestrator"
-          docker exec openclaw mkdir -p /home/node/.openclaw/agents/$id/agent 2>/dev/null
-          docker cp {{ deploy_dir }}/config/agents/$agent.md openclaw:/home/node/.openclaw/agents/$id/agent/AGENTS.md
-        done
-      become: yes
-      changed_when: false
 
     # ── Add agents (idempotent) ───────────────────────────────────
 
@@ -332,3 +325,9 @@
           - "  ssh momo@192.168.178.149 docker exec openclaw openclaw pairing approve telegram <CODE>"
           - ""
           - "Syncthing UI: ssh -L 18384:127.0.0.1:18384 momo@192.168.178.149"
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+      become: yes

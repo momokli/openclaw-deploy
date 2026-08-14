@@ -1,5 +1,8 @@
 #!/bin/bash
-# Test an OpenClaw image from a feature branch without disturbing main
+# Test an OpenClaw image from a feature branch without disturbing main.
+# Builds locally from a git worktree (no scp/save-load to projectmellon),
+# then runs an isolated container with separate runtime volumes.
+#
 # Usage: ./scripts/test-branch.sh <branch-name>
 # Example: ./scripts/test-branch.sh feat/himalaya
 
@@ -7,42 +10,42 @@ set -euo pipefail
 BRANCH="${1:-}"
 [ -z "$BRANCH" ] && { echo "Usage: $0 <branch-name>"; exit 1; }
 
-BUILD_HOST="root@projectmellon.de"
-BUILD_DIR="/tmp/openclaw-build-test"
-TAG="openclaw-test:${BRANCH//\//-}"           # feat/himalaya → openclaw-test:feat-himalaya
+SAFE="$(echo "$BRANCH" | tr '/' '-')"                 # feat/himalaya → feat-himalaya
+TAG="openclaw-test:$SAFE"
+WORKTREE="/tmp/openclaw-test-$SAFE"
 TEST_PORT=18790
+DEPLOY_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
-log "Building test image for branch '$BRANCH'..."
-
-# ── Get Dockerfile + context from the branch ──────────────────────
+log "Fetching branch '$BRANCH'..."
 git fetch origin "$BRANCH"
-git checkout "origin/$BRANCH" -- Dockerfile ssh_config
-mv Dockerfile ssh_config /tmp/test-build/
-git checkout main -- Dockerfile ssh_config  # restore
 
-# ── Build on projectmellon.de ─────────────────────────────────────
-scp -q /tmp/test-build/Dockerfile /tmp/test-build/ssh_config "$BUILD_HOST:$BUILD_DIR/"
-ssh "$BUILD_HOST" "cd $BUILD_DIR && docker build -t $TAG ."
+log "Building test image from branch (git worktree)..."
+git worktree remove --force "$WORKTREE" 2>/dev/null || true
+git worktree add --detach "$WORKTREE" "origin/$BRANCH"
+trap 'git worktree remove --force "$WORKTREE" 2>/dev/null || true' EXIT
 
-# ── Transfer ──────────────────────────────────────────────────────
-log "Transferring test image..."
-ssh "$BUILD_HOST" "docker save $TAG | gzip" | docker load
+docker build -t "$TAG" "$WORKTREE"
 
-# ── Start test container ──────────────────────────────────────────
 log "Starting test container on port $TEST_PORT..."
-
-# Stop any previous test container
 docker rm -f openclaw-test 2>/dev/null || true
+
+# Separate runtime volumes — production state is never touched
+docker volume create openclaw_test_home >/dev/null 2>&1 || true
+docker volume create openclaw_test_workspace >/dev/null 2>&1 || true
 
 docker run -d --name openclaw-test \
     -p "127.0.0.1:$TEST_PORT:18789" \
-    -v "$(pwd)/config:/home/node/.openclaw:ro" \
-    -v "$(pwd)/workspace:/home/node/.openclaw/workspace:ro" \
-    --network caddy_default \
+    -v "$DEPLOY_DIR/config:/openclaw-config:ro" \
+    -v "$DEPLOY_DIR/workspace:/openclaw-config/workspace:ro" \
+    -v openclaw_test_home:/home/node/.openclaw \
+    -v openclaw_test_workspace:/home/node/.openclaw/workspace \
+    -v /opt/apps/lab:/lab:ro \
+    -v "${HOME}/.ssh/id_ed25519:/home/node/.ssh/id_ed25519:ro" \
     -e OPENCLAW_GATEWAY_BIND=lan \
-    --env-file config/.env \
+    -e OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=true \
+    --env-file "$DEPLOY_DIR/config/.env" \
     "$TAG"
 
 # Wait for healthy
@@ -64,5 +67,4 @@ echo ""
 echo "Test it: curl http://127.0.0.1:$TEST_PORT/healthz"
 echo ""
 echo "When done:"
-echo "  Promote: docker tag $TAG openclaw-local:latest && docker compose up -d openclaw"
 echo "  Cleanup: docker rm -f openclaw-test"

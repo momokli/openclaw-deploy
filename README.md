@@ -5,46 +5,42 @@ Self-hosted AI agent gateway with DeepSeek V4, multi-agent coding pipeline, and 
 ## Architecture
 
 ```
-push to GitHub
-  └─ systemd timer (every 30min) on .149 (lan)
-       ├─ git pull origin main
-       ├─ if new commit → scp Dockerfile → projectmellon.de (Hetzner, 20 cores)
-       ├─ docker build -t openclaw:<commit-hash>
-       ├─ docker save | gzip → pipe to .149
-       └─ docker load + compose up
+push to GitHub (main)
+  └─ GitHub Actions (self-hosted runner on projectmellon.de, Hetzner 20 cores)
+       ├─ docker build
+       └─ push to GHCR ghcr.io/momokli/openclaw-deploy:latest
+
+.149 systemd timer (scripts/openclaw-build.{service,timer}, every 30min)
+  └─ scripts/build-and-deploy.sh
+       ├─ git pull origin main            # config sync
+       ├─ docker pull ghcr.io/...:latest  # image sync
+       ├─ docker compose up -d --force-recreate openclaw
+       └─ hash comparison → skip if nothing new
 ```
+
+The **build runs in GitHub Actions**, not on projectmellon.de.
+`build-and-deploy.sh` on `.149` only pulls from GHCR.
 
 ## Quick Start
 
-### Deploy (Ansible stamp)
+### Deploy (Ansible)
 
 ```sh
-export DEEPSEEK_API_KEY="sk-..."
-export KAGI_API="..."
-export TELEGRAM_BOT_TOKEN="123:..."
-export GH_TOKEN="ghp_..."
+set -a; source .env; set +a    # or export each key from .env.example
 
-cd ansible && ansible-playbook deploy.yml
+cd ansible && ansible-playbook -i inventory.ini deploy.yml
 ```
+
+The playbook provisions secrets into `config/.env` (non-destructive) and sets up
+the repo, systemd timer, Docker Compose, Caddy and DNS. File/config sync after the
+initial bootstrap is handled by the systemd timer pulling from git.
 
 ### Test a feature branch (without disturbing main)
 
 ```sh
 ssh lan
 cd /opt/apps/openclaw
-
-# Build + test on port 18790
 ./scripts/test-branch.sh feat/my-feature
-
-# Verify
-curl http://127.0.0.1:18790/healthz
-
-# Promote to main
-docker tag openclaw-test:feat-my-feature openclaw-local:latest
-docker compose up -d openclaw
-
-# Cleanup
-docker rm -f openclaw-test
 ```
 
 ### Manual build trigger
@@ -63,52 +59,58 @@ ssh lan "sudo journalctl -u openclaw-build.service -f"
 
 ## Image Build
 
-Images are built on **projectmellon.de** (fast Hetzner server) and transferred to `.149`.
-The Dockerfile includes: Rust, git, gh CLI, himalaya (email).
+Images are built in **GitHub Actions** (self-hosted runner on projectmellon.de) and
+pushed to **GHCR**. The Dockerfile includes: Rust, git, gh CLI, himalaya (email), ansible.
 
-To add new tools: edit `Dockerfile`, push, trigger build.
+To add new tools: edit `Dockerfile`, push, and the workflow rebuilds on `main`.
 
 ## Agents
 
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| main | V4 Pro | Default assistant |
-| coding-orchestrator | V4 Pro | 7-stage coding pipeline |
-| feature-dev-planner | V4 Pro | Spec → user stories |
-| feature-dev-setup | V4 Pro | Branch + build baseline |
-| feature-dev-developer | V4 Pro | Code + tests |
-| feature-dev-verifier | V4 Pro | Quality gate |
-| feature-dev-tester | V4 Flash | Integration tests |
-| feature-dev-reviewer | V4 Pro | Final PR review |
+| Agent                 | Model  | Purpose                 |
+| --------------------- | ------ | ----------------------- |
+| main                  | V4 Pro | Default assistant       |
+| coding-orchestrator   | V4 Pro | 7-stage coding pipeline |
+| feature-dev-planner   | V4 Pro | Spec → user stories     |
+| feature-dev-setup     | V4 Pro | Branch + build baseline |
+| feature-dev-developer | V4 Pro | Code + tests            |
+| feature-dev-verifier  | V4 Pro | Quality gate            |
+| feature-dev-tester    | V4 Pro | Integration tests       |
+| feature-dev-reviewer  | V4 Pro | Final PR review         |
 
 ## Files
 
 ```
-├── Dockerfile              # Rust, git, gh, himalaya
+├── Dockerfile              # Rust, git, gh, himalaya, ansible
 ├── docker-compose.yml      # OpenClaw + Syncthing sidecar
-├── ssh_config              # Git host keys
+├── entrypoint.sh           # Syncs git config into runtime home on start
+├── ssh_config              # Git host keys (copied into image)
 ├── config/
-│   ├── openclaw.json       # Gateway config, agents, channels
+│   ├── openclaw.json       # Gateway config, agents, channels, media tools
 │   └── agents/             # Pipeline agent personas
 ├── workspace/              # SOUL.md, AGENTS.md, USER.md, MEMORY.md
 ├── scripts/
-│   ├── build-and-deploy.sh # CI/CD: git pull → build → deploy
+│   ├── build-and-deploy.sh # GHCR pull + atomic swap
 │   ├── test-branch.sh      # Test feature branch image in isolation
 │   └── openclaw-build.{service,timer}  # systemd units
 └── ansible/
-    └── deploy.yml          # Ansible stamp deployment
+    ├── deploy.yml          # Secrets provisioning + bootstrap
+    ├── inventory.ini       # .149 host
+    └── ansible.cfg
 ```
 
 ## Secrets
 
-Never committed to this repo. Set via environment variables or `.env` file on the host:
+Never committed to this repo. Copy `.env.example` → `config/.env` on the deploy host
+(the real secret file lives at `/opt/apps/openclaw/config/.env` on `.149`):
 
 - `DEEPSEEK_API_KEY` — LLM provider
 - `KAGI_API` — Web search
 - `TELEGRAM_BOT_TOKEN` — Telegram channel
+- `OPENCLAW_GATEWAY_TOKEN` — Gateway auth token
 - `GH_TOKEN` — GitHub PR creation
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
+- `GEMINI_API_KEY` — Image/Vision
 
 ## Config vs Runtime State (Trennung)
 
@@ -126,8 +128,8 @@ config/.env           ──(copy)─►     ├── devices/     (Device-Pair
                                     openclaw_workspace:/home/node/.openclaw/workspace
 ```
 
-- `config/` wird **read-only** als `/openclaw-config` gemountet (Source of Truth)
-- Der `entrypoint.sh` synct Config/Persons beim Start in den Runtime-Home
+- `config/` und `workspace/` werden **read-only** als `/openclaw-config` gemountet (Source of Truth)
+- Der `entrypoint.sh` synct Config/Personas beim Start in den Runtime-Home
 - Runtime-State (Sessions, Pairing, Plugins) lebt in **Named Volumes** — überlebt Deploys, verschmutzt kein `git status`
 - Secrets (`.env`) werden aus `config/.env` gelesen und in den Container injiziert
 
