@@ -1,35 +1,44 @@
 #!/bin/bash
-# Deploy OpenClaw: pull latest image from GHCR and swap container
-# Build happens in GitHub Actions (self-hosted runner on projectmellon.de)
-# Run via systemd timer every 30 min, or manually: systemctl start openclaw-build
+# Deploy OpenClaw: sync config (git) + image (GHCR), then swap container
+# - Config: pulled from git on .149 (openclaw.json, agents/, workspace/)
+# - Image: pulled from GHCR (built in GitHub Actions on projectmellon.de)
+# Triggers on EITHER config OR image change.
 
 set -euo pipefail
 
 IMAGE="ghcr.io/momokli/openclaw-deploy:latest"
 LOCAL_DIR="/opt/apps/openclaw"
-HASH_FILE="$LOCAL_DIR/.deploy-hash"
+GIT_HASH_FILE="$LOCAL_DIR/.deploy-git-hash"
+IMG_HASH_FILE="$LOCAL_DIR/.deploy-img-hash"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
-# ── Pull latest image from GHCR ─────────────────────────────────
+# ── 1. Sync config from git ─────────────────────────────────────
+log "Syncing config from git..."
+cd "$LOCAL_DIR"
+git pull origin main
+
+NEW_GIT="$(git rev-parse HEAD)"
+OLD_GIT="$(cat "$GIT_HASH_FILE" 2>/dev/null || echo '')"
+
+# ── 2. Pull image from GHCR ─────────────────────────────────────
 log "Pulling $IMAGE..."
-OLD_ID="$(docker images -q "$IMAGE" 2>/dev/null || echo '')"
 docker pull "$IMAGE"
+NEW_IMG="$(docker images -q "$IMAGE" 2>/dev/null || echo '')"
+OLD_IMG="$(cat "$IMG_HASH_FILE" 2>/dev/null || echo '')"
 
-NEW_ID="$(docker images -q "$IMAGE" 2>/dev/null || echo '')"
-
-if [ -n "$OLD_ID" ] && [ "$OLD_ID" = "$NEW_ID" ]; then
-    log "Image unchanged — skipping deploy"
+# ── 3. Skip if nothing changed ──────────────────────────────────
+if [ "$OLD_GIT" = "$NEW_GIT" ] && [ "$OLD_IMG" = "$NEW_IMG" ]; then
+    log "No changes (config + image) — skipping deploy"
     exit 0
 fi
 
-log "New image pulled — swapping container..."
+log "Changes detected — recreating container..."
 
-# ── Atomic swap: compose re-creates container only if image changed ──
-cd "$LOCAL_DIR"
+# ── 4. Atomic swap (compose re-creates container) ───────────────
 docker compose up -d openclaw
 
-# ── Wait for healthy ─────────────────────────────────────────────
+# ── 5. Wait for healthy ─────────────────────────────────────────
 for i in $(seq 1 30); do
     if docker exec openclaw curl -sf http://localhost:18789/healthz > /dev/null 2>&1; then
         log "Container healthy"
@@ -38,8 +47,10 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# ── Reconnect to Caddy network (if needed) ───────────────────────
+# ── 6. Reconnect to Caddy network (idempotent) ──────────────────
 docker network connect caddy_default openclaw 2>/dev/null || true
 
-echo "$NEW_ID" > "$HASH_FILE"
+# ── 7. Persist hashes ───────────────────────────────────────────
+echo "$NEW_GIT" > "$GIT_HASH_FILE"
+echo "$NEW_IMG" > "$IMG_HASH_FILE"
 log "Deploy complete"
