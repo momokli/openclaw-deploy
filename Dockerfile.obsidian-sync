@@ -1,0 +1,19 @@
+FROM node:22-slim
+
+# Install the official Obsidian headless client (requires Node.js 22+)
+RUN npm install -g obsidian-headless
+
+# Idempotent sync entrypoint
+COPY scripts/obsidian-sync.sh /usr/local/bin/obsidian-sync.sh
+RUN chmod +x /usr/local/bin/obsidian-sync.sh
+
+# /config holds credentials (auth token) in the persistent obsidian_config
+# volume. It must exist and be writable by the node user (uid 1000) *before*
+# the named volume is first mounted, so the volume inherits that ownership.
+RUN mkdir -p /config && chown -R node:node /config
+
+# uid 1000 matches the ownership of quill_data (used by the openclaw service).
+USER node
+WORKDIR /data/quill
+
+ENTRYPOINT ["/usr/local/bin/obsidian-sync.sh"]

@@ -1,22 +1,21 @@
 services:
-  # ── Syncthing: syncs ~/quill from Mac ─────────────────────────
-  syncthing:
-    image: lscr.io/linuxserver/syncthing:latest
-    container_name: openclaw-syncthing
-    hostname: openclaw-host
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Berlin
-    volumes:
-      - ./syncthing-config:/config
-      - quill_data:/data/quill
-    ports:
-      - "127.0.0.1:18384:8384"
-      - "22001:22000/tcp"
-      - "22001:22000/udp"
-      - "21028:21027/udp"
+  # ── Obsidian Sync: headless client syncing quill_data ───────────
+  obsidian-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile.obsidian-sync
+    image: obsidian-sync:latest
+    container_name: openclaw-obsidian-sync
     restart: unless-stopped
+
+    environment:
+      - TZ=Europe/Berlin
+      # Credentials (auth token) live here, inside the persistent volume.
+      - XDG_CONFIG_HOME=/config
+
+    volumes:
+      - obsidian_config:/config
+      - quill_data:/data/quill
 
   # ── OpenClaw: AI agent gateway ─────────────────────────────────
   openclaw:
@@ -36,7 +35,7 @@ services:
       - openclaw_workspace:/home/node/.openclaw/workspace
       # Read-only mounts
       - /opt/apps/lab:/lab:ro
-      - quill_data:/quill:ro
+      - quill_data:/quill
       - ${HOME}/.ssh/id_ed25519:/home/node/.ssh/id_ed25519:ro
       - repos:/home/node/repos
 
@@ -59,9 +58,6 @@ services:
       - default
       - caddy
 
-    depends_on:
-      - syncthing
-
 networks:
   caddy:
     external: true
@@ -76,3 +72,4 @@ volumes:
     name: openclaw_home
   openclaw_workspace:
     name: openclaw_workspace
+  obsidian_config:
