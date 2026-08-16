@@ -15,7 +15,7 @@ services:
 
     volumes:
       - obsidian_config:/config
-      - quill_data:/data/quill
+      - /opt/apps/quill:/data/quill
 
   # ── OpenClaw: AI agent gateway ─────────────────────────────────
   openclaw:
@@ -35,7 +35,7 @@ services:
       - openclaw_workspace:/home/node/.openclaw/workspace
       # Read-only mounts
       - /opt/apps/lab:/lab:ro
-      - quill_data:/quill
+      - /opt/apps/quill:/quill
       - ${HOME}/.ssh/id_ed25519:/home/node/.ssh/id_ed25519:ro
       - repos:/home/node/repos
 
@@ -64,8 +64,6 @@ networks:
     name: caddy_default
 
 volumes:
-  quill_data:
-    name: openclaw_quill_data
   repos:
     name: openclaw_repos
   openclaw_home:
