@@ -97,9 +97,25 @@ Gefixt:
 - Workspace-Personas-Sync gefixt: `./workspace:/openclaw-config/workspace:ro` + explizite Liste im
   `entrypoint.sh` (vorher wurde `workspace/` gar nicht gemountet → Personas kamen nie aus git).
 
+Gefixt (2026-08-17):
+
+- `GH_TOKEN` erneuert: neuer classic PAT, Scopes `repo, workflow, write:packages`. Liegt in
+  `config/.env` auf `.149` (unquoted) und im Repo-Root-`.env` (Scratch). `gh api user` → OK.
+- `config/.env`: `GH_TOKEN` + `GEMINI_API_KEY` ent-quotet (waren gequotet; `entrypoint.sh` kopiert
+  1:1 → Sub-Agents hätten gequotete Werte gelesen). Container neu erstellt.
+- `ansible/deploy.yml` Gateway-Token-Extraktion gefixt: `regex_search(..., '\1')` liefert in
+  Ansible 2.15 eine LISTE → `| default([]) | join('')`. Vorher hätte `lineinfile`
+  `OPENCLAW_GATEWAY_TOKEN=['token']` geschrieben (Token-Rotation + Control-UI-Lockout).
+- `ansible/deploy.yml` Docker-Tasks laufen jetzt als `momo` statt root (`become: yes` entfernt) —
+  root hat keinen ghcr.io-Login. `docker compose exec` mit `-u node` (vorher root →
+  `/root/.openclaw` statt `/home/node/.openclaw`).
+
 Offen (Live-Touchpoints, brauchen Approval):
 
-- `GEMINI_API_KEY` nach `config/.env` auf `.149` provisionieren → Deploy triggern.
+- **GHCR `docker login` auf `.149` erneuern**: momo's ghcr.io-Login ist abgelaufen
+  (`docker manifest inspect` → `AUTH_FAIL`). Fix: `docker login ghcr.io -u momokli --password-stdin`
+  mit dem neuen `GH_TOKEN` (`write:packages` ⊇ `read:packages`). Betrifft auch den Timer-Pull
+  (`build-and-deploy.sh` läuft als `User=momo`).
 - Server-Branch `feat/separate-state-config` → `main` umstellen.
 - Dockerfile base image pinnen (`openclaw/openclaw:slim` floatet).
 
