@@ -168,7 +168,7 @@
 
     - name: Extract existing gateway token
       ansible.builtin.set_fact:
-        existing_token: "{{ (existing_env.content | default('') | b64decode | regex_search('OPENCLAW_GATEWAY_TOKEN=(.+)', '\\1')) | default('') }}"
+        existing_token: "{{ existing_env.content | default('') | b64decode | regex_search('OPENCLAW_GATEWAY_TOKEN=(.+)', '\\1') | default([]) | join('') }}"
       when: existing_env.content is defined
 
     - name: Use existing or new token
@@ -199,14 +199,12 @@
       ansible.builtin.command:
         cmd: docker compose pull
         chdir: "{{ deploy_dir }}"
-      become: yes
       changed_when: false
 
     - name: Start containers
       ansible.builtin.command:
         cmd: docker compose up -d
         chdir: "{{ deploy_dir }}"
-      become: yes
       changed_when: false
 
     - name: Wait for gateway to be healthy
@@ -222,9 +220,8 @@
 
     - name: Install DeepSeek provider plugin
       ansible.builtin.command:
-        cmd: docker compose exec -T openclaw openclaw plugins install @openclaw/deepseek-provider
+        cmd: docker compose exec -T -u node openclaw openclaw plugins install @openclaw/deepseek-provider
         chdir: "{{ deploy_dir }}"
-      become: yes
       register: plugin_install
       changed_when: false
       failed_when:
@@ -235,7 +232,6 @@
       ansible.builtin.command:
         cmd: docker compose restart openclaw
         chdir: "{{ deploy_dir }}"
-      become: yes
       changed_when: true
 
     - name: Wait for gateway after restart
@@ -251,30 +247,27 @@
 
     - name: Check if coding agent exists
       ansible.builtin.command:
-        cmd: docker compose exec -T openclaw openclaw agents list
+        cmd: docker compose exec -T -u node openclaw openclaw agents list
         chdir: "{{ deploy_dir }}"
-      become: yes
       register: agent_list
       changed_when: false
 
     - name: Add coding agent
       ansible.builtin.command:
         cmd: >-
-          docker compose exec -T openclaw openclaw agents add coding
+          docker compose exec -T -u node openclaw openclaw agents add coding
           --model deepseek/deepseek-v4-pro
           --workspace /home/node/.openclaw/workspace-coding
         chdir: "{{ deploy_dir }}"
-      become: yes
       when: "'coding' not in agent_list.stdout"
 
     - name: Add diary agent
       ansible.builtin.command:
         cmd: >-
-          docker compose exec -T openclaw openclaw agents add diary
+          docker compose exec -T -u node openclaw openclaw agents add diary
           --model deepseek/deepseek-v4-flash
           --workspace /home/node/.openclaw/workspace-diary
         chdir: "{{ deploy_dir }}"
-      become: yes
       when: "'diary' not in agent_list.stdout"
 
     # ── Caddy reverse proxy ───────────────────────────────────────
@@ -309,7 +302,6 @@
     - name: Reload Caddy
       ansible.builtin.command:
         cmd: docker exec caddy-caddy-1 caddy reload --config /etc/caddy/Caddyfile
-      become: yes
       changed_when: true
 
     # ── Summary ───────────────────────────────────────────────────
