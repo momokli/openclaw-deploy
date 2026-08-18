@@ -36,14 +36,12 @@ jobs:
           docker push $IMAGE:${{ github.sha }}
           docker push $IMAGE:latest
 
-      # Trigger deploy on .149 (Tailscale host `lan`) after a successful GHCR push.
-      # `runner`@`planet` has a passwordless SSH key authorized as `momo`@`lan`,
-      # which has passwordless sudo for `systemctl`. No secrets required.
+      # Trigger deploy on .149 via HTTPS webhook (no Tailscale/SSH).
+      # The webhook validates DEPLOY_TOKEN and starts openclaw-build.service.
       - name: Trigger deploy on .149
         if: github.ref == 'refs/heads/main'
         timeout-minutes: 5
         run: |
-          ssh -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=10 \
-              -o BatchMode=yes \
-              momo@lan 'sudo -n systemctl start openclaw-build.service'
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
+            https://deploy.openclaw.simonklimke.de/deploy
