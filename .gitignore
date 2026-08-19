@@ -33,9 +33,11 @@ workspace/momos-music-manager/
 workspace/openclaw-deploy/
 workspace/openclaw-workspace-state.json
 
+# Docker state
+state/
+
 # Build artifacts
 /tmp/
 .deploy-hash
 .deploy-git-hash
 .deploy-img-hash
-syncthing-config/

@@ -50,6 +50,49 @@ ssh lan "sudo systemctl start openclaw-build.service"
 ssh lan "sudo journalctl -u openclaw-build.service -f"
 ```
 
+## Obsidian Sync (Headless)
+
+`openclaw` mounts the shared `quill_data` volume at `/quill` (read-write). The
+`obsidian-sync` sidecar keeps that volume in sync with an Obsidian Sync remote
+vault, using the official
+[`obsidian-headless`](https://github.com/obsidianmd/obsidian-headless) client
+(Node.js 22+). It replaces the old Syncthing sidecar.
+
+### One-time setup
+
+1. Start the sidecar and log in interactively. Credentials are stored in the
+   persistent `obsidian_config` named volume, so image rebuilds keep you logged
+   in — nothing is committed to this repo:
+
+   ```sh
+   docker compose up -d obsidian-sync
+   docker compose exec obsidian-sync ob login
+   ```
+
+2. Pick the remote vault to sync with:
+
+   ```sh
+   docker compose exec obsidian-sync ob sync-list-remote
+   docker compose exec obsidian-sync ob sync-setup --vault "<Vault Name>" --path /data/quill
+   ```
+
+   For an **end-to-end encrypted** vault, pass the password:
+
+   ```sh
+   docker compose exec obsidian-sync ob sync-setup --vault "<Vault Name>" --path /data/quill --password "<pwd>"
+   ```
+
+3. Restart to start continuous sync (bidirectional, watches for changes):
+
+   ```sh
+   docker compose restart obsidian-sync
+   ```
+
+The sidecar runs `ob sync --continuous`, watching `/data/quill` and pushing/
+pulling changes to/from the remote vault. Credentials live only in the
+`obsidian_config` volume; the `--password` for E2E encryption is passed
+interactively at setup time and is never written to disk in this repo.
+
 ## Make Changes
 
 1. Edit files in this repo
@@ -81,7 +124,8 @@ To add new tools: edit `Dockerfile`, push, and the workflow rebuilds on `main`.
 
 ```
 ├── Dockerfile              # Rust, git, gh, himalaya, ansible
-├── docker-compose.yml      # OpenClaw + Syncthing sidecar
+├── Dockerfile.obsidian-sync # obsidian-headless sidecar
+├── docker-compose.yml      # OpenClaw + Obsidian Sync sidecar
 ├── entrypoint.sh           # Syncs git config into runtime home on start
 ├── ssh_config              # Git host keys (copied into image)
 ├── config/
@@ -90,6 +134,7 @@ To add new tools: edit `Dockerfile`, push, and the workflow rebuilds on `main`.
 ├── workspace/              # SOUL.md, AGENTS.md, USER.md, MEMORY.md
 ├── scripts/
 │   ├── build-and-deploy.sh # GHCR pull + atomic swap
+│   ├── obsidian-sync.sh    # Idempotent headless-sync entrypoint
 │   ├── test-branch.sh      # Test feature branch image in isolation
 │   └── openclaw-build.{service,timer}  # systemd units
 └── ansible/
