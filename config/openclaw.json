@@ -42,7 +42,8 @@
       },
       "memorySearch": {
         "provider": "gemini",
-        "model": "gemini-embedding-001"
+        "model": "gemini-embedding-001",
+        "extraPaths": ["/quill"]
       }
     },
     "list": [

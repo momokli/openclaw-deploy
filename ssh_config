@@ -10,3 +10,19 @@ Host dev.klimk.es
     StrictHostKeyChecking accept-new
     User git
     Port 2222
+
+# ── Homelab infra ──────────────────────────────────────────────
+Host lan
+    HostName 100.85.52.13
+    User momo
+    StrictHostKeyChecking accept-new
+
+Host lan-local
+    HostName 192.168.178.149
+    User momo
+    StrictHostKeyChecking accept-new
+
+Host planet
+    HostName 65.21.27.234
+    User root
+    StrictHostKeyChecking accept-new
