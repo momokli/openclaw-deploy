@@ -35,10 +35,14 @@ fi
 
 log "Changes detected — recreating container..."
 
-# ── 4. Atomic swap — force recreate so entrypoint re-copies config ──
-docker compose up -d --force-recreate openclaw
+# ── 4. Build obsidian-sync sidecar (local build, not from GHCR) ──
+log "Building obsidian-sync sidecar..."
+docker compose build obsidian-sync
 
-# ── 5. Wait for healthy ─────────────────────────────────────────
+# ── 5. Atomic swap — force recreate so entrypoint re-copies config ──
+docker compose up -d --force-recreate openclaw obsidian-sync
+
+# ── 6. Wait for healthy ─────────────────────────────────────────
 for i in $(seq 1 30); do
     if docker exec openclaw curl -sf http://localhost:18789/healthz > /dev/null 2>&1; then
         log "Container healthy"
@@ -47,10 +51,10 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# ── 6. Reconnect to Caddy network (idempotent) ──────────────────
+# ── 7. Reconnect to Caddy network (idempotent) ──────────────────
 docker network connect caddy_default openclaw 2>/dev/null || true
 
-# ── 7. Persist hashes ───────────────────────────────────────────
+# ── 8. Persist hashes ───────────────────────────────────────────
 echo "$NEW_GIT" > "$GIT_HASH_FILE"
 echo "$NEW_IMG" > "$IMG_HASH_FILE"
 log "Deploy complete"
