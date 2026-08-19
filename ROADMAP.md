@@ -12,7 +12,7 @@ Grundlage: OpenClaw-Docs (memory, memory-search, groups, usage-tracking, hooks, 
 
 | # | Baustein | Nativer Weg (Docs) | Status |
 |---|----------|--------------------|--------|
-| 1 | Vault mount | Vault rw nach `/quill` mounten + Sync via `obsidian-headless` (**ersetzt Syncthing**) | ⬜ |
+| 1 | Vault mount | Vault rw nach `/quill` mounten + Sync via `obsidian-headless` (**ersetzt Syncthing**) | ✅ |
 | 2 | Vault indexieren | `agents.defaults.memorySearch.extraPaths: ["/quill"]` | ⬜ (braucht #1) |
 | 3 | Rollen je Gruppe | `channels.telegram.groups.<id>.systemPrompt` (nativ, KEIN `before_prompt_build`-Plugin) | ⬜ |
 | 4 | Gruppen-Setup | `groupPolicy: "allowlist"` + `groupAllowFrom` + `requireMention` | ⬜ |
