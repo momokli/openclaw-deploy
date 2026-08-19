@@ -121,11 +121,11 @@ Gefixt (2026-08-19):
   ins Repo, `ansible/deploy.yml` provisioniert Receiver + `webhook-token` + Caddy-Block.
 - Alles auf GHCR: `obsidian-sync` wird jetzt in GitHub Actions gebaut + gepusht
   (`ghcr.io/momokli/openclaw-obsidian-sync`), kein lokaler Sidecar-Build mehr auf `.149`.
+- KAGI-Search korrekt dokumentiert: `POST https://kagi.com/api/v1/search` + `Authorization: Bearer <key>`
+  - JSON-Body `{"query": "..."}` (nicht `/api/v0` + `GET` + `Bot`).
 
 Offen (Live-Touchpoints, brauchen Approval):
 
-- **KAGI-Key verifizieren**: `curl kagi.com/api/v0/search` liefert 401 (`Bot` UND `Bearer`).
-  Entweder Key abgelaufen oder Auth-Format anders (Agent nutzt KAGI via eigenem Script).
 - Server-Branch `feat/separate-state-config` → `main` umstellen.
 - Dockerfile base image pinnen (`openclaw/openclaw:slim` floatet).
 
