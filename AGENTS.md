@@ -123,6 +123,9 @@ Gefixt (2026-08-19):
   (`ghcr.io/momokli/openclaw-obsidian-sync`), kein lokaler Sidecar-Build mehr auf `.149`.
 - KAGI-Search korrekt dokumentiert: `POST https://kagi.com/api/v1/search` + `Authorization: Bearer <key>`
   - JSON-Body `{"query": "..."}` (nicht `/api/v0` + `GET` + `Bot`).
+- `config/openclaw.json`: `trustedProxies` auf `172.23.0.0/16` korrigiert (= `caddy_default`-Subnetz,
+  nicht `172.17.0.1`/Default-Bridge). **Muss beim Subnetz-Wechsel des Caddy-Netzwerks mitgezogen werden.**
+  `env.vars` auf `KAGI_API`+`GH_TOKEN` reduziert; `model.fallbacks` (V4 Flash) ergänzt.
 
 Offen (Live-Touchpoints, brauchen Approval):
 
