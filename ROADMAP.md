@@ -12,7 +12,7 @@ Grundlage: OpenClaw-Docs (memory, memory-search, groups, usage-tracking, hooks, 
 
 | # | Baustein | Nativer Weg (Docs) | Status |
 |---|----------|--------------------|--------|
-| 1 | Vault mount | Vault rw nach `/quill` mounten (Sync-Mechanismus = bestehendes Syncthing, KEIN obsidian-headless nötig) | ⬜ |
+| 1 | Vault mount | Vault rw nach `/quill` mounten + Sync via `obsidian-headless` (**ersetzt Syncthing**) | ⬜ |
 | 2 | Vault indexieren | `agents.defaults.memorySearch.extraPaths: ["/quill"]` | ⬜ (braucht #1) |
 | 3 | Rollen je Gruppe | `channels.telegram.groups.<id>.systemPrompt` (nativ, KEIN `before_prompt_build`-Plugin) | ⬜ |
 | 4 | Gruppen-Setup | `groupPolicy: "allowlist"` + `groupAllowFrom` + `requireMention` | ⬜ |
@@ -29,5 +29,5 @@ Vault mount (#1) → Vault indexieren (#2) → Rollen/Gruppen (#3+#4) → Usage-
 
 - **Rollen** = nativer `channels.telegram.groups.<id>.systemPrompt`, kein Plugin-Hook nötig.
 - **Kosten** = Footer-Display (`messages.responseUsage`), kein harter €-Limit in OpenClaw. Hard-Limit nur Provider-seitig.
-- **Vault-Sync** = Syncthing ist bereits der bestehende Sync-Mechanismus (live). Der `feature/obsidian-headless`-Branch war ein ungemergter Umweg — verwerfen, nicht verfolgen.
+- **Vault-Sync** = Syncthing wird durch **Obsidian Sync** (`obsidian-headless`, offizieller Client) **abgelöst**. Der `feature/obsidian-headless`-Branch ist der **richtige Weg** — verfolgen und mergen, NICHT verwerfen.
 - **Memory-Konzept**: `MEMORY.md` (durable, injiziert) + `memory/*.md` (daily, nur indexiert) + `extraPaths` (zusätzliche Verzeichnisse wie `/quill`).
