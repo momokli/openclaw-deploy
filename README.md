@@ -7,15 +7,14 @@ Self-hosted AI agent gateway with DeepSeek V4, multi-agent coding pipeline, and 
 ```
 push to GitHub (main)
   └─ GitHub Actions (self-hosted runner on projectmellon.de, Hetzner 20 cores)
-       ├─ docker build
-       ├─ push to GHCR ghcr.io/momokli/openclaw-deploy:latest
+       ├─ docker build (openclaw + obsidian-sync)
+       ├─ push both images to GHCR (ghcr.io/momokli/*)
        └─ POST https://deploy.openclaw.simonklimke.de/deploy   # deploy webhook
 
 .149 (systemd timer every 30min, or immediately via webhook)
   └─ scripts/build-and-deploy.sh
        ├─ git pull origin main                        # config sync
-       ├─ docker pull ghcr.io/...:latest              # image sync
-       ├─ docker compose build obsidian-sync          # local sidecar build
+       ├─ docker pull both images from GHCR           # image sync
        ├─ docker compose up -d openclaw obsidian-sync
        └─ hash comparison → skip if nothing new
 ```
@@ -104,10 +103,13 @@ interactively at setup time and is never written to disk in this repo.
 
 ## Image Build
 
-Images are built in **GitHub Actions** (self-hosted runner on projectmellon.de) and
-pushed to **GHCR**. The Dockerfile includes: Rust, git, gh CLI, himalaya (email), ansible.
+Both images are built in **GitHub Actions** (self-hosted runner on projectmellon.de)
+and pushed to **GHCR**:
 
-To add new tools: edit `Dockerfile`, push, and the workflow rebuilds on `main`.
+- `ghcr.io/momokli/openclaw-deploy` — gateway (`Dockerfile`).
+- `ghcr.io/momokli/openclaw-obsidian-sync` — Obsidian Sync sidecar (`Dockerfile.obsidian-sync`).
+
+To add new tools: edit the relevant Dockerfile, push, and the workflow rebuilds on `main`.
 
 ## Deploy Webhook
 

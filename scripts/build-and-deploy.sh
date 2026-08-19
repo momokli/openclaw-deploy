@@ -1,15 +1,17 @@
 #!/bin/bash
-# Deploy OpenClaw: sync config (git) + image (GHCR), then swap container
+# Deploy OpenClaw: sync config (git) + images (GHCR), then swap containers
 # - Config: pulled from git on .149 (openclaw.json, agents/, workspace/)
-# - Image: pulled from GHCR (built in GitHub Actions on projectmellon.de)
-# Triggers on EITHER config OR image change.
+# - Images: pulled from GHCR (built in GitHub Actions on projectmellon.de)
+# Triggers on config OR image change.
 
 set -euo pipefail
 
 IMAGE="ghcr.io/momokli/openclaw-deploy:latest"
+OBSIDIAN_IMAGE="ghcr.io/momokli/openclaw-obsidian-sync:latest"
 LOCAL_DIR="/opt/apps/openclaw"
 GIT_HASH_FILE="$LOCAL_DIR/.deploy-git-hash"
 IMG_HASH_FILE="$LOCAL_DIR/.deploy-img-hash"
+OBSIDIAN_IMG_HASH_FILE="$LOCAL_DIR/.deploy-obsidian-img-hash"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
@@ -21,25 +23,24 @@ git pull origin main
 NEW_GIT="$(git rev-parse HEAD)"
 OLD_GIT="$(cat "$GIT_HASH_FILE" 2>/dev/null || echo '')"
 
-# ── 2. Pull image from GHCR ─────────────────────────────────────
-log "Pulling $IMAGE..."
+# ── 2. Pull images from GHCR ─────────────────────────────────────
+log "Pulling images..."
 docker pull "$IMAGE"
+docker pull "$OBSIDIAN_IMAGE"
 NEW_IMG="$(docker images -q "$IMAGE" 2>/dev/null || echo '')"
+NEW_OBSIDIAN_IMG="$(docker images -q "$OBSIDIAN_IMAGE" 2>/dev/null || echo '')"
 OLD_IMG="$(cat "$IMG_HASH_FILE" 2>/dev/null || echo '')"
+OLD_OBSIDIAN_IMG="$(cat "$OBSIDIAN_IMG_HASH_FILE" 2>/dev/null || echo '')"
 
 # ── 3. Skip if nothing changed ──────────────────────────────────
-if [ "$OLD_GIT" = "$NEW_GIT" ] && [ "$OLD_IMG" = "$NEW_IMG" ]; then
-    log "No changes (config + image) — skipping deploy"
+if [ "$OLD_GIT" = "$NEW_GIT" ] && [ "$OLD_IMG" = "$NEW_IMG" ] && [ "$OLD_OBSIDIAN_IMG" = "$NEW_OBSIDIAN_IMG" ]; then
+    log "No changes (config + images) — skipping deploy"
     exit 0
 fi
 
-log "Changes detected — recreating container..."
+log "Changes detected — recreating containers..."
 
-# ── 4. Build obsidian-sync sidecar (local build, not from GHCR) ──
-log "Building obsidian-sync sidecar..."
-docker compose build obsidian-sync
-
-# ── 5. Swap containers — recreate so entrypoint re-copies config ──
+# ── 4. Swap containers — recreate so entrypoint re-copies config ──
 # Clean up stale EXITED openclaw containers first: leftovers from old
 # compose project names caused "container name ... already in use".
 docker ps -aq --filter name=openclaw --filter status=exited | xargs -r docker rm -f 2>/dev/null || true
@@ -61,4 +62,5 @@ docker network connect caddy_default openclaw 2>/dev/null || true
 # ── 8. Persist hashes ───────────────────────────────────────────
 echo "$NEW_GIT" > "$GIT_HASH_FILE"
 echo "$NEW_IMG" > "$IMG_HASH_FILE"
+echo "$NEW_OBSIDIAN_IMG" > "$OBSIDIAN_IMG_HASH_FILE"
 log "Deploy complete"

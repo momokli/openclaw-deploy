@@ -1,4 +1,4 @@
-name: Build & Push Image
+name: Build & Push Images
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 env:
   IMAGE: ghcr.io/momokli/openclaw-deploy
+  OBSIDIAN_IMAGE: ghcr.io/momokli/openclaw-obsidian-sync
 
 jobs:
   build:
@@ -17,24 +18,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build image
+      - name: Build openclaw image
         run: docker build -t $IMAGE:${{ github.sha }} .
 
-      - name: Test image (entrypoint + tools present)
+      - name: Test openclaw image (entrypoint + tools present)
         run: |
           docker run --rm $IMAGE:${{ github.sha }} which cargo rustc ansible gh himalaya
+
+      - name: Build obsidian-sync image
+        run: docker build -f Dockerfile.obsidian-sync -t $OBSIDIAN_IMAGE:${{ github.sha }} .
 
       # Only push to GHCR on main (not on PRs)
       - name: Login to GHCR
         if: github.ref == 'refs/heads/main'
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Push to GHCR
+      - name: Push openclaw to GHCR
         if: github.ref == 'refs/heads/main'
         run: |
           docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
           docker push $IMAGE:${{ github.sha }}
           docker push $IMAGE:latest
+
+      - name: Push obsidian-sync to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag $OBSIDIAN_IMAGE:${{ github.sha }} $OBSIDIAN_IMAGE:latest
+          docker push $OBSIDIAN_IMAGE:${{ github.sha }}
+          docker push $OBSIDIAN_IMAGE:latest
 
       # Trigger deploy on .149 via HTTPS webhook (no Tailscale/SSH).
       # The webhook validates DEPLOY_TOKEN and starts openclaw-build.service.

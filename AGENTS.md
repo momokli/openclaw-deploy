@@ -17,14 +17,13 @@
 ```
 push GitHub (main)
   └─ GitHub Actions (self-hosted runner auf projectmellon.de, Hetzner 20 cores)
-       ├─ docker build → push GHCR ghcr.io/momokli/openclaw-deploy:latest
+       ├─ docker build (openclaw + obsidian-sync) → push beide nach GHCR
        └─ POST https://deploy.openclaw.simonklimke.de/deploy   # deploy webhook
 
 .149 (systemd timer alle 30min ODER sofort via webhook)
   └─ scripts/build-and-deploy.sh
        ├─ git pull origin main                        # config sync
-       ├─ docker pull ghcr.io/...:latest              # image sync
-       ├─ docker compose build obsidian-sync          # lokaler Sidecar-Build
+       ├─ docker pull beide Images aus GHCR           # image sync
        ├─ docker compose up -d openclaw obsidian-sync
        └─ hash-vergleich → skip wenn nichts neu
 ```
@@ -120,13 +119,13 @@ Gefixt (2026-08-19):
   (robuster gegen „container name already in use").
 - Deploy-Webhook in Source-of-Truth: `scripts/webhook.py` + `scripts/openclaw-deploy-webhook.service`
   ins Repo, `ansible/deploy.yml` provisioniert Receiver + `webhook-token` + Caddy-Block.
+- Alles auf GHCR: `obsidian-sync` wird jetzt in GitHub Actions gebaut + gepusht
+  (`ghcr.io/momokli/openclaw-obsidian-sync`), kein lokaler Sidecar-Build mehr auf `.149`.
 
 Offen (Live-Touchpoints, brauchen Approval):
 
 - **KAGI-Key verifizieren**: `curl kagi.com/api/v0/search` liefert 401 (`Bot` UND `Bearer`).
   Entweder Key abgelaufen oder Auth-Format anders (Agent nutzt KAGI via eigenem Script).
-- **Deploy-Strategie**: `obsidian-sync` wird lokal auf `.149` gebaut, `openclaw` kommt aus GHCR
-  (Split-Brain). Entscheiden: obsidian-sync auch nach GHCR oder bewusst lokal dokumentieren.
 - Server-Branch `feat/separate-state-config` → `main` umstellen.
 - Dockerfile base image pinnen (`openclaw/openclaw:slim` floatet).
 

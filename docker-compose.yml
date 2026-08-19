@@ -3,10 +3,7 @@ name: openclaw
 services:
   # ── Obsidian Sync: headless client syncing quill_data ───────────
   obsidian-sync:
-    build:
-      context: .
-      dockerfile: Dockerfile.obsidian-sync
-    image: obsidian-sync:latest
+    image: ghcr.io/momokli/openclaw-obsidian-sync:latest
     container_name: openclaw-obsidian-sync
     restart: unless-stopped
 
