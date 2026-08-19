@@ -1,3 +1,5 @@
+name: openclaw
+
 services:
   # ── Obsidian Sync: headless client syncing quill_data ───────────
   obsidian-sync:

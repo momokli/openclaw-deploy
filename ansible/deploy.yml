@@ -17,6 +17,7 @@
     groq_api_key: "{{ lookup('env', 'GROQ_API_KEY') }}"
     deepgram_api_key: "{{ lookup('env', 'DEEPGRAM_API_KEY') }}"
     gemini_api_key: "{{ lookup('env', 'GEMINI_API_KEY') }}"
+    deploy_token: "{{ lookup('env', 'DEPLOY_TOKEN') }}"
     # Preserve existing token if already deployed, else generate new
     gateway_token: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
 
@@ -152,6 +153,29 @@
         mode: "0755"
       become: yes
 
+    - name: Deploy webhook receiver
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/webhook.py"
+        dest: "{{ deploy_dir }}/webhook.py"
+        mode: "0755"
+      become: yes
+
+    - name: Install webhook systemd unit
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/openclaw-deploy-webhook.service"
+        dest: "/etc/systemd/system/openclaw-deploy-webhook.service"
+        mode: "0644"
+      become: yes
+      notify: reload systemd
+
+    - name: Enable webhook receiver
+      ansible.builtin.systemd:
+        name: openclaw-deploy-webhook.service
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      become: yes
+
     - name: Install systemd build timer
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../scripts/openclaw-build.{{ item }}"
@@ -205,6 +229,14 @@
         - { key: GROQ_API_KEY, value: "{{ groq_api_key }}" }
         - { key: DEEPGRAM_API_KEY, value: "{{ deepgram_api_key }}" }
         - { key: GEMINI_API_KEY, value: "{{ gemini_api_key }}" }
+
+    - name: Provision webhook token (if DEPLOY_TOKEN is set)
+      ansible.builtin.copy:
+        content: "{{ deploy_token }}\n"
+        dest: "{{ deploy_dir }}/webhook-token"
+        mode: "0600"
+      no_log: true
+      when: deploy_token | length > 0
 
     # ── Docker Compose ────────────────────────────────────────────
 
@@ -302,6 +334,17 @@
               encode gzip
           }
 
+    - name: Add deploy webhook block to Caddyfile
+      ansible.builtin.blockinfile:
+        path: ~/caddy/Caddyfile
+        marker: "# {mark} ANSIBLE OPENCLAW WEBHOOK"
+        insertafter: EOF
+        block: |
+          deploy.openclaw.simonklimke.de {
+              reverse_proxy 192.168.178.149:18791
+              encode gzip
+          }
+
     # ── DNS ───────────────────────────────────────────────────────
 
     - name: Add domain to home_domains.txt
@@ -329,7 +372,7 @@
           - "Pair Telegram: DM @momomemos_bot → get code →"
           - "  ssh momo@192.168.178.149 docker exec openclaw openclaw pairing approve telegram <CODE>"
           - ""
-          - "Syncthing UI: ssh -L 18384:127.0.0.1:18384 momo@192.168.178.149"
+          - "Deploy webhook: https://deploy.openclaw.simonklimke.de/deploy (Bearer webhook-token)"
 
   handlers:
     - name: reload systemd

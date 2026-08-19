@@ -8,13 +8,15 @@ Self-hosted AI agent gateway with DeepSeek V4, multi-agent coding pipeline, and 
 push to GitHub (main)
   └─ GitHub Actions (self-hosted runner on projectmellon.de, Hetzner 20 cores)
        ├─ docker build
-       └─ push to GHCR ghcr.io/momokli/openclaw-deploy:latest
+       ├─ push to GHCR ghcr.io/momokli/openclaw-deploy:latest
+       └─ POST https://deploy.openclaw.simonklimke.de/deploy   # deploy webhook
 
-.149 systemd timer (scripts/openclaw-build.{service,timer}, every 30min)
+.149 (systemd timer every 30min, or immediately via webhook)
   └─ scripts/build-and-deploy.sh
-       ├─ git pull origin main            # config sync
-       ├─ docker pull ghcr.io/...:latest  # image sync
-       ├─ docker compose up -d --force-recreate openclaw
+       ├─ git pull origin main                        # config sync
+       ├─ docker pull ghcr.io/...:latest              # image sync
+       ├─ docker compose build obsidian-sync          # local sidecar build
+       ├─ docker compose up -d openclaw obsidian-sync
        └─ hash comparison → skip if nothing new
 ```
 
@@ -107,6 +109,18 @@ pushed to **GHCR**. The Dockerfile includes: Rust, git, gh CLI, himalaya (email)
 
 To add new tools: edit `Dockerfile`, push, and the workflow rebuilds on `main`.
 
+## Deploy Webhook
+
+Instead of waiting for the 30-minute systemd timer, a push to `main` also triggers
+a deploy immediately via an HTTPS webhook:
+
+- Receiver: `scripts/webhook.py` (runs as `openclaw-deploy-webhook.service` on `.149:18791`).
+- Caddy proxies `deploy.openclaw.simonklimke.de` → `127.0.0.1:18791`.
+- Shared secret: `/opt/apps/openclaw/webhook-token` on `.149` == GitHub repo secret `DEPLOY_TOKEN`.
+
+The workflow (`build.yml`) POSTs to `/deploy` with `Authorization: Bearer $DEPLOY_TOKEN`.
+The receiver validates the token and starts `openclaw-build.service`.
+
 ## Agents
 
 | Agent                 | Model  | Purpose                 |
@@ -135,6 +149,8 @@ To add new tools: edit `Dockerfile`, push, and the workflow rebuilds on `main`.
 ├── scripts/
 │   ├── build-and-deploy.sh # GHCR pull + atomic swap
 │   ├── obsidian-sync.sh    # Idempotent headless-sync entrypoint
+│   ├── webhook.py          # Deploy webhook receiver (port 18791)
+│   ├── openclaw-deploy-webhook.service  # systemd unit for webhook.py
 │   ├── test-branch.sh      # Test feature branch image in isolation
 │   └── openclaw-build.{service,timer}  # systemd units
 └── ansible/

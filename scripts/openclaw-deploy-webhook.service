@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenClaw deploy webhook receiver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=momo
+ExecStart=/usr/bin/python3 /opt/apps/openclaw/webhook.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

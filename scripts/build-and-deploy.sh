@@ -39,8 +39,12 @@ log "Changes detected — recreating container..."
 log "Building obsidian-sync sidecar..."
 docker compose build obsidian-sync
 
-# ── 5. Atomic swap — force recreate so entrypoint re-copies config ──
-docker compose up -d --force-recreate openclaw obsidian-sync
+# ── 5. Swap containers — recreate so entrypoint re-copies config ──
+# Clean up stale EXITED openclaw containers first: leftovers from old
+# compose project names caused "container name ... already in use".
+docker ps -aq --filter name=openclaw --filter status=exited | xargs -r docker rm -f 2>/dev/null || true
+
+docker compose up -d --force-recreate --remove-orphans openclaw obsidian-sync
 
 # ── 6. Wait for healthy ─────────────────────────────────────────
 for i in $(seq 1 30); do
