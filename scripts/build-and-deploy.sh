@@ -47,14 +47,21 @@ docker ps -aq --filter name=openclaw --filter status=exited | xargs -r docker rm
 
 docker compose up -d --force-recreate --remove-orphans openclaw obsidian-sync
 
-# ── 6. Wait for healthy ─────────────────────────────────────────
+# ── 6. Wait for healthy (fail-closed) ───────────────────────────
+HEALTHY=0
 for i in $(seq 1 30); do
     if docker exec openclaw curl -sf http://localhost:18789/healthz > /dev/null 2>&1; then
+        HEALTHY=1
         log "Container healthy"
         break
     fi
     sleep 2
 done
+
+if [ "$HEALTHY" != "1" ]; then
+    log "ERROR: gateway did not become healthy — aborting (hashes not persisted)"
+    exit 1
+fi
 
 # ── 7. Reconnect to Caddy network (idempotent) ──────────────────
 docker network connect caddy_default openclaw 2>/dev/null || true

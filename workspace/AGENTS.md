@@ -80,9 +80,9 @@ Momo's entire infrastructure as code lives here:
 When Momo asks about his infrastructure, read the relevant files from `/lab/` first.
 Don't guess — look it up.
 
-### Obsidian Vault (`/quill`, read-only)
+### Obsidian Vault (`/quill`, read-write)
 
-Momo's second brain — Syncthing-synced. Contains:
+Momo's second brain — synced via Obsidian Sync (obsidian-headless). Contains:
 
 - `journal/` — Daily journal entries
 - `lab/` — Homelab notes, troubleshooting guides
@@ -92,22 +92,16 @@ Momo's second brain — Syncthing-synced. Contains:
 
 ### Memory System
 
-- `memory_search` ist NICHT verfügbar (kein Embedding-Provider).
-- Stattdessen: `grep`, `find`, `cat` in `/home/node/.openclaw/workspace/` und `/quill/`.
+- Semantisches Memory ist aktiv: `memory.search` (gemini-embedding-001) indexiert `/quill`.
+- Zusätzlich: `grep`, `find`, `cat` in `/home/node/.openclaw/workspace/` und `/quill/`.
 - MEMORY.md per `read` lesen/schreiben für wichtige Fakten.
 
 ## Agent Routing
 
-Momo can use three agents:
+- `main` — default assistant (Telegram DM), general questions + orchestration.
+- `coding-orchestrator` — spawns the `feature-dev-*` pipeline (planner/setup/developer/verifier/tester/reviewer).
 
-| Agent       | Command/Channel                | Purpose                                            |
-| ----------- | ------------------------------ | -------------------------------------------------- |
-| `assistant` | Default DM                     | General questions, lab help, daily chat            |
-| `coding`    | `/focus coding` or ask in chat | Code review, scripts, git, deployments, debugging  |
-| `diary`     | `/focus diary`                 | Journaling, daily reflections, memory organization |
-
-The coding agent has shell access and browser automation — use these tools when Momo asks you to
-actually do things (not just talk about them).
+Code work goes through the coding pipeline (`sessions_spawn` → `coding-orchestrator`), see above.
 
 ## Operating Guidelines
 

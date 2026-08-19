@@ -2,7 +2,7 @@
   "gateway": {
     "bind": "lan",
     "mode": "local",
-    "trustedProxies": ["172.17.0.1"],
+    "trustedProxies": ["172.23.0.0/16"],
     "auth": {
       "mode": "token",
       "token": "${OPENCLAW_GATEWAY_TOKEN}",
@@ -14,19 +14,16 @@
   },
   "env": {
     "vars": {
-      "DEEPSEEK_API_KEY": "${DEEPSEEK_API_KEY}",
       "KAGI_API": "${KAGI_API}",
-      "GROQ_API_KEY": "${GROQ_API_KEY}",
-      "DEEPGRAM_API_KEY": "${DEEPGRAM_API_KEY}",
-      "GH_TOKEN": "${GH_TOKEN}",
-      "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      "GH_TOKEN": "${GH_TOKEN}"
     }
   },
   "agents": {
     "defaults": {
       "workspace": "/home/node/.openclaw/workspace",
       "model": {
-        "primary": "deepseek/deepseek-v4-pro"
+        "primary": "deepseek/deepseek-v4-pro",
+        "fallbacks": ["deepseek/deepseek-v4-flash"]
       },
       "subagents": {
         "maxSpawnDepth": 2,
