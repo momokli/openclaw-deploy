@@ -58,7 +58,19 @@ prüfen, nicht blind umbauen.
 14. `workspace/AGENTS.md` stale („memory_search NICHT verfügbar" widerspricht Config).
 15. Action-Versionen auf SHA pinnen + Provenance/SBOM (`docker/build-push-action` + `actions/attest`).
 
+## Korrektur (Kosten, 2026-08-21)
+
+Die in früheren Notizen verwendeten DeepSeek-Preise waren **~3× zu niedrig** (Preiserhöhung ab 16./17. Aug). Aktuell offiziell:
+
+| Modell              | Input (cache miss) | Input (cache hit) | Output     |
+| ------------------- | ------------------ | ----------------- | ---------- |
+| `deepseek-v4-flash` | $0.22/0.44         | $0.007/0.014      | $0.66/1.32 |
+| `deepseek-v4-pro`   | $0.66/1.32         | $0.022/0.044      | $1.98/3.96 |
+
+(off-peak/peak, USD pro 1M Tokens). Pro = 3× Flash; Cache-Hit ≈ 30× günstiger.
+Umgesetzt: `feature-dev-*` → Flash, `compaction.model` → Flash, `messages.responseUsage: "tokens"`.
+
 ## Nächste Schritte
 
 - P0 in kleinen, reviewbaren Commits als PR vorlegen (nicht alles in einem).
-- `trustedProxies` ist eine Ein-Zeilen-Änderung — als erstes.
+- `trustedProxies` ✅ (erledigt). Restliche P0/P1: Image-Pinning, SSH-Key-Least-Privilege, Telegram-Gruppen-Auth, Webhook-Containerisierung, `models.providers.cost` (erst gegen 2026.7.1 validieren).
