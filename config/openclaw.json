@@ -25,6 +25,9 @@
         "primary": "deepseek/deepseek-v4-pro",
         "fallbacks": ["deepseek/deepseek-v4-flash"]
       },
+      "compaction": {
+        "model": "deepseek/deepseek-v4-flash"
+      },
       "subagents": {
         "maxSpawnDepth": 2,
         "allowAgents": [
@@ -57,32 +60,32 @@
       {
         "id": "feature-dev-planner",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-planner",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-flash"
       },
       {
         "id": "feature-dev-setup",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-setup",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-flash"
       },
       {
         "id": "feature-dev-developer",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-developer",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-flash"
       },
       {
         "id": "feature-dev-verifier",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-verifier",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-flash"
       },
       {
         "id": "feature-dev-tester",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-tester",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-flash"
       },
       {
         "id": "feature-dev-reviewer",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-reviewer",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-flash"
       }
     ]
   },
@@ -99,6 +102,7 @@
     }
   },
   "messages": {
+    "responseUsage": "tokens",
     "groupChat": {
       "mentionPatterns": ["@molty", "@openclaw"]
     }
