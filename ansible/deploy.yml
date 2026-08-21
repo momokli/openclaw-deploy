@@ -288,33 +288,6 @@
       retries: 30
       delay: 2
 
-    # ── Add agents (idempotent) ───────────────────────────────────
-
-    - name: Check if coding agent exists
-      ansible.builtin.command:
-        cmd: docker compose exec -T -u node openclaw openclaw agents list
-        chdir: "{{ deploy_dir }}"
-      register: agent_list
-      changed_when: false
-
-    - name: Add coding agent
-      ansible.builtin.command:
-        cmd: >-
-          docker compose exec -T -u node openclaw openclaw agents add coding
-          --model deepseek/deepseek-v4-pro
-          --workspace /home/node/.openclaw/workspace-coding
-        chdir: "{{ deploy_dir }}"
-      when: "'coding' not in agent_list.stdout"
-
-    - name: Add diary agent
-      ansible.builtin.command:
-        cmd: >-
-          docker compose exec -T -u node openclaw openclaw agents add diary
-          --model deepseek/deepseek-v4-flash
-          --workspace /home/node/.openclaw/workspace-diary
-        chdir: "{{ deploy_dir }}"
-      when: "'diary' not in agent_list.stdout"
-
     # ── Caddy reverse proxy ───────────────────────────────────────
 
     - name: Clean up any old openclaw Caddy blocks
@@ -367,7 +340,6 @@
         msg:
           - "✅ OpenClaw deployed!"
           - "🌐 https://openclaw.simonklimke.de"
-          - "🔑 Token: {{ gateway_token }}"
           - ""
           - "Pair Telegram: DM @momomemos_bot → get code →"
           - "  ssh momo@192.168.178.149 docker exec openclaw openclaw pairing approve telegram <CODE>"
