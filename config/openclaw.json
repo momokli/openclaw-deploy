@@ -60,32 +60,38 @@
       {
         "id": "feature-dev-planner",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-planner",
-        "model": "deepseek/deepseek-v4-flash"
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       },
       {
         "id": "feature-dev-setup",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-setup",
-        "model": "deepseek/deepseek-v4-flash"
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       },
       {
         "id": "feature-dev-developer",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-developer",
-        "model": "deepseek/deepseek-v4-flash"
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       },
       {
         "id": "feature-dev-verifier",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-verifier",
-        "model": "deepseek/deepseek-v4-flash"
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       },
       {
         "id": "feature-dev-tester",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-tester",
-        "model": "deepseek/deepseek-v4-flash"
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       },
       {
         "id": "feature-dev-reviewer",
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-reviewer",
-        "model": "deepseek/deepseek-v4-flash"
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       }
     ]
   },

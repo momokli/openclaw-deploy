@@ -19,7 +19,7 @@ Die früher notierten Preise waren **~3× zu niedrig**. Aktuell (offiziell `api-
 ### Routing (umgesetzt)
 
 - `main` + `coding-orchestrator` → `deepseek/deepseek-v4-pro` (das Nötigste).
-- `feature-dev-*` (6 Agents) → `deepseek/deepseek-v4-flash`.
+- `feature-dev-*` (6 Agents) → `deepseek/deepseek-v4-flash` + `thinkingDefault: "low"` (weniger Output-Tokens).
 - `agents.defaults.compaction.model` → `deepseek-v4-flash` (Summaries billig).
 - `messages.responseUsage: "tokens"` → Usage-Footer sichtbar (`/usage cost` für lokale Kostensumme).
 
