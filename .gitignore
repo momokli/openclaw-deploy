@@ -41,3 +41,7 @@ state/
 .deploy-hash
 .deploy-git-hash
 .deploy-img-hash
+
+# Cost tracking (generated)
+cost.html
+cost-history.json
