@@ -337,12 +337,33 @@
               encode gzip
           }
 
+    - name: Add cost dashboard block to Caddyfile
+      ansible.builtin.blockinfile:
+        path: ~/caddy/Caddyfile
+        marker: "# {mark} ANSIBLE OPENCLAW COST"
+        insertafter: EOF
+        block: |
+          cost.openclaw.simonklimke.de {
+              basicauth {
+                  momo $2a$14$kEu6v5eiSns8Y4TSiBW47OYZC5B/1c5sJHIQXFwvXe.4UDa2VxNHW
+              }
+              root * /srv/cost
+              file_server
+              encode gzip
+          }
+
     # ── DNS ───────────────────────────────────────────────────────
 
     - name: Add domain to home_domains.txt
       ansible.builtin.lineinfile:
         path: ~/home_domains.txt
         line: openclaw.simonklimke.de
+        state: present
+
+    - name: Add cost domain to home_domains.txt
+      ansible.builtin.lineinfile:
+        path: ~/home_domains.txt
+        line: cost.openclaw.simonklimke.de
         state: present
 
     # ── Reload Caddy ──────────────────────────────────────────────

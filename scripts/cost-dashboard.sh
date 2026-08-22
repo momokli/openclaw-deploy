@@ -4,9 +4,10 @@
 set -euo pipefail
 cd /opt/apps/openclaw
 HIST="/opt/apps/openclaw/cost-history.json"
-OUT="/opt/apps/openclaw/cost.html"
+OUT="/srv/cost/index.html"
 
 [ -f "$HIST" ] || { echo "no $HIST — run cost-snapshot.sh first"; exit 1; }
+mkdir -p /srv/cost
 DATA="$(cat "$HIST")"
 
 cat > /tmp/cost_template.html <<'HTML'
