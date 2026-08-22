@@ -16,12 +16,13 @@ if ! grep -q "^$DOMAIN {" "$CADDYFILE"; then
   cat >> "$CADDYFILE" <<'EOF'
 
 cost.openclaw.simonklimke.de {
-    basicauth {
-        momo $2a$14$kEu6v5eiSns8Y4TSiBW47OYZC5B/1c5sJHIQXFwvXe.4UDa2VxNHW
-    }
+    reverse_proxy oauth2-proxy-cost:4180
+    encode gzip
+}
+
+:9092 {
     root * /srv/cost
     file_server
-    encode gzip
 }
 EOF
 fi

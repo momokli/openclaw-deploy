@@ -34,15 +34,22 @@ Oder manuell:
 docker compose exec -T -u node openclaw openclaw status --usage   # Balance
 ```
 
+## Dashboard (live)
+
+- **URL:** https://cost.openclaw.simonklimke.de (hinter Pocket-ID-SSO).
+- Generiert von `openclaw-cost.timer` → `/srv/cost/index.html`.
+- SSO: `oauth2-proxy-cost` (lokal `/home/momo/oauth2-proxy-cost/docker-compose.yml`, NICHT in git — enthält Client-Secret) → Pocket ID (`auth.klimk.es`).
+- OIDC-Client in Pocket ID: `openclaw-cost`, Callback `https://cost.openclaw.simonklimke.de/oauth2/callback`.
+
 ## Was tracken (Woche 1 nach P1)
 
-| Metrik | Erwartung | Wie |
-|---|---|---|
-| Balance-Delta/Tag | von ~$5–7 → Richtung $1–2 | `status --usage` täglich |
-| **Flash-vs-Pro-Ratio** | von 0% Flash → >50% | `cost-report.sh` (Modell-Split) |
-| Cache-Hit-Rate | bleibt hoch (>90%) | Session-Liste (`🗄️ % cached`) |
-| Reasoning-Tokens | sinken (thinking low) | `cost-report.sh` (reasoning-Spalte) |
-| Cache-Read/Tag | sinkt (session reset) | `cost-report.sh` (cacheRead-Spalte) |
+| Metrik                 | Erwartung                 | Wie                                 |
+| ---------------------- | ------------------------- | ----------------------------------- |
+| Balance-Delta/Tag      | von ~$5–7 → Richtung $1–2 | `status --usage` täglich            |
+| **Flash-vs-Pro-Ratio** | von 0% Flash → >50%       | `cost-report.sh` (Modell-Split)     |
+| Cache-Hit-Rate         | bleibt hoch (>90%)        | Session-Liste (`🗄️ % cached`)       |
+| Reasoning-Tokens       | sinken (thinking low)     | `cost-report.sh` (reasoning-Spalte) |
+| Cache-Read/Tag         | sinkt (session reset)     | `cost-report.sh` (cacheRead-Spalte) |
 
 **Ziel:** $20–40/Monat ≈ **$0.7–1.3/Tag**.
 
