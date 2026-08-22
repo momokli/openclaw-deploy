@@ -195,6 +195,25 @@
         daemon_reload: yes
       become: yes
 
+    - name: Install cost systemd units
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/openclaw-cost.{{ item }}"
+        dest: "/etc/systemd/system/openclaw-cost.{{ item }}"
+        mode: "0644"
+      become: yes
+      loop:
+        - service
+        - timer
+      notify: reload systemd
+
+    - name: Enable cost timer
+      ansible.builtin.systemd:
+        name: openclaw-cost.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      become: yes
+
     # ── Secrets (.env) — preserve existing token if present ───────
 
     - name: Read existing .env

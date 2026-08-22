@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenClaw cost snapshot + dashboard
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=momo
+ExecStart=/opt/apps/openclaw/scripts/cost-snapshot.sh
+ExecStartPost=/opt/apps/openclaw/scripts/cost-dashboard.sh
+StandardOutput=journal
+StandardError=journal

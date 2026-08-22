@@ -1,0 +1,10 @@
+[Unit]
+Description=OpenClaw cost snapshot (daily, full UTC day)
+
+[Timer]
+OnCalendar=*-*-* 23:59:00
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target
