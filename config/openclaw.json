@@ -28,8 +28,13 @@
       "compaction": {
         "model": "deepseek/deepseek-v4-flash"
       },
+      "utilityModel": "deepseek/deepseek-v4-flash",
+      "contextPruning": {
+        "mode": "cache-ttl"
+      },
       "subagents": {
         "maxSpawnDepth": 2,
+        "model": "deepseek/deepseek-v4-flash",
         "allowAgents": [
           "coding-orchestrator",
           "feature-dev-planner",
@@ -50,12 +55,14 @@
       {
         "id": "main",
         "workspace": "/home/node/.openclaw/workspace",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-pro",
+        "thinkingDefault": "low"
       },
       {
         "id": "coding-orchestrator",
         "workspace": "/home/node/.openclaw/workspaces/coding-orchestrator",
-        "model": "deepseek/deepseek-v4-pro"
+        "model": "deepseek/deepseek-v4-pro",
+        "thinkingDefault": "low"
       },
       {
         "id": "feature-dev-planner",
@@ -144,7 +151,15 @@
     }
   },
   "session": {
-    "dmScope": "per-channel-peer"
+    "dmScope": "per-channel-peer",
+    "reset": {
+      "mode": "idle",
+      "idleMinutes": 120
+    },
+    "maintenance": {
+      "maxEntries": 300,
+      "pruneAfter": "14d"
+    }
   },
   "meta": {
     "lastTouchedVersion": "2026.7.1",

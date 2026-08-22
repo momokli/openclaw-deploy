@@ -18,15 +18,20 @@ Die früher notierten Preise waren **~3× zu niedrig**. Aktuell (offiziell `api-
 
 ### Routing (umgesetzt)
 
-- `main` + `coding-orchestrator` → `deepseek/deepseek-v4-pro` (das Nötigste).
-- `feature-dev-*` (6 Agents) → `deepseek/deepseek-v4-flash` + `thinkingDefault: "low"` (weniger Output-Tokens).
+- `main` + `coding-orchestrator` → `deepseek/deepseek-v4-pro`, `thinkingDefault: "low"`.
+- `feature-dev-*` (6 Agents) → `deepseek/deepseek-v4-flash` + `thinkingDefault: "low"`.
+- `agents.defaults.subagents.model` → `deepseek-v4-flash` (gespawnte Sub-Agents billig).
+- `agents.defaults.utilityModel` → `deepseek-v4-flash` (Titel/Klassifizierung billig).
 - `agents.defaults.compaction.model` → `deepseek-v4-flash` (Summaries billig).
-- `messages.responseUsage: "tokens"` → Usage-Footer sichtbar (`/usage cost` für lokale Kostensumme).
+- `agents.defaults.contextPruning: { mode: "cache-ttl" }` (alte Tool-Results trimmen).
+- `session.reset: { mode: "idle", idleMinutes: 120 }` + `session.maintenance` (Kontext-Hygiene).
+- `messages.responseUsage: "tokens"` → Usage-Footer sichtbar (`/usage cost`).
 
 ### Noch offen (Kosten)
 
-- `models.providers.deepseek.models[].cost` (input/output/cacheRead/cacheWrite) für `/usage cost`-Schätzung — erst gegen laufende Version (2026.7.1) `config validate` prüfen, ob der DeepSeek-Plugin-Katalog die Preise schon mitliefert.
-- Thinking-Mode für Nicht-Kern-Agents abschalten (falls Modell es erlaubt) — großer Output-Token-Sparer.
+- `models.providers.deepseek.models[].cost` für `/usage cost`-$-Schätzung — Schema in v2026.7.1 unklar; erst prüfen, ob der DeepSeek-Plugin-Katalog die Preise schon mitliefert.
+- Free/Cheap-Fallback (Gemini Flash-Lite / Groq) als 2. Provider — Phase 2.
+- ggf. LiteLLM mit hartem Monats-Budget (Phase 2).
 
 ## ✅ Erledigt
 
