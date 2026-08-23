@@ -9,7 +9,7 @@
 - **Deployed**: August 2026
 - **Host**: 192.168.178.149
 - **Domain**: openclaw.simonklimke.de
-- **Provider**: DeepSeek V4 Pro (primary), V4 Flash (fast tasks / diary)
+- **Provider**: DeepSeek V4 Flash (primary), V4 Pro (heavy coding)
 - **Channel**: Telegram
 - **Reverse Proxy**: Caddy (on same host)
 

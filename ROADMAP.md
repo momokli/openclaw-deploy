@@ -18,7 +18,7 @@ Die früher notierten Preise waren **~3× zu niedrig**. Aktuell (offiziell `api-
 
 ### Routing (umgesetzt)
 
-- `main` + `coding-orchestrator` → `deepseek/deepseek-v4-pro`, `thinkingDefault: "low"`.
+- `main` → `deepseek/deepseek-v4-flash` (default); `coding-orchestrator` → `deepseek/deepseek-v4-pro` (heavy coding).
 - `feature-dev-*` (6 Agents) → `deepseek/deepseek-v4-flash` + `thinkingDefault: "low"`.
 - `agents.defaults.subagents.model` → `deepseek-v4-flash` (gespawnte Sub-Agents billig).
 - `agents.defaults.utilityModel` → `deepseek-v4-flash` (Titel/Klassifizierung billig).

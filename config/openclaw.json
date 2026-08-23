@@ -22,8 +22,8 @@
     "defaults": {
       "workspace": "/home/node/.openclaw/workspace",
       "model": {
-        "primary": "deepseek/deepseek-v4-pro",
-        "fallbacks": ["deepseek/deepseek-v4-flash"]
+        "primary": "deepseek/deepseek-v4-flash",
+        "fallbacks": ["deepseek/deepseek-v4-pro"]
       },
       "compaction": {
         "model": "deepseek/deepseek-v4-flash"
@@ -55,7 +55,7 @@
       {
         "id": "main",
         "workspace": "/home/node/.openclaw/workspace",
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       {

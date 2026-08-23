@@ -6,7 +6,7 @@
 ## Was ist das hier
 
 - Self-hosted AI-Agent-Gateway "Molty" 🦞 auf Momos Homelab.
-- Model: DeepSeek V4 Pro (primary) / V4 Flash (fallback).
+- Model: DeepSeek V4 Flash (primary) / V4 Pro (fallback + heavy coding).
 - Live: `https://openclaw.simonklimke.de` (Caddy → Docker auf `.149` = `192.168.178.149`).
 - Channels: Telegram (`@momomemos_bot`), DM-Pairing.
 - STT: Groq Whisper + Deepgram (Sprachnachrichten funktionieren).

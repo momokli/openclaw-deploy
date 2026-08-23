@@ -125,16 +125,16 @@ The receiver validates the token and starts `openclaw-build.service`.
 
 ## Agents
 
-| Agent                 | Model  | Purpose                 |
-| --------------------- | ------ | ----------------------- |
-| main                  | V4 Pro | Default assistant       |
-| coding-orchestrator   | V4 Pro | 7-stage coding pipeline |
-| feature-dev-planner   | V4 Pro | Spec → user stories     |
-| feature-dev-setup     | V4 Pro | Branch + build baseline |
-| feature-dev-developer | V4 Pro | Code + tests            |
-| feature-dev-verifier  | V4 Pro | Quality gate            |
-| feature-dev-tester    | V4 Pro | Integration tests       |
-| feature-dev-reviewer  | V4 Pro | Final PR review         |
+| Agent                 | Model    | Purpose                 |
+| --------------------- | -------- | ----------------------- |
+| main                  | V4 Flash | Default assistant       |
+| coding-orchestrator   | V4 Pro   | 7-stage coding pipeline |
+| feature-dev-planner   | V4 Flash | Spec → user stories     |
+| feature-dev-setup     | V4 Flash | Branch + build baseline |
+| feature-dev-developer | V4 Flash | Code + tests            |
+| feature-dev-verifier  | V4 Flash | Quality gate            |
+| feature-dev-tester    | V4 Flash | Integration tests       |
+| feature-dev-reviewer  | V4 Flash | Final PR review         |
 
 ## Files
 

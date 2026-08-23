@@ -111,7 +111,7 @@ DeepSeek ist der einzige LLM-Provider. Burn war ~$4–7/Tag — Treiber: alles a
 
 **Aktuell konfiguriert** (`config/openclaw.json`):
 
-- Routing: `main` + `coding-orchestrator` → Pro (Thinking `low`); `feature-dev-*` → Flash + `low`.
+- Routing: `main` → Flash (default); `coding-orchestrator` → Pro (heavy coding); `feature-dev-*` → Flash + `low`.
 - `subagents.model` + `utilityModel` + `compaction.model` → Flash.
 - Kontext-Hygiene: `session.reset` (idle 120min), `contextPruning: cache-ttl`, `session.maintenance`.
 - `messages.responseUsage: "tokens"` (Usage-Footer).
