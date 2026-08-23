@@ -103,6 +103,51 @@ Momo's second brain — synced via Obsidian Sync (obsidian-headless). Contains:
 
 Code work goes through the coding pipeline (`sessions_spawn` → `coding-orchestrator`), see above.
 
+## Cost Control
+
+### Ist-Stand (2026-08-22)
+
+DeepSeek ist der einzige LLM-Provider. Burn war ~$4–7/Tag — Treiber: alles auf `deepseek-v4-pro` + Thinking `high` + ungebremst wachsender Kontext (Cache-Read 455M Tokens über 290 Calls).
+
+**Aktuell konfiguriert** (`config/openclaw.json`):
+
+- Routing: `main` + `coding-orchestrator` → Pro (Thinking `low`); `feature-dev-*` → Flash + `low`.
+- `subagents.model` + `utilityModel` + `compaction.model` → Flash.
+- Kontext-Hygiene: `session.reset` (idle 120min), `contextPruning: cache-ttl`, `session.maintenance`.
+- `messages.responseUsage: "tokens"` (Usage-Footer).
+
+### Preise (offiziell api-docs.deepseek.com — NICHT die alten Zahlen)
+
+| Modell              | Input (cache-miss)       | Output        |
+| ------------------- | ------------------------ | ------------- |
+| `deepseek-v4-flash` | $0.22 / $0.44 (off/peak) | $0.66 / $1.32 |
+| `deepseek-v4-pro`   | $0.66 / $1.32            | $1.98 / $3.96 |
+
+Cache-Hit ≈ 30× günstiger ($0.007 flash / $0.022 pro). Thinking-Mode ist default = viele Output-Tokens. Pro = 3× Flash.
+
+### Messen
+
+```sh
+ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/cost-report.sh'   # Balance + Tokens/Tag + Modell-Split
+open https://cost.openclaw.simonklimke.de/                          # Dashboard (Pocket-ID-SSO)
+```
+
+Dashboard: `scripts/cost-dashboard.sh` → `/srv/cost/index.html`, täglich via `openclaw-cost.timer`. Historie in `cost-history.json` (auf .149, gitignored).
+
+### Offene Hebel (Phase 2, zur Approval)
+
+- `models.providers.deepseek.models[].cost` → `/usage cost` zeigt echte $-Beträge (Schema erst gegen 2026.7.1 prüfen).
+- `feature-dev-*` wird **noch nicht benutzt** — `main` macht Coding selbst / spawnt eigene Sub-Agents auf Pro. Delegation hier härtet das an, greift aber live noch nicht.
+- Free/Cheap-Fallback (Gemini Flash-Lite, `GEMINI_API_KEY` vorhanden) als 2. Provider.
+- LiteLLM mit hartem Monats-Budget als echte Kosten-Deckelung.
+
+### Gotchas
+
+- `agents.defaults.subagents.model` hatte Feb 2026 einen Bug (#10963) — live verifizieren, dass Sub-Agents wirklich Flash nutzen.
+- `thinkingDefault: "low"` bei DeepSeek live gegenprüfen (senkt es Reasoning-Tokens wirklich? sonst `off`).
+- **Nicht** blind auf Router (ClawRouter/iblai) springen: crypto-native, und für DeepSeek (2 Tiers) kollabiert das Scoring auf Flash/Pro — Role-Based-Routing deckt das ab. Für Coding-Agents sind echte Ersparnisse ~30–40%, nicht 90% (90% = Cache + Opus-Baseline + Chat-Traffic).
+- Wirkung kommt zeitversetzt: `session.reset`/`pruning` wirken erst auf neue Sessions → Trend über ≥5 Tage bewerten.
+
 ## Operating Guidelines
 
 1. **Read before you act**: When Momo asks about his setup, check `/lab/` and `/quill/` first.
