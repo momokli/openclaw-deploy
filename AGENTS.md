@@ -159,3 +159,12 @@ Der GHCR-Flow ist nur TEILWEISE im Repo.
 - **`scripts/test-branch.sh`** nutzt noch den alten local-build-Flow (scp + `docker build` + save/load),
   nicht GHCR, und das alte Volume-Layout (`config:/home/node/.openclaw:ro` statt `config:/openclaw-config:ro`).
 - **`ansible/deploy.yml`** broken (falsche `../../services/...`-Pfade) + alter `.env`-Writer.
+
+## Analytics (Kosten / Nutzung messen)
+
+- `scripts/analytics.sh [START_UTC] [END_UTC]` (auf `.149`) — Event-Level-Report für ein
+  Zeitfenster: Chats, Tools, Errors, Model-Usage, Kosten. Details + Schema + Gotchas:
+  `docs/analytics.md`.
+- Wichtig: `reasoning` ist Teilmenge von `output` (nicht extra berechnen); `*.jsonl.reset.*`-
+  Snapshots mit einbeziehen (sonst wird `main` unterzählt); OpenClaws `usage.cost`-Feld nutzt
+  andere (höhere) Preise als die offiziellen DeepSeek-off-peak-Preise.

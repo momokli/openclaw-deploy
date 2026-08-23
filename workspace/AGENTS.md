@@ -128,9 +128,12 @@ Cache-Hit ≈ 30× günstiger ($0.007 flash / $0.022 pro). Thinking-Mode ist def
 ### Messen
 
 ```sh
-ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/cost-report.sh'   # Balance + Tokens/Tag + Modell-Split
-open https://cost.openclaw.simonklimke.de/                          # Dashboard (Pocket-ID-SSO)
+ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/analytics.sh [START_UTC] [END_UTC]'  # Event-Level: Chats/Tools/Errors/Model-Usage/Kosten (Fenster)
+ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/cost-report.sh'                        # Balance + Tokens/Tag + Modell-Split
+open https://cost.openclaw.simonklimke.de/                                               # Dashboard (Pocket-ID-SSO)
 ```
+
+`analytics.sh` ist der präzisere Weg für „was ist im Fenster X passiert / was hat es gekostet". Schema + Gotchas (reasoning ⊆ output, `.reset.*`-Snapshots, Preis-Diskrepanz): `docs/analytics.md`.
 
 Dashboard: `scripts/cost-dashboard.sh` → `/srv/cost/index.html`, täglich via `openclaw-cost.timer`. Historie in `cost-history.json` (auf .149, gitignored).
 
