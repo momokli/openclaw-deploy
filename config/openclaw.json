@@ -107,6 +107,12 @@
       "enabled": true,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
       "dmPolicy": "pairing",
+      "streaming": {
+        "mode": "partial",
+        "preview": {
+          "toolProgress": false
+        }
+      },
       "groups": {
         "*": {
           "requireMention": true
