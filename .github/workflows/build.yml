@@ -7,12 +7,6 @@ on:
   pull_request:
     branches: [main]
 
-# GITHUB_TOKEN (github.token) needs packages:write for GHCR push; contents:read
-# covers actions/checkout. No PAT (GHCR_TOKEN) required.
-permissions:
-  contents: read
-  packages: write
-
 env:
   IMAGE: ghcr.io/momokli/openclaw-deploy
   OBSIDIAN_IMAGE: ghcr.io/momokli/openclaw-obsidian-sync
@@ -37,7 +31,7 @@ jobs:
       # Only push to GHCR on main (not on PRs)
       - name: Login to GHCR
         if: github.ref == 'refs/heads/main'
-        run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Push openclaw to GHCR
         if: github.ref == 'refs/heads/main'

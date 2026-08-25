@@ -181,8 +181,7 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
 ### GitHub repo secrets (Actions)
 
 - `DEPLOY_TOKEN` — deploy webhook bearer (matches `/opt/apps/openclaw/webhook-token`).
-- GHCR login/push uses the built-in `GITHUB_TOKEN` (`github.token`, `packages: write`)
-  — no separate `GHCR_TOKEN` PAT required.
+- `GHCR_TOKEN` — classic PAT (scope `write:packages`) used for the GHCR `docker login` in `build.yml`.
 
 ## Config vs Runtime State (Trennung)
 

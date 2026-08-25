@@ -138,8 +138,9 @@ Gefixt (2026-08-26):
   - `entrypoint.sh` (Schritt 5c): `gh auth setup-git --hostname github.com` als `node` + Warnung
     wenn `gh auth status` nicht ok oder `GH_TOKEN` fehlt. `gh` wird dadurch als git-HTTP-
     credential-helper verdrahtet.
-- `build.yml`: `GHCR_TOKEN` (PAT) → built-in `${{ github.token }}` + explizit
-  `permissions: { contents: read, packages: write }`. Ein Repo-Secret weniger.
+- `build.yml`: GHCR-Login nutzt weiterhin `GHCR_TOKEN` (classic PAT, `write:packages`).
+  `github.token` wurde getestet, scheitert aber an `permission_denied: write_package`
+  (Repo/Org-Actions-Permission lässt `packages: write` für den built-in Token nicht zu).
 - README: Secrets sauber getrennt (runtime `config/.env` vs. GitHub repo secrets).
 
 Offen (Live-Touchpoints, brauchen Approval):
@@ -170,7 +171,8 @@ Der GHCR-Flow ist nur TEILWEISE im Repo.
 - **README** dokumentiert noch den ALTEN Flow (`scp Dockerfile → projectmellon → docker save/load`), nicht GHCR.
 - **"projectmellon.de" taucht nirgends als explizite Konfiguration auf** — der Build dort läuft nur
   implizit über den `self-hosted`-Runner. Es gibt KEIN Runner-Setup/Script/Doku im Repo.
-- **`GHCR_TOKEN`** ist obsolet: `build.yml` nutzt jetzt `${{ github.token }}` (kein PAT mehr).
+- **`GHCR_TOKEN`** ist weiterhin nötig (classic PAT, `write:packages`) — der built-in
+  `github.token` wurde getestet, scheitert aber an `permission_denied: write_package`.
 - **`scripts/test-branch.sh`** nutzt noch den alten local-build-Flow (scp + `docker build` + save/load),
   nicht GHCR, und das alte Volume-Layout (`config:/home/node/.openclaw:ro` statt `config:/openclaw-config:ro`).
 - **`ansible/deploy.yml`** broken (falsche `../../services/...`-Pfade) + alter `.env`-Writer.
