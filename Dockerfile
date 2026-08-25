@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     sshpass \
     gosu \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
