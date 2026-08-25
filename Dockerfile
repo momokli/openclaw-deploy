@@ -26,12 +26,15 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure git for the coding agent.
-# `--system` (not `--global`) so the identity applies to the runtime `node`
-# user: `--global` during build writes /root/.gitconfig, which the agent never reads.
-RUN git config --system user.name "Molty 🦞" \
-    && git config --system user.email "molty@openclaw.simonklimke.de" \
-    && git config --system init.defaultBranch main
+# Configure git for the coding agent. Write directly to the runtime `node`
+# user's global config (/home/node/.gitconfig). `--system` is unreliable here
+# (build cache / base-image git prefix), and `--global` during build would write
+# /root/.gitconfig, which the agent never reads.
+RUN mkdir -p /home/node \
+    && git config --file /home/node/.gitconfig user.name "Molty 🦞" \
+    && git config --file /home/node/.gitconfig user.email "molty@openclaw.simonklimke.de" \
+    && git config --file /home/node/.gitconfig init.defaultBranch main \
+    && chown -R node:node /home/node
 
 # Create SSH config directory and disable strict host key checking for internal hosts
 RUN mkdir -p /home/node/.ssh && chown -R node:node /home/node/.ssh

@@ -134,7 +134,8 @@ Gefixt (2026-08-26):
   hatte also KEINE git-Identity („Author identity unknown“) und KEINEN `credential.helper`
   (HTTPS-`git push` → „could not read Username for 'https://github.com'“). `gh` selbst lief
   (liest `GH_TOKEN` aus env), aber **git** nicht.
-  - `Dockerfile`: `git config --global` → `--system` (identity gilt jetzt unabhängig von `$HOME`).
+  - `Dockerfile`: `git config --global` → `--file /home/node/.gitconfig` (identity gilt jetzt
+    direkt für `node`; `--system` war wegen Build-Cache/base-image-git-prefix unzuverlässig).
   - `entrypoint.sh` (Schritt 5c): `gh auth setup-git --hostname github.com` als `node` + Warnung
     wenn `gh auth status` nicht ok oder `GH_TOKEN` fehlt. `gh` wird dadurch als git-HTTP-
     credential-helper verdrahtet.
