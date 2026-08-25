@@ -127,6 +127,21 @@ Gefixt (2026-08-19):
   nicht `172.17.0.1`/Default-Bridge). **Muss beim Subnetz-Wechsel des Caddy-Netzwerks mitgezogen werden.**
   `env.vars` auf `KAGI_API`+`GH_TOKEN` reduziert; `model.fallbacks` (V4 Flash) ergänzt.
 
+Gefixt (2026-08-26):
+
+- **GH/git-Auth im Container (Root-Cause der „GH token“-Issues):** `Dockerfile` setzte
+  `git config --global` als **root** → landete in `/root/.gitconfig`, der runtime-user `node`
+  hatte also KEINE git-Identity („Author identity unknown“) und KEINEN `credential.helper`
+  (HTTPS-`git push` → „could not read Username for 'https://github.com'“). `gh` selbst lief
+  (liest `GH_TOKEN` aus env), aber **git** nicht.
+  - `Dockerfile`: `git config --global` → `--system` (identity gilt jetzt unabhängig von `$HOME`).
+  - `entrypoint.sh` (Schritt 5c): `gh auth setup-git --hostname github.com` als `node` + Warnung
+    wenn `gh auth status` nicht ok oder `GH_TOKEN` fehlt. `gh` wird dadurch als git-HTTP-
+    credential-helper verdrahtet.
+- `build.yml`: `GHCR_TOKEN` (PAT) → built-in `${{ github.token }}` + explizit
+  `permissions: { contents: read, packages: write }`. Ein Repo-Secret weniger.
+- README: Secrets sauber getrennt (runtime `config/.env` vs. GitHub repo secrets).
+
 Offen (Live-Touchpoints, brauchen Approval):
 
 - Server-Branch `feat/separate-state-config` → `main` umstellen.
@@ -155,7 +170,7 @@ Der GHCR-Flow ist nur TEILWEISE im Repo.
 - **README** dokumentiert noch den ALTEN Flow (`scp Dockerfile → projectmellon → docker save/load`), nicht GHCR.
 - **"projectmellon.de" taucht nirgends als explizite Konfiguration auf** — der Build dort läuft nur
   implizit über den `self-hosted`-Runner. Es gibt KEIN Runner-Setup/Script/Doku im Repo.
-- **`GHCR_TOKEN`** (in `build.yml` genutzt) ist in README-"Secrets" nicht dokumentiert (nur `GH_TOKEN`).
+- **`GHCR_TOKEN`** ist obsolet: `build.yml` nutzt jetzt `${{ github.token }}` (kein PAT mehr).
 - **`scripts/test-branch.sh`** nutzt noch den alten local-build-Flow (scp + `docker build` + save/load),
   nicht GHCR, und das alte Volume-Layout (`config:/home/node/.openclaw:ro` statt `config:/openclaw-config:ro`).
 - **`ansible/deploy.yml`** broken (falsche `../../services/...`-Pfade) + alter `.env`-Writer.

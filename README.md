@@ -163,6 +163,8 @@ The receiver validates the token and starts `openclaw-build.service`.
 
 ## Secrets
 
+### Runtime (`config/.env` on `.149`)
+
 Never committed to this repo. Copy `.env.example` → `config/.env` on the deploy host
 (the real secret file lives at `/opt/apps/openclaw/config/.env` on `.149`):
 
@@ -170,10 +172,17 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
 - `KAGI_API` — Web search
 - `TELEGRAM_BOT_TOKEN` — Telegram channel
 - `OPENCLAW_GATEWAY_TOKEN` — Gateway auth token
-- `GH_TOKEN` — GitHub PR creation
+- `GH_TOKEN` — GitHub CLI auth (classic PAT, scopes `repo, workflow`) — used by `gh`
+  and as git's HTTPS credential helper (seeded via `gh auth setup-git` in `entrypoint.sh`)
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
 - `GEMINI_API_KEY` — Image/Vision
+
+### GitHub repo secrets (Actions)
+
+- `DEPLOY_TOKEN` — deploy webhook bearer (matches `/opt/apps/openclaw/webhook-token`).
+- GHCR login/push uses the built-in `GITHUB_TOKEN` (`github.token`, `packages: write`)
+  — no separate `GHCR_TOKEN` PAT required.
 
 ## Config vs Runtime State (Trennung)
 

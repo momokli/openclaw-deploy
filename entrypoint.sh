@@ -71,5 +71,22 @@ if [ -n "$DEEPSEEK_API_KEY" ]; then
     fi
 fi
 
+# 5c. Seed gh auth so coding agents can `git push` (HTTPS) and `gh pr create`.
+#     `gh` reads GH_TOKEN from env, but git needs `gh` as its credential helper —
+#     without it, HTTPS push fails with "could not read Username".
+#     `gh auth setup-git` is idempotent and safe on every start.
+if [ -n "$GH_TOKEN" ]; then
+    if gosu node gh auth setup-git --hostname github.com; then
+        log "gh credential helper configured for github.com"
+    else
+        log "WARN: failed to configure gh credential helper"
+    fi
+    if ! gosu node gh auth status >/dev/null 2>&1; then
+        log "WARN: gh is NOT authenticated — check GH_TOKEN format/scope"
+    fi
+else
+    log "WARN: GH_TOKEN not set — gh CLI / git HTTPS will fail"
+fi
+
 # 6. Start gateway as node (original entrypoint: tini)
 exec gosu node tini -s -- "$@"
