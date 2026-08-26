@@ -70,10 +70,26 @@ if (params.host === "gateway" && params.managedLocalIdentity === false) {
 
 1. **`Dockerfile`**: Base-Image gepinnt auf `openclaw/openclaw:2026.8.1-beta.3-slim`
    (mit Kommentar). Zurück auf `:slim`, sobald stable 2026.8.1 den Fix enthält.
-2. Kein Config-Feld nötig — der bestehende `env.vars`-Block in `config/openclaw.json`
-   (`"GH_TOKEN": "${GH_TOKEN}"`) bleibt korrekt; er versorgt den Gateway-Prozess,
-   der Fix re-injiziert das Token dann in exec-Children.
-3. Kein Token wird committed — `.env` bleibt nur auf `.149`
+2. **`config/openclaw.json`**: Migriert auf das beta.3-Schema (sonst verweigert der
+   Gateway den Start):
+   - `agents.list` (Array) → `agents.entries` (keyed by agent id)
+   - `agents.defaults.memorySearch` → top-level `memory.search`
+   - `agents.ownership: "explicit"` (Pflicht bei Multi-Agent-Rostern)
+   - `agents.defaults.systemAgent.agentId: "main"` (ambient owner für CLI/
+     `agent exec`; erhält auch den Heartbeat-Owner wie bisher)
+   - Top-level `bindings: [{ agentId: "main", match: { channel: "telegram" } }]`
+     (beta.3 verlangt explizite Channel-Bindings bei Multi-Agent)
+   - `meta.lastTouchedAt` entfernt (nur `lastTouchedVersion` erlaubt)
+3. **`scripts/build-and-deploy.sh`**: Bei Image-Wechsel läuft vor `compose up`
+   einmalig `openclaw doctor --fix --non-interactive` in einem Throwaway-Container
+   gegen die State-Volumes (migriert Legacy-Device-Identity, installiert fehlende
+   konfigurierte Provider-Plugins, SQLite-Migrationen). Zusätzlich ein
+   Restart-Retry im Health-Wait als Konvergenz-Sicherheitsnetz.
+4. Kein Config-Feld für den Token-Durchstich nötig — der bestehende
+   `env.vars`-Block in `config/openclaw.json` (`"GH_TOKEN": "${GH_TOKEN}"`)
+   bleibt korrekt; der Upstream-Fix re-injiziert das Token vom Gateway-Prozess
+   in alle exec-Kommandos.
+5. Kein Token wird committed — `.env` bleibt nur auf `.149`
    (`/opt/apps/openclaw/config/.env`).
 
 ## Verifikation
@@ -86,24 +102,47 @@ cat /proc/1/environ | tr '\0' '\n' | grep ^GH_TOKEN   # vorhanden (Gateway-Proze
 gh auth status                 # "You are not logged into any GitHub hosts."
 ```
 
-### Nach dem Deploy (2026.8.1-beta.3)
+### Nach dem Fix (2026.8.1-beta.3) — isoliert auf .149 verifiziert
+
+Upgrade-Pfad exakt wie in `build-and-deploy.sh` nachgestellt (Klone der
+Produktions-Volumes `openclaw_home`/`openclaw_workspace` + echte `config/.env`):
+
+```sh
+ssh lan
+cd /opt/apps/openclaw
+./scripts/test-branch.sh feature/gh-token-env   # baut Branch-Image lokal
+# State-Migration (wie Deploy-Script):
+docker run --rm -u node \
+  -v openclaw_test_upgrade_home:/home/node/.openclaw \
+  -v openclaw_test_upgrade_ws:/home/node/.openclaw/workspace \
+  -v /tmp/oc-test-config:/openclaw-config:ro \
+  --env-file config/.env \
+  --entrypoint openclaw openclaw-test:feature-gh-token-env \
+  doctor --fix --non-interactive
+```
+
+Ergebnis (end-to-end über den echten exec-Tool-Pfad, `openclaw agent exec`):
+
+```
+1) gh auth status:
+   ✓ Logged in to github.com account momokli (GH_TOKEN)
+2) gh api user -q .login:
+   momokli
+3) env | grep -c ^GH_TOKEN=:
+   1
+```
+
+- Gateway nach Migration beim ERSTEN Start healthy (`/healthz` → `{"ok":true,"status":"live"}`)
+- Telegram-Channel startet mit Binding (`@momomemos_bot`), kein Konflikt im Prod-Betrieb
+- Sub-Agents: gleicher Prozess/gleicher exec-Pfad → Token ebenso vorhanden
+  (per `sessions_spawn`-Sub-Agent analog getestet)
+
+### Nach Merge + Prod-Deploy (finaler Gate)
 
 ```sh
 gh auth status                 # "Logged in to github.com account momokli ... (GH_TOKEN)"
 gh api user -q .login          # momokli
 env | grep -c '^GH_TOKEN='     # 1 (ohne Token-Wert auszugeben!)
-```
-
-Zusätzlich per Sub-Agent-Spawn getestet (sessions_spawn → Sub-Agent → exec):
-auch dort ist `GH_TOKEN` gesetzt (gleicher exec-Pfad im Gateway-Prozess).
-
-### Isolierter Live-Test ohne Produktions-Deploy
-
-```sh
-ssh lan
-cd /opt/apps/openclaw
-./scripts/test-branch.sh feature/gh-token-env   # baut Branch-Image lokal, Test-Container :18790
-docker exec -u node openclaw-test openclaw --version   # 2026.8.1-beta.3
 ```
 
 ## Rollback

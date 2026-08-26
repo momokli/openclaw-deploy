@@ -95,14 +95,27 @@ fi
 # The entrypoint runs openclaw CLI steps (auth seeding, plugin ensure) before
 # the gateway binds its HTTP port, so startup can take up to ~2 min on a cold
 # boot. Give it a generous window before declaring failure.
+# Health wait with one restart retry as convergence safety net (first boot after
+# an image upgrade may need a restart to settle; see PR #7).
 HEALTHY=0
-for i in $(seq 1 90); do
-    if docker exec openclaw curl -sf http://localhost:18789/healthz > /dev/null 2>&1; then
-        HEALTHY=1
-        log "Container healthy"
+for attempt in 1 2; do
+    HEALTHY=0
+    for i in $(seq 1 45); do
+        if docker exec openclaw curl -sf http://localhost:18789/healthz > /dev/null 2>&1; then
+            HEALTHY=1
+            log "Container healthy"
+            break
+        fi
+        sleep 2
+    done
+    if [ "$HEALTHY" = "1" ]; then
         break
     fi
-    sleep 2
+    if [ "$attempt" = "1" ]; then
+        log "Gateway not healthy after first window — one restart for first-boot convergence"
+        docker restart openclaw >/dev/null 2>&1 || true
+        sleep 10
+    fi
 done
 
 if [ "$HEALTHY" != "1" ]; then
