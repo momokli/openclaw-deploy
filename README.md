@@ -211,8 +211,10 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
 - `OPENCLAW_GATEWAY_TOKEN` — Gateway auth token
 - `GH_TOKEN` — GitHub CLI auth (**aktuell**: persönliches PAT, Scopes `repo, workflow`)
   — wird durch GitHub App „momo-bot" abgelöst (Migration: [SETUP.md](SETUP.md));
-  bis dahin aktiv als git HTTPS credential helper (seeded via `entrypoint.sh` Schritt 5c)
-- `GH_APP_ID` / `GH_APP_INSTALLATION_ID` — GitHub App „momo-bot" (optional, migriert
+  bis dahin aktiv als git HTTPS credential helper (seeded via `entrypoint.sh` Schritt 5c).
+  Erreicht `exec`/Sub-Agent-Shells über die Gateway-Prozess-Env (ab Image
+  `2026.8.1`, siehe [docs/gh-token-exec-env.md](docs/gh-token-exec-env.md))
+- `GH_APP_ID` / `GH_APP_INSTALLATION_ID` — GitHub App „momo-bot“ (optional, migriert
   die Auth vom PAT weg; Installation-Tokens ~1h → frisches Token bei Containerstart
   via `gh-app-auth.sh`, on-demand bei 401)
 - `GH_APP_PRIVATE_KEY_FILE` — Pfad zum App-Private-Key **im Container**
