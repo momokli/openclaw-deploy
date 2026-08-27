@@ -1,10 +1,11 @@
-# Infra-Zugriff — Hetzner / Contabo / Cloudflare
+# Infra-Zugriff — Hetzner / Contabo / Cloudflare / INWX
 
-Stand: 2026-08-27. Zugriff auf die drei Cloud-APIs, u.a. für den Dekommissionierungs-Plan
-des Hetzner-Stacks. Die Tokens werden **ausschließlich** über Umgebungsvariablen genutzt
-(`config/.env` auf `.149`, gitignored) und **nie** committet.
+Stand: 2026-08-27. Zugriff auf die Cloud-APIs von Hetzner (zwei Projekte), Contabo,
+Cloudflare sowie den Domain-Registrar INWX, u.a. für den Dekommissionierungs-Plan des
+Hetzner-Stacks. Die Tokens/Zugangsdaten werden **ausschließlich** über Umgebungsvariablen
+genutzt (`config/.env` auf `.149`, gitignored) und **nie** committet.
 
-Schnell-Check aller drei APIs:
+Schnell-Check aller APIs:
 
 ```sh
 ./scripts/infra-status.sh
@@ -20,36 +21,50 @@ in die Shell laden:
 set -a; source config/.env; set +a
 ```
 
-| Variable                    | Zweck                                    |
-| --------------------------- | ---------------------------------------- |
-| `HETZNER_API_TOKEN`         | Hetzner Cloud API v1 (Bearer)            |
-| `CONTABO_CLIENT_ID`         | Contabo Cloud API v2 (OAuth2-Client)     |
-| `CONTABO_CLIENT_SECRET`     | Contabo Cloud API v2 (OAuth2-Secret)     |
-| `CLOUDFLARE_API_TOKEN`      | Cloudflare API v4 (Bearer)               |
+| Variable                          | Zweck                                          |
+| --------------------------------- | ---------------------------------------------- |
+| `HETZNER_API_TOKEN_STORAGEBOXES`  | Hetzner Cloud API v1, Projekt **StorageBoxes** |
+| `HETZNER_API_TOKEN_MITTELERDE`    | Hetzner Cloud API v1, Projekt **mittelerde**   |
+| `CONTABO_CLIENT_ID`               | Contabo Cloud API v2 (OAuth2-Client)           |
+| `CONTABO_CLIENT_SECRET`           | Contabo Cloud API v2 (OAuth2-Secret)           |
+| `CLOUDFLARE_API_TOKEN`            | Cloudflare API v4 (Bearer)                     |
+| `INWX_API_USER`                   | INWX DomRobot – Benutzername (Login)           |
+| `INWX_API_PASSWORD`               | INWX DomRobot – API-Passwort                   |
 
 ## Hetzner Cloud
 
-API-Basis: `https://api.hetzner.cloud/v1` — Auth: `Authorization: Bearer $HETZNER_API_TOKEN`.
+API-Basis: `https://api.hetzner.cloud/v1` — Auth: `Authorization: Bearer $HETZNER_API_TOKEN_...`.
+
+**Wichtig — ein Token pro Projekt:** Die Hetzner-API ist **projektbezogen**: ein
+API-Token sieht ausschließlich die Ressourcen (Server, Volumes, Netzwerke, Rechnungen)
+des Projekts, in dem er erzeugt wurde. Die StorageBoxes wurden in ein eigenes Projekt
+migriert (Hetzner erlaubt kein Zusammenlegen von Projekten), daher gibt es **zwei**
+Tokens:
+
+- `HETZNER_API_TOKEN_STORAGEBOXES` → Projekt **StorageBoxes** (Storage-Boxen/Volumes)
+- `HETZNER_API_TOKEN_MITTELERDE` → Projekt **mittelerde** (dort laufen die Server)
 
 ```sh
-curl -H "Authorization: Bearer $HETZNER_API_TOKEN" https://api.hetzner.cloud/v1/servers
+# Projekt mittelerde: Server
+curl -H "Authorization: Bearer $HETZNER_API_TOKEN_MITTELERDE" https://api.hetzner.cloud/v1/servers
+# Projekt StorageBoxes: Volumes / Storage-Boxen
+curl -H "Authorization: Bearer $HETZNER_API_TOKEN_STORAGEBOXES" https://api.hetzner.cloud/v1/volumes
 ```
 
-Weitere relevante Endpunkte:
+Weitere relevante Endpunkte (jeweils mit dem Token des passenden Projekts):
 
 ```sh
-# Volumes (angehängte Festplatten)
-curl -H "Authorization: Bearer $HETZNER_API_TOKEN" https://api.hetzner.cloud/v1/volumes
-# Private Networks
-curl -H "Authorization: Bearer $HETZNER_API_TOKEN" https://api.hetzner.cloud/v1/networks
-# Rechnungen (für Kosten)
-curl -H "Authorization: Bearer $HETZNER_API_TOKEN" https://api.hetzner.cloud/v1/invoices
+# Private Networks (Projekt mittelerde)
+curl -H "Authorization: Bearer $HETZNER_API_TOKEN_MITTELERDE" https://api.hetzner.cloud/v1/networks
+# Rechnungen / Kosten (Projekt mittelerde)
+curl -H "Authorization: Bearer $HETZNER_API_TOKEN_MITTELERDE" https://api.hetzner.cloud/v1/invoices
 ```
 
 **Alternative (hcloud-CLI):** Falls die `hcloud`-CLI installiert ist, geht es einfacher —
 sie liest das Token aus `HCLOUD_TOKEN` bzw. `--token`:
 
 ```sh
+export HCLOUD_TOKEN="$HETZNER_API_TOKEN_MITTELERDE"
 hcloud server list
 hcloud volume list
 hcloud invoice list
@@ -93,13 +108,57 @@ curl -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   "https://api.cloudflare.com/client/v4/zones/<ZONE_ID>/dns_records"
 ```
 
+## INWX (Domain-Registrar, DomRobot)
+
+INWX ist der Domain-Registrar. Die **DomRobot**-API authentifiziert mit **Benutzer +
+Passwort** (kein klassisches API-Token) — HTTP Basic Auth mit dem INWX-Login
+(`INWX_API_USER`) und dem API-Passwort (`INWX_API_PASSWORD`). Zwei Endpunkte:
+
+- **REST:** `https://api.inwx.com/rest/` (empfohlen, einfach mit curl)
+- **XML-RPC:** `https://api.inwx.com/xmlrpc/` (klassisches DomRobot-Protokoll)
+
+Die REST-Endpunkte entsprechen den DomRobot-Methodennamen (`domain.list`,
+`nameserver.info`, …). Die Antwort ist standardmäßig XML — mit dem Header
+`Accept: application/json` kommt JSON.
+
+Domains-Liste abrufen:
+
+```sh
+curl -s -u "$INWX_API_USER:$INWX_API_PASSWORD" \
+  -H "Accept: application/json" \
+  "https://api.inwx.com/rest/domain.list"
+```
+
+Nameserver eines Domains prüfen:
+
+```sh
+curl -s -u "$INWX_API_USER:$INWX_API_PASSWORD" \
+  -H "Accept: application/json" \
+  "https://api.inwx.com/rest/nameserver.info?domain=example.de"
+```
+
+XML-RPC-Alternative (gleiche Methode, XML-Payload):
+
+```sh
+curl -s -u "$INWX_API_USER:$INWX_API_PASSWORD" \
+  https://api.inwx.com/xmlrpc/ \
+  -d '<?xml version="1.0"?><methodCall><methodName>domain.list</methodName><params></params></methodCall>'
+```
+
+Hinweise:
+
+- Erfolgreiche Antworten liefern den Code `1000`; Fehler einen eigenen Fehlercode
+  (z. B. `2001` = Login fehlgeschlagen) plus `msg`-Beschreibung.
+- Das API-Passwort ist **nicht** das Account-Passwort — es wird im INWX-Panel
+  separat für den API-Zugriff gesetzt/verwaltet.
+
 ## Best Practices
 
 - **Tokens nur via Env nutzen, nie committen.** Die echten Werte gehören ausschließlich
   in `config/.env` auf `.149` — dort ist die Datei gitignored und wird von docker-compose
   (`env_file`) + `entrypoint.sh` injiziert.
-- Keine Tokens in Shell-History, Logs oder Screenshots ausgeben.
+- Keine Tokens/Passwörter in Shell-History, Logs oder Screenshots ausgeben.
 - Bei API-Fehlern zuerst prüfen, ob der Token noch gültig bzw. die IP erlaubt ist
-  (Hetzner/Cloudflare unterstützen IP-Allowlists).
+  (Hetzner/Cloudflare unterstützen IP-Allowlists; INWX: Login/API-Passwort prüfen).
 - Für automatisierte Checks `scripts/infra-status.sh` nutzen (skippt fehlende Tokens
   mit Warnung, Exit-Code 0).
