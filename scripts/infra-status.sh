@@ -86,7 +86,7 @@ contabo_status() {
     return 0
   fi
   # Split instance array into lines, keep only real instance objects (id + status).
-  local objs n i line name status region
+  local objs n i line name status region rest
   objs=$(printf '%s' "$json" \
     | sed -e 's/\[{"id":/[\n{"id":/g' -e 's/},{"id":/\n{"id":/g' \
     | grep -E '^{"id":[0-9]+.*"status":"' || true)
@@ -97,9 +97,14 @@ contabo_status() {
   n=$(printf '%s' "$objs" | grep -c . || true)
   i=0
   while IFS= read -r line; do
-    name=$(printf '%s' "$line" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')
-    status=$(printf '%s' "$line" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
-    region=$(printf '%s' "$line" | sed -n 's/.*"region":"\([^"]*\)".*/\1/p')
+    # Extract FIRST occurrence of each field (greedy sed would pick later
+    # fields, e.g. the empty "name" inside bootVolume).
+    rest="${line#*\"name\":\"}"
+    if [ "$rest" != "$line" ]; then name="${rest%%\"*}"; else name=""; fi
+    rest="${line#*\"status\":\"}"
+    if [ "$rest" != "$line" ]; then status="${rest%%\"*}"; else status=""; fi
+    rest="${line#*\"region\":\"}"
+    if [ "$rest" != "$line" ]; then region="${rest%%\"*}"; else region=""; fi
     if [ -n "$region" ]; then
       printf '  %-28s %-12s %s\n' "$name" "$status" "$region"
     else
