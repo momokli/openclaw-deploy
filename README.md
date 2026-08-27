@@ -123,6 +123,20 @@ a deploy immediately via an HTTPS webhook:
 The workflow (`build.yml`) POSTs to `/deploy` with `Authorization: Bearer $DEPLOY_TOKEN`.
 The receiver validates the token and starts `openclaw-build.service`.
 
+## Infra-Zugriff
+
+Die Agent-Umgebung hat Zugriff auf die Cloud-APIs von **Hetzner**, **Contabo** und
+**Cloudflare** (z. B. für den Dekommissionierungs-Plan des Hetzner-Stacks). Details und
+curl-Beispiele: [docs/infra-access.md](docs/infra-access.md).
+
+Die Secrets (`HETZNER_API_TOKEN`, `CONTABO_CLIENT_ID`, `CONTABO_CLIENT_SECRET`,
+`CLOUDFLARE_API_TOKEN`) liegen in `config/.env` auf `.149` (gitignored, nie committen —
+siehe [Secrets](#secrets)). Schnell-Check aller drei APIs:
+
+```sh
+./scripts/infra-status.sh
+```
+
 ## Agents
 
 | Agent                 | Model    | Purpose                 |
@@ -177,6 +191,9 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
 - `GEMINI_API_KEY` — Image/Vision
+- `HETZNER_API_TOKEN` — Hetzner Cloud API
+- `CONTABO_CLIENT_ID` / `CONTABO_CLIENT_SECRET` — Contabo Cloud API v2 (OAuth2)
+- `CLOUDFLARE_API_TOKEN` — Cloudflare API
 
 ### GitHub repo secrets (Actions)
 

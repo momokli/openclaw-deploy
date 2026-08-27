@@ -15,7 +15,11 @@
   "env": {
     "vars": {
       "KAGI_API": "${KAGI_API}",
-      "GH_TOKEN": "${GH_TOKEN}"
+      "GH_TOKEN": "${GH_TOKEN}",
+      "HETZNER_API_TOKEN": "${HETZNER_API_TOKEN}",
+      "CONTABO_CLIENT_ID": "${CONTABO_CLIENT_ID}",
+      "CONTABO_CLIENT_SECRET": "${CONTABO_CLIENT_SECRET}",
+      "CLOUDFLARE_API_TOKEN": "${CLOUDFLARE_API_TOKEN}"
     }
   },
   "agents": {
