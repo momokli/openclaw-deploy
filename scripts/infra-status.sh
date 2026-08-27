@@ -1,5 +1,5 @@
 #!/bin/bash
-# infra-status.sh — compact status overview of Hetzner (Cloud + Robot) / Contabo / Cloudflare / INWX.
+# infra-status.sh — compact status overview of Hetzner (Cloud) / Contabo / Cloudflare / INWX.
 # Usage: ./scripts/infra-status.sh   (run on .149 or anywhere with the tokens exported)
 #
 # Tokens are read from the environment only (config/.env on .149, gitignored).
@@ -18,14 +18,14 @@ warn() { echo "WARN: $*" >&2; }
 # --- JSON-Helfer: jq bevorzugt, sonst python3 ---------------------------------
 # json_rows <schema>  (JSON auf stdin) -> TSV-Zeilen, eine pro Objekt.
 #   schema "servers"    -> name \t status \t typ \t location   (Hetzner Cloud)
-#   schema "storagebox" -> id \t login \t name \t product \t location (Robot API)
+#   schema "storagebox" -> id \t username \t name \t typ \t status \t location (Hetzner Cloud, Projekt StorageBoxes)
 #   schema "contabo"    -> name \t status \t region            (Contabo API)
 json_rows() {
   local schema="$1"
   if command -v jq >/dev/null 2>&1; then
     case "$schema" in
       servers)    jq -r '.servers[] | [.name, .status, (.server_type.name // ""), (.location.name // "")] | @tsv' 2>/dev/null || true ;;
-      storagebox) jq -r '.[] | .storagebox | [.id, .login, .name, .product, .location] | @tsv' 2>/dev/null || true ;;
+      storagebox) jq -r '.storage_boxes[] | [.id, .username, .name, (.storage_box_type.name // ""), .status, ((.storage_box_type.prices[0].location // ""))] | @tsv' 2>/dev/null || true ;;
       contabo)    jq -r '.data[] | [.name, .status, .region] | @tsv' 2>/dev/null || true ;;
     esac
     return 0
@@ -42,15 +42,17 @@ if kind == "servers":
         loc = s.get("location") or {}
         rows.append("\t".join([s.get("name", ""), s.get("status", ""), st.get("name", ""), loc.get("name", "")]))
 elif kind == "storagebox":
-    # Robot API: [{"storagebox": {...}}, ...]; defensiv auch Objekt/Bare-Liste.
-    items = d if isinstance(d, list) else d.get("storagebox", [])
-    if isinstance(items, dict):
-        items = [items]
-    for it in items:
-        b = it.get("storagebox") if isinstance(it, dict) and isinstance(it.get("storagebox"), dict) else it
+    # Hetzner Cloud API v1: {"storage_boxes": [{"id", "username", "name", "status", "storage_box_type": {...}}]}
+    items = d.get("storage_boxes", []) if isinstance(d, dict) else []
+    for b in items:
         if not isinstance(b, dict):
             continue
-        rows.append("\t".join([str(b.get("id", "")), b.get("login", ""), b.get("name", ""), b.get("product", ""), b.get("location", "")]))
+        sbt = b.get("storage_box_type") or {}
+        prices = sbt.get("prices") or []
+        loc = ""
+        if prices and isinstance(prices[0], dict):
+            loc = prices[0].get("location", "") or ""
+        rows.append("\t".join([str(b.get("id", "")), b.get("username", ""), b.get("name", ""), sbt.get("name", ""), b.get("status", ""), loc]))
 elif kind == "contabo":
     for i in d.get("data", []):
         rows.append("\t".join([i.get("name", ""), i.get("status", ""), i.get("region", "")]))
@@ -63,7 +65,7 @@ print("\n".join(rows))
 }
 
 # json_errmsg  (JSON auf stdin) -> "code: message" eines API-Fehlerobjekts, sonst leer.
-# Versteht {"error": {"code","message"}} (Hetzner Cloud/Robot) und
+# Versteht {"error": {"code","message"}} (Hetzner Cloud) und
 # {"error":"...","error_description":"..."} (Contabo Keycloak).
 json_errmsg() {
   if ! command -v python3 >/dev/null 2>&1; then
@@ -126,27 +128,31 @@ hetzner_project_status() {
   fi
 }
 
-# --- Hetzner StorageBoxes (Robot API, NICHT Cloud-API) -------------------------
-# StorageBoxes laufen ueber https://robot-ws.your-server.de (Robot Webservice) mit
-# HTTP Basic Auth (Webservice-User + Passwort aus dem Robot-Panel). Der Hetzner
-# Cloud-API-Token kann das NICHT (kein /storage_boxes-Endpunkt, HTTP 404).
+# --- Hetzner StorageBoxes (Cloud-API v1, Projekt StorageBoxes) ------------------
+# Die StorageBoxes wurden ins Hetzner-Cloud-Projekt 11031986 migriert und sind
+# seitdem ueber die Hetzner Cloud API abrufbar:
+#   https://api.hetzner.com/v1/storage_boxes (Bearer-Token, projektgebunden)
+# Ein separater Token (HETZNER_API_TOKEN_STORAGEBOXES) ist noetig, weil ein
+# Cloud-Token nur sein eigenes Projekt sieht. Die alte Robot-API
+# (https://robot-ws.your-server.de/storagebox, HTTP Basic Auth) wird nicht mehr
+# genutzt - die StorageBoxes sind dort nicht mehr verfuegbar.
 hetzner_storageboxes_status() {
-  local user="${HETZNER_ROBOT_USER:-}" pass="${HETZNER_ROBOT_PASSWORD:-}"
-  echo "=== Hetzner StorageBoxes (Robot API) ==="
-  if [ -z "$user" ] || [ -z "$pass" ]; then
-    warn "StorageBoxes sind NICHT ueber die Hetzner Cloud API abrufbar (kein /storage_boxes-Endpunkt, HTTP 404) - sie laufen ueber die Robot API (https://robot-ws.your-server.de/storagebox, HTTP Basic Auth mit Webservice-User + Passwort, nicht Cloud-Token). HETZNER_ROBOT_USER / HETZNER_ROBOT_PASSWORD nicht gesetzt - Sektion uebersprungen"
+  local token="${HETZNER_API_TOKEN_STORAGEBOXES:-}"
+  echo "=== Hetzner StorageBoxes (Cloud API, Projekt StorageBoxes) ==="
+  if [ -z "$token" ]; then
+    warn "HETZNER_API_TOKEN_STORAGEBOXES nicht gesetzt (Cloud-API-Token fuer das StorageBoxes-Projekt 11031986) - Sektion uebersprungen"
     return 0
   fi
-  local json err rows n id login name product loc
-  json=$(curl -sS --max-time 15 -u "$user:$pass" \
-    https://robot-ws.your-server.de/storagebox || true)
+  local json err rows n id username name type status loc
+  json=$(curl -sS --max-time 15 -H "Authorization: Bearer $token" \
+    https://api.hetzner.com/v1/storage_boxes || true)
   if [ -z "$json" ]; then
-    warn "Hetzner Robot: leere Antwort / curl-Fehler"
+    warn "Hetzner StorageBoxes: leere Antwort / curl-Fehler"
     return 0
   fi
   if printf '%s' "$json" | grep -q '"error"'; then
     err=$(printf '%s' "$json" | json_errmsg)
-    warn "Hetzner Robot: API-Fehler${err:+: $err}"
+    warn "Hetzner StorageBoxes: API-Fehler${err:+: $err}"
     return 0
   fi
   rows=$(printf '%s' "$json" | json_rows storagebox || true)
@@ -155,8 +161,8 @@ hetzner_storageboxes_status() {
     return 0
   fi
   n=0
-  while IFS=$'\t' read -r id login name product loc; do
-    printf '  %-28s %-8s %-6s Login %s (ID %s)\n' "$name" "$product" "$loc" "$login" "$id"
+  while IFS=$'\t' read -r id username name type status loc; do
+    printf '  %-28s %-10s %-8s %-6s Login %s (ID %s)\n' "$name" "$status" "$type" "$loc" "$username" "$id"
     n=$((n + 1))
   done <<< "$rows"
   if [ "$n" -eq 1 ]; then
@@ -166,19 +172,32 @@ hetzner_storageboxes_status() {
   fi
 }
 
-# --- Contabo (Cloud API v2, OAuth2 client_credentials) -------------------------
+# --- Contabo (Cloud API v2, OAuth2 password grant) ----------------------------
+# Laut offizieller OpenAPI (https://api.contabo.com) ist der korrekte Flow
+# grant_type=password: client_id + client_secret (OAuth2-Client aus der CCP),
+# username = API User (die CCP-Email) und password = API Password (separates
+# Passwort aus my.contabo.com/api/details, NICHT das CCP-Login-Passwort).
+# grant_type=client_credentials scheitert mit "unauthorized_client: Client not
+# enabled to retrieve service account".
 contabo_status() {
   local cid="${CONTABO_CLIENT_ID:-}" csec="${CONTABO_CLIENT_SECRET:-}"
+  local cuser="${CONTABO_API_USER:-}" cpass="${CONTABO_API_PASSWORD:-}"
   if [ -z "$cid" ] || [ -z "$csec" ]; then
     warn "CONTABO_CLIENT_ID / CONTABO_CLIENT_SECRET nicht gesetzt - Contabo-Sektion uebersprungen"
     return 0
   fi
+  if [ -z "$cuser" ] || [ -z "$cpass" ]; then
+    warn "CONTABO_API_USER / CONTABO_API_PASSWORD nicht gesetzt (API User = CCP-Email, API Password = separates Passwort aus my.contabo.com/api/details) - Contabo-Sektion uebersprungen"
+    return 0
+  fi
   echo "=== Contabo: Instances ==="
-  local tokjson tok json err rows n line name status region
+  local tokjson tok json err rows n line name status region rid
   tokjson=$(curl -sS --max-time 15 \
     --data-urlencode "client_id=$cid" \
     --data-urlencode "client_secret=$csec" \
-    --data-urlencode "grant_type=client_credentials" \
+    --data-urlencode "username=$cuser" \
+    --data-urlencode "password=$cpass" \
+    -d "grant_type=password" \
     https://auth.contabo.com/auth/realms/contabo/protocol/openid-connect/token || true)
   if [ -z "$tokjson" ]; then
     warn "Contabo: Token-Abfrage fehlgeschlagen (curl/leere Antwort)"
@@ -188,15 +207,23 @@ contabo_status() {
   if [ -z "$tok" ]; then
     err=$(printf '%s' "$tokjson" | json_errmsg)
     if [ -n "$err" ]; then
-      # err kommt von der API (z. B. "unauthorized_client: Client not enabled ...") -
+      # err kommt von der API (z. B. "invalid_grant: Invalid user credentials") -
       # keine Secrets, nur der Server-Fehlertext wird ausgegeben.
-      warn "Contabo: Token-Abfrage fehlgeschlagen - ${err} (Auth-URL und Feldnamen sind korrekt: client_id/client_secret/grant_type an https://auth.contabo.com/auth/realms/contabo/protocol/openid-connect/token; bitte Client-Id/-Secret und aktivierten Service-Account pruefen)"
+      warn "Contabo: Token-Abfrage fehlgeschlagen - ${err} (grant_type=password an https://auth.contabo.com/auth/realms/contabo/protocol/openid-connect/token; API User / API Password aus my.contabo.com/api/details pruefen - das API Password ist ein separates Passwort, nicht das CCP-Login-Passwort)"
     else
-      warn "Contabo: Token-Abfrage fehlgeschlagen (kein access_token in der Antwort - Auth-URL und Feldnamen pruefen: client_id/client_secret/grant_type an https://auth.contabo.com/auth/realms/contabo/protocol/openid-connect/token)"
+      warn "Contabo: Token-Abfrage fehlgeschlagen (kein access_token in der Antwort - Auth-URL und Feldnamen pruefen: client_id/client_secret/username/password/grant_type an https://auth.contabo.com/auth/realms/contabo/protocol/openid-connect/token)"
     fi
     return 0
   fi
-  json=$(curl -sS --max-time 15 -H "Authorization: Bearer $tok" \
+  # x-request-id ist laut OpenAPI Pflicht; im Container kein uuidgen, also
+  # /proc/sys/kernel/random/uuid (Fallback: python3).
+  if [ -r /proc/sys/kernel/random/uuid ]; then
+    rid=$(cat /proc/sys/kernel/random/uuid)
+  else
+    rid=$(python3 -c 'import uuid; print(uuid.uuid4())' 2>/dev/null || true)
+  fi
+  [ -n "$rid" ] || rid="infra-status-$$-$(date +%s)"
+  json=$(curl -sS --max-time 15 -H "Authorization: Bearer $tok" -H "x-request-id: $rid" \
     https://api.contabo.com/v1/compute/instances || true)
   if [ -z "$json" ]; then
     warn "Contabo: Instances-Abfrage fehlgeschlagen (curl/leere Antwort)"
