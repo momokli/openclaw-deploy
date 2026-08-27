@@ -130,8 +130,9 @@ Die Agent-Umgebung hat Zugriff auf die Cloud-APIs von **Hetzner** (zwei Projekte
 Dekommissionierungs-Plan des Hetzner-Stacks). Details und curl-Beispiele:
 [docs/infra-access.md](docs/infra-access.md).
 
-Die Secrets (`HETZNER_API_TOKEN_STORAGEBOXES`, `HETZNER_API_TOKEN_MITTELERDE`,
-`CONTABO_CLIENT_ID`, `CONTABO_CLIENT_SECRET`, `CLOUDFLARE_API_TOKEN`, `INWX_API_USER`,
+Die Secrets (`HETZNER_API_TOKEN_MITTELERDE`, `HETZNER_API_TOKEN_STORAGEBOXES`,
+`HETZNER_ROBOT_USER`, `HETZNER_ROBOT_PASSWORD`, `CONTABO_CLIENT_ID`,
+`CONTABO_CLIENT_SECRET`, `CLOUDFLARE_API_TOKEN`, `INWX_API_USER`,
 `INWX_API_PASSWORD`) liegen in `config/.env` auf `.149` (gitignored, nie committen —
 siehe [Secrets](#secrets)). Schnell-Check aller APIs:
 
@@ -193,8 +194,9 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
 - `GEMINI_API_KEY` — Image/Vision
-- `HETZNER_API_TOKEN_STORAGEBOXES` — Hetzner Cloud API, Projekt **StorageBoxes**
 - `HETZNER_API_TOKEN_MITTELERDE` — Hetzner Cloud API, Projekt **mittelerde** (Server)
+- `HETZNER_API_TOKEN_STORAGEBOXES` — Hetzner Cloud API, Projekt **StorageBoxes** (derzeit leer)
+- `HETZNER_ROBOT_USER` / `HETZNER_ROBOT_PASSWORD` — Hetzner **Robot API** (StorageBoxes, Basic Auth)
 - `CONTABO_CLIENT_ID` / `CONTABO_CLIENT_SECRET` — Contabo Cloud API v2 (OAuth2)
 - `CLOUDFLARE_API_TOKEN` — Cloudflare API
 - `INWX_API_USER` / `INWX_API_PASSWORD` — INWX DomRobot (Domain-Registrar, User + Passwort)
