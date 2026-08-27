@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     openssh-client \
     curl \
+    jq \
     cargo \
     rustc \
     pkg-config \

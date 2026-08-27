@@ -1,6 +1,6 @@
-# Infra-Zugriff — Hetzner (Cloud + Robot) / Contabo / Cloudflare / INWX
+# Infra-Zugriff — Hetzner (Cloud) / Contabo / Cloudflare / INWX
 
-Stand: 2026-08-27. Zugriff auf die Cloud-APIs von Hetzner (Cloud-API + Robot-API),
+Stand: 2026-08-27. Zugriff auf die Cloud-APIs von Hetzner (Cloud-API),
 Contabo, Cloudflare sowie den Domain-Registrar INWX, u.a. für den
 Dekommissionierungs-Plan des Hetzner-Stacks. Die Tokens/Zugangsdaten werden
 **ausschließlich** über Umgebungsvariablen genutzt (`config/.env` auf `.149`,
@@ -25,11 +25,11 @@ set -a; source config/.env; set +a
 | Variable                          | Zweck                                                      |
 | --------------------------------- | ---------------------------------------------------------- |
 | `HETZNER_API_TOKEN_MITTELERDE`    | Hetzner Cloud API v1, Projekt **mittelerde** (Server)      |
-| `HETZNER_API_TOKEN_STORAGEBOXES`  | Hetzner Cloud API v1, Projekt **StorageBoxes** (derzeit leer) |
-| `HETZNER_ROBOT_USER`              | Hetzner **Robot**-Webservice-User (StorageBoxes, Basic Auth) |
-| `HETZNER_ROBOT_PASSWORD`          | Hetzner **Robot**-Webservice-Passwort (StorageBoxes)       |
+| `HETZNER_API_TOKEN_STORAGEBOXES`  | Hetzner Cloud API v1, Projekt **StorageBoxes** (StorageBoxes) |
 | `CONTABO_CLIENT_ID`               | Contabo Cloud API v2 (OAuth2-Client)                       |
 | `CONTABO_CLIENT_SECRET`           | Contabo Cloud API v2 (OAuth2-Secret)                       |
+| `CONTABO_API_USER`                | Contabo API User = CCP-Email (password grant)              |
+| `CONTABO_API_PASSWORD`            | Contabo API Password (separates Passwort aus my.contabo.com/api/details) |
 | `CLOUDFLARE_API_TOKEN`            | Cloudflare API v4 (Bearer)                                 |
 | `INWX_API_USER`                   | INWX DomRobot – Benutzername (Login)                       |
 | `INWX_API_PASSWORD`               | INWX DomRobot – API-Passwort                               |
@@ -41,9 +41,10 @@ API-Basis: `https://api.hetzner.cloud/v1` — Auth: `Authorization: Bearer $HETZ
 **Wichtig — ein Token pro Projekt:** Die Hetzner-API ist **projektbezogen**: ein
 API-Token sieht ausschließlich die Ressourcen (Server, Volumes, Netzwerke, Rechnungen)
 des Projekts, in dem er erzeugt wurde. Die **Server** laufen im Projekt **mittelerde**
-(`HETZNER_API_TOKEN_MITTELERDE`); das Projekt **StorageBoxes**
-(`HETZNER_API_TOKEN_STORAGEBOXES`) ist in der Cloud-API derzeit **leer** (0 Server,
-0 Volumes, 0 Netzwerke).
+(`HETZNER_API_TOKEN_MITTELERDE`); die **StorageBoxes** liegen im Projekt
+**StorageBoxes** (Projekt-ID 11031986, `HETZNER_API_TOKEN_STORAGEBOXES`) — sie wurden
+dorthin migriert und laufen seitdem über die **Cloud-API**, nicht mehr über die
+Robot-API.
 
 ```sh
 # Projekt mittelerde: Server
@@ -79,67 +80,73 @@ hcloud volume list
 hcloud invoice list
 ```
 
-## Hetzner StorageBoxes (Robot API)
+## Hetzner StorageBoxes (Cloud API, Projekt StorageBoxes)
 
-**StorageBoxes laufen NICHT über die Hetzner Cloud API.** Es gibt dort keinen
-`/storage_boxes`-Endpunkt (HTTP 404) — Storage-Boxen werden über die **Robot API**
-verwaltet: `https://robot-ws.your-server.de`, authentifiziert mit **HTTP Basic Auth**
-(Webservice-User + Passwort, **nicht** der Cloud-API-Token). Den Webservice-User legt
-man im Robot-Panel an: „Einstellungen“ → „Webservice & App-Einstellungen“.
+Die StorageBoxes wurden ins Hetzner-Cloud-Projekt **11031986** migriert und sind
+seitdem über die **Cloud-API** abrufbar (die alte Robot-API
+`https://robot-ws.your-server.de/storagebox` funktioniert dafür nicht mehr):
 
 ```sh
-# Alle StorageBoxes (Basic Auth: Robot-Webservice-User + Passwort)
-curl -u "$HETZNER_ROBOT_USER:$HETZNER_ROBOT_PASSWORD" \
-  https://robot-ws.your-server.de/storagebox
+# Alle StorageBoxes (Bearer-Token des StorageBoxes-Projekts)
+curl -H "Authorization: Bearer $HETZNER_API_TOKEN_STORAGEBOXES" \
+  https://api.hetzner.com/v1/storage_boxes
 
 # Einzelne StorageBox
-curl -u "$HETZNER_ROBOT_USER:$HETZNER_ROBOT_PASSWORD" \
-  https://robot-ws.your-server.de/storagebox/123456
+curl -H "Authorization: Bearer $HETZNER_API_TOKEN_STORAGEBOXES" \
+  https://api.hetzner.com/v1/storage_boxes/243658
 ```
 
-Die Antwort ist ein Array von `{"storagebox": {…}}`-Objekten (id, login, name,
-product, location, paid_until, …). Fehler kommen als `{"error": {"status", "code",
-"message"}}`; falsche Zugangsdaten → HTTP 401 (Achtung: nach 3 Fehlversuchen wird die
-IP für 10 Minuten blockiert).
+Die Antwort ist ein Objekt `{"storage_boxes": [{"id", "username", "name",
+"status", "storage_box_type": {"name": …}}]}`. Fehler kommen als `{"error":
+{"status", "code", "message"}}`.
 
-`scripts/infra-status.sh` zeigt die StorageBoxes nur, wenn `HETZNER_ROBOT_USER` +
-`HETZNER_ROBOT_PASSWORD` gesetzt sind — sonst erscheint ein Hinweis, dass
-StorageBoxes nicht über die Cloud-API abrufbar sind.
+`scripts/infra-status.sh` zeigt die StorageBoxes nur, wenn
+`HETZNER_API_TOKEN_STORAGEBOXES` gesetzt ist — sonst erscheint eine Warnung und die
+Sektion wird übersprungen.
 
 ## Contabo (Cloud API v2)
 
-Contabo nutzt OAuth2 (`client_credentials`). Zuerst einen Access-Token holen —
-Platzhalter durch die Werte aus `config/.env` ersetzen:
+Contabo nutzt OAuth2 mit **`grant_type=password`** (laut offizieller OpenAPI unter
+https://api.contabo.com; `client_credentials` scheitert mit `unauthorized_client`).
+Neben Client-Id/-Secret werden `username` (= **API User**, die CCP-Email) und
+`password` (= **API Password**, ein separates Passwort aus
+my.contabo.com/api/details — **nicht** das CCP-Login-Passwort) benötigt. Zuerst einen
+Access-Token holen:
 
 ```sh
-curl -d "client_id=...&client_secret=...&grant_type=client_credentials" \
+curl -d "client_id=...&client_secret=...&username=...&password=...&grant_type=password" \
   https://auth.contabo.com/auth/realms/contabo/protocol/openid-connect/token
 ```
 
-Die Antwort enthält ein Feld `access_token`. Damit dann die Instances abfragen:
+Die Antwort enthält ein Feld `access_token`. Damit dann die Instances abfragen (der
+Header `x-request-id` ist laut OpenAPI Pflicht):
 
 ```sh
-TOKEN=$(curl -s -d "client_id=$CONTABO_CLIENT_ID&client_secret=$CONTABO_CLIENT_SECRET&grant_type=client_credentials" \
+TOKEN=$(curl -s -d "client_id=$CONTABO_CLIENT_ID&client_secret=$CONTABO_CLIENT_SECRET&username=$CONTABO_API_USER&password=$CONTABO_API_PASSWORD&grant_type=password" \
   https://auth.contabo.com/auth/realms/contabo/protocol/openid-connect/token \
   | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
 
-curl -H "Authorization: Bearer $TOKEN" https://api.contabo.com/v1/compute/instances
+curl -H "Authorization: Bearer $TOKEN" \
+  -H "x-request-id: $(cat /proc/sys/kernel/random/uuid)" \
+  https://api.contabo.com/v1/compute/instances
 ```
 
 Hinweis: Der Access-Token läuft nach kurzer Zeit ab (`expires_in`, meist 3600 s) — bei
 Bedarf einfach neu holen.
 
 **Wenn die Token-Abfrage fehlschlägt:** Auth-URL und Feldnamen sind Keycloak-Standard
-(`client_id`, `client_secret`, `grant_type=client_credentials`). Die Antwort enthält
-dann einen Fehlertext, z. B.
+(`client_id`, `client_secret`, `username`, `password`, `grant_type=password`). Die
+Antwort enthält dann einen Fehlertext, z. B.
 
 ```json
-{"error":"unauthorized_client","error_description":"Client not enabled to retrieve service account"}
+{"error":"invalid_grant","error_description":"Invalid user credentials"}
 ```
 
-Das bedeutet: Client-Id/-Secret sind ungültig oder der OAuth2-Client ist im
-Contabo-Kundenportal nicht für den Service-Account-Zugriff aktiviert.
-`scripts/infra-status.sh` gibt diesen Fehlertext aus (ohne Secrets zu leaken).
+Das bedeutet: API User / API Password sind falsch oder der OAuth2-Client ist im
+Contabo-Kundenportal nicht für den API-Zugriff konfiguriert. API User und API Password
+findet man unter my.contabo.com → API-Details (das API Password ist ein separates
+Passwort, nicht das Login-Passwort). `scripts/infra-status.sh` gibt den Fehlertext aus
+(ohne Secrets zu leaken).
 
 ## Cloudflare
 
@@ -208,7 +215,9 @@ Hinweise:
 - Keine Tokens/Passwörter in Shell-History, Logs oder Screenshots ausgeben.
 - Bei API-Fehlern zuerst prüfen, ob der Token noch gültig bzw. die IP erlaubt ist
   (Hetzner/Cloudflare unterstützen IP-Allowlists; INWX: Login/API-Passwort prüfen).
-- Hetzner StorageBoxes gehören zur **Robot API** (Basic Auth) — der Cloud-API-Token
-  kann sie nicht abrufen (`/storage_boxes` → HTTP 404).
+- Hetzner StorageBoxes gehören zum Cloud-Projekt **StorageBoxes** (ID 11031986) und
+  laufen über die **Cloud-API** (`https://api.hetzner.com/v1/storage_boxes`,
+  Bearer-Token `HETZNER_API_TOKEN_STORAGEBOXES`) — die alte Robot-API wird nicht mehr
+  genutzt.
 - Für automatisierte Checks `scripts/infra-status.sh` nutzen (skippt fehlende Tokens
   mit Warnung, Exit-Code 0).
