@@ -35,11 +35,15 @@
         "fallbacks": ["deepseek/deepseek-v4-pro"]
       },
       "compaction": {
-        "model": "deepseek/deepseek-v4-flash"
+        "model": "deepseek/deepseek-v4-flash",
+        "midTurnPrecheck": {
+          "enabled": true
+        }
       },
       "utilityModel": "deepseek/deepseek-v4-flash",
       "contextPruning": {
-        "mode": "cache-ttl"
+        "mode": "cache-ttl",
+        "ttl": "5m"
       },
       "subagents": {
         "maxSpawnDepth": 2,
@@ -163,6 +167,9 @@
       "image": {
         "enabled": true
       }
+    },
+    "loopDetection": {
+      "enabled": true
     }
   },
   "session": {
