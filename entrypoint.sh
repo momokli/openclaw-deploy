@@ -72,10 +72,18 @@ if [ -n "$DEEPSEEK_API_KEY" ]; then
 fi
 
 # 5c. Seed gh auth so coding agents can `git push` (HTTPS) and `gh pr create`.
-#     `gh` reads GH_TOKEN from env, but git needs `gh` as its credential helper —
-#     without it, HTTPS push fails with "could not read Username".
-#     `gh auth setup-git` is idempotent and safe on every start.
+#     env-only GH_TOKEN does NOT reach exec shells reliably; persist the
+#     login once via hosts.yml, then wire up git's credential helper.
 if [ -n "$GH_TOKEN" ]; then
+    if [ ! -f /home/node/.config/gh/hosts.yml ]; then
+        if printf '%s\n' "$GH_TOKEN" | gosu node gh auth login --with-token; then
+            log "seeded gh auth (github.com)"
+        else
+            log "WARN: failed to seed gh auth"
+        fi
+    else
+        log "gh auth already present"
+    fi
     if gosu node gh auth setup-git --hostname github.com; then
         log "gh credential helper configured for github.com"
     else
