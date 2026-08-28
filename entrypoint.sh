@@ -80,7 +80,8 @@ fi
 if [ -n "$GH_TOKEN" ]; then
     if [ ! -f /home/node/.config/gh/hosts.yml ]; then
         GH_USER="$(GH_TOKEN="$GH_TOKEN" gh api user --jq '.login' 2>/dev/null || echo momokli)"
-        mkdir -p /home/node/.config/gh
+        # dir must be node-owned (entrypoint runs as root; gh runs as node)
+        install -d -o node -g node -m 700 /home/node/.config/gh
         cat > /tmp/gh-hosts.yml <<EOF
 github.com:
     users:
