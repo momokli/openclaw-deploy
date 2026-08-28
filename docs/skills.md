@@ -74,14 +74,18 @@ Wann aufhören und nachfragen statt variieren.
 
 ## Inventar
 
-| Skill             | Status      | Quelle                                      |
-| ----------------- | ----------- | ------------------------------------------- |
-| `minecraft-admin` | ✅ angelegt | `workspace/skills/minecraft-admin/SKILL.md` |
-| `infra-status`    | ✅ angelegt | `workspace/skills/infra-status/SKILL.md`    |
-| `analytics`       | ✅ angelegt | `workspace/skills/analytics/SKILL.md`       |
-| `cost-tracking`   | ✅ angelegt | `workspace/skills/cost-tracking/SKILL.md`   |
-| `kagi-search`     | ✅ angelegt | `workspace/skills/kagi-search/SKILL.md`     |
-| `deploy-status`   | ✅ angelegt | `workspace/skills/deploy-status/SKILL.md`   |
+| Skill              | Status      | Quelle                                                                    |
+| ------------------ | ----------- | ------------------------------------------------------------------------- |
+| `minecraft-admin`  | ✅ angelegt | `workspace/skills/minecraft-admin/SKILL.md`                               |
+| `infra-status`     | ✅ angelegt | `workspace/skills/infra-status/SKILL.md`                                  |
+| `analytics`        | ✅ angelegt | `workspace/skills/analytics/SKILL.md`                                     |
+| `cost-tracking`    | ✅ angelegt | `workspace/skills/cost-tracking/SKILL.md`                                 |
+| `kagi-search`      | ✅ angelegt | `workspace/skills/kagi-search/SKILL.md`                                   |
+| `deploy-status`    | ✅ angelegt | `workspace/skills/deploy-status/SKILL.md`                                 |
+| `price-research`   | ✅ angelegt | `workspace/skills/price-research/SKILL.md`                                |
+| `critique`         | ✅ angelegt | `workspace/skills/critique/SKILL.md`                                      |
+| `infra-explore`    | ✅ angelegt | `workspace/skills/infra-explore/SKILL.md`                                 |
+| `project-overview` | ✅ angelegt | `workspace/skills/project-overview/SKILL.md` (+ `references/projects.md`) |
 
 ## Neuen Skill anlegen
 
