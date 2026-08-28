@@ -74,13 +74,26 @@ fi
 # 5c. Seed gh auth so coding agents can `git push` (HTTPS) and `gh pr create`.
 #     env-only GH_TOKEN does NOT reach exec shells reliably; persist the
 #     login once via hosts.yml, then wire up git's credential helper.
+#     NOTE: `gh auth login --with-token` VALIDATES the token and fails with
+#     "missing required scope 'read:org'" for tokens without org access;
+#     writing hosts.yml directly skips that validation (token still works).
 if [ -n "$GH_TOKEN" ]; then
     if [ ! -f /home/node/.config/gh/hosts.yml ]; then
-        if printf '%s\n' "$GH_TOKEN" | gosu node gh auth login --with-token; then
-            log "seeded gh auth (github.com)"
-        else
-            log "WARN: failed to seed gh auth"
-        fi
+        GH_USER="$(GH_TOKEN="$GH_TOKEN" gh api user --jq '.login' 2>/dev/null || echo momokli)"
+        mkdir -p /home/node/.config/gh
+        cat > /tmp/gh-hosts.yml <<EOF
+github.com:
+    users:
+        $GH_USER:
+            oauth_token: $GH_TOKEN
+    oauth_token: $GH_TOKEN
+    user: $GH_USER
+    git_protocol: https
+EOF
+        # entrypoint runs as root; gh runs as node — install with node ownership
+        install -o node -g node -m 600 /tmp/gh-hosts.yml /home/node/.config/gh/hosts.yml
+        rm -f /tmp/gh-hosts.yml
+        log "seeded gh auth (github.com as $GH_USER)"
     else
         log "gh auth already present"
     fi
