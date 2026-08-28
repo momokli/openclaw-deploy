@@ -36,14 +36,10 @@ skills.load.extraDirs
 ---
 name: mein-skill
 description: "Kurze Noun-Phrase (<160 Zeichen): wann/worum geht es."
-metadata:
-  {
-    "openclaw":
-      {
-        "requires": { "bins": ["<binary>"] },   # optional: nur laden wenn binary da
+metadata: { "openclaw": {
+        "requires": { "bins": ["<binary>"] }, # optional: nur laden wenn binary da
         # "env": ["<VAR>"], "os": ["linux"], "primaryEnv": "<VAR>"  (weitere Gates)
-      },
-  }
+      } }
 ---
 
 # Mein Skill
@@ -78,14 +74,14 @@ Wann aufhören und nachfragen statt variieren.
 
 ## Inventar
 
-| Skill | Status | Quelle |
-| --- | --- | --- |
+| Skill             | Status      | Quelle                                      |
+| ----------------- | ----------- | ------------------------------------------- |
 | `minecraft-admin` | ✅ angelegt | `workspace/skills/minecraft-admin/SKILL.md` |
-| `infra-status` | geplant | `scripts/infra-status.sh` + `docs/infra-access.md` |
-| `analytics` | geplant | `scripts/analytics.sh` + `docs/analytics.md` |
-| `cost-tracking` | geplant | `scripts/cost-report.sh` + `cost-dashboard.sh` |
-| `kagi-search` | geplant | Kagi-Block aus `workspace/AGENTS.md` |
-| `deploy-status` | geplant | `scripts/build-and-deploy.sh` + `webhook.py` |
+| `infra-status`    | ✅ angelegt | `workspace/skills/infra-status/SKILL.md`    |
+| `analytics`       | ✅ angelegt | `workspace/skills/analytics/SKILL.md`       |
+| `cost-tracking`   | ✅ angelegt | `workspace/skills/cost-tracking/SKILL.md`   |
+| `kagi-search`     | ✅ angelegt | `workspace/skills/kagi-search/SKILL.md`     |
+| `deploy-status`   | ✅ angelegt | `workspace/skills/deploy-status/SKILL.md`   |
 
 ## Neuen Skill anlegen
 
