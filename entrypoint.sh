@@ -51,6 +51,14 @@ for base in SOUL.md AGENTS.md USER.md MEMORY.md; do
     fi
 done
 
+# 4b. Agent skills — copy git-tracked workspace skills (source of truth).
+#     OpenClaw discovers skills at <workspace>/skills (highest precedence).
+mkdir -p "$HOME_DIR/workspace/skills"
+if [ -d "$SRC/workspace/skills" ]; then
+    cp -R "$SRC/workspace/skills/." "$HOME_DIR/workspace/skills/"
+    log "agent skills synced"
+fi
+
 # 5. Ensure runtime home is owned by node (entrypoint runs as root)
 chown -R node:node "$HOME_DIR" 2>/dev/null || true
 chown -R node:node "$HOME_DIR/workspace" 2>/dev/null || true
