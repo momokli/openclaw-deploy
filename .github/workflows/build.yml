@@ -16,6 +16,7 @@ on:
 env:
   IMAGE: ghcr.io/momokli/openclaw-deploy
   OBSIDIAN_IMAGE: ghcr.io/momokli/openclaw-obsidian-sync
+  DOCKER_BUILDKIT: 1
 
 jobs:
   build:
@@ -27,8 +28,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build openclaw image
-        run: docker build -t $IMAGE:${{ github.sha }} .
+      - name: Build openclaw image (prod target)
+        run: docker build --target prod -t $IMAGE:${{ github.sha }} .
 
       - name: Test openclaw image (entrypoint + tools present)
         run: |
@@ -66,3 +67,32 @@ jobs:
           curl -fsS --max-time 30 -X POST \
             -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
             https://deploy.openclaw.simonklimke.de/deploy
+
+  # Dev-Stage (`--target dev`): OpenClaw-Image + JDK 21 (Temurin) für
+  # headless Minecraft-Mod-Entwicklung (create:yogglez / NeoForge).
+  # Eigener Job → ein Fehler hier blockiert NIE den Prod-Build/Deploy.
+  # BuildKit-Cache (type=gha) macht die JDK-/apt-Layer über Runs hinweg
+  # schnell (self-hosted Runner bekommt ACTIONS_CACHE_URL vom Job-Env).
+  dev:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build dev image (--target dev)
+        run: docker build --target dev --cache-from type=gha --cache-to type=gha,mode=max -t $IMAGE:dev-${{ github.sha }} .
+
+      - name: Test dev image (JDK 21 + tooling present)
+        run: |
+          docker run --rm $IMAGE:dev-${{ github.sha }} bash -c 'java -version && javac -version && which git gh curl cargo rustc'
+
+      - name: Login to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push dev image to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag $IMAGE:dev-${{ github.sha }} $IMAGE:dev
+          docker push $IMAGE:dev-${{ github.sha }}
+          docker push $IMAGE:dev
