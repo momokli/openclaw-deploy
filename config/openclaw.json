@@ -63,6 +63,7 @@
       "memorySearch": {
         "provider": "gemini",
         "model": "gemini-embedding-001",
+        "fallback": "local",
         "extraPaths": ["/quill"]
       }
     },
@@ -71,7 +72,20 @@
         "id": "main",
         "workspace": "/home/node/.openclaw/workspace",
         "model": "deepseek/deepseek-v4-flash",
-        "thinkingDefault": "low"
+        "thinkingDefault": "low",
+        "tools": {
+          "deny": [
+            "exec",
+            "write",
+            "edit",
+            "apply_patch",
+            "browser",
+            "canvas",
+            "nodes",
+            "cron",
+            "process"
+          ]
+        }
       },
       {
         "id": "coding-orchestrator",
