@@ -36,6 +36,7 @@
       },
       "compaction": {
         "model": "deepseek/deepseek-v4-flash",
+        "maxActiveTranscriptBytes": "2mb",
         "midTurnPrecheck": {
           "enabled": true
         }
@@ -142,6 +143,12 @@
   },
   "messages": {
     "responseUsage": "tokens",
+    "queue": {
+      "mode": "interrupt",
+      "byChannel": {
+        "telegram": "interrupt"
+      }
+    },
     "groupChat": {
       "mentionPatterns": ["@molty", "@openclaw"]
     }

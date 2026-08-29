@@ -104,17 +104,27 @@ Momo's second brain — synced via Obsidian Sync (obsidian-headless). Contains:
 
 Code work goes through the coding pipeline (`sessions_spawn` → `coding-orchestrator`), see above.
 
-**Escalation zu `thinking-orchestrator`:** Braucht eine Anfrage echtes Nachdenken (verifizieren, analysieren, Risiko-Abwägung, „prüf ob/warum/wo“) statt einer schnellen Fakten-Antwort, spawn `thinking-orchestrator` und übergib die Frage KOMPLETT:
+**Router-Prinzip (wichtig):** `main` ist ein Router, kein Arbeiter. Für JEDE Aufgabe, die
+`exec`/`edit`/`write`/`browser`/Search/Research braucht — auch einen simplen Edit — spawne einen
+Sub-Agent statt sie inline zu machen. Inline in `main` NUR: `read` (um zu verstehen, WAS zu
+spawnen ist), `sessions_spawn`, `sessions_history`, `memory_search`, und Antworten.
+
+Warum: jeder inline Tool-Call bläht `main`s Kontext → Flash degradiert → Loop. Ein Sub-Agent
+bekommt einen frischen, kleinen Kontext und arbeitet isoliert.
+
+**Spawn-Handoff (so übergibst du den richtigen Kontext):** `sessions_spawn({ agentId, label, cwd, task })`,
+`cwd` auf das Repo/Verzeichnis setzen. `task` IMMER so aufbauen:
 
 ```
-sessions_spawn({
-  agentId: "thinking-orchestrator",
-  label: "think",
-  task: "<die vollständige Frage + Kontext>"
-})
+AUFGABE: <die Anfrage, präzise>
+KONTEXT: <nur die nötigen Fakten/Pfade — NICHT die ganze History>
+ERWARTET: <was "fertig" bedeutet + Ausgabeformat>
+BERICHTEN: <kurz zurückmelden: Ergebnis/Änderung/Beweis>
 ```
 
-Mach NICHT viele kleine Verifikations-Turns selbst — das ist der Loop-Modus. EIN Orchestrator-Pass ersetzt N Turns in `main`.
+- Denken/Planen/Analysieren → `agentId: "thinking-orchestrator"`.
+- Coding/Edits → `agentId: "coding-orchestrator"` (Pipeline) oder einen Worker-Agenten.
+- Mach NICHT viele kleine Verifikations-Turns selbst — das ist der Loop-Modus.
 
 ## Cost Control
 
