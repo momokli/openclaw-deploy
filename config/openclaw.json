@@ -77,20 +77,7 @@
         "id": "main",
         "workspace": "/home/node/.openclaw/workspace",
         "model": "deepseek/deepseek-v4-flash",
-        "thinkingDefault": "low",
-        "tools": {
-          "deny": [
-            "exec",
-            "write",
-            "edit",
-            "apply_patch",
-            "browser",
-            "canvas",
-            "nodes",
-            "cron",
-            "process"
-          ]
-        }
+        "thinkingDefault": "low"
       },
       {
         "id": "coding-orchestrator",
@@ -209,21 +196,6 @@
     },
     "loopDetection": {
       "enabled": true
-    },
-    "subagents": {
-      "tools": {
-        "alsoAllow": [
-          "exec",
-          "write",
-          "edit",
-          "apply_patch",
-          "browser",
-          "canvas",
-          "nodes",
-          "cron",
-          "process"
-        ]
-      }
     }
   },
   "session": {
