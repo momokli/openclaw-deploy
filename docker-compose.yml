@@ -57,6 +57,16 @@ services:
       - default
       - caddy
 
+  # ── Ollama: self-hosted embedding provider (memory search) ─────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: openclaw-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - default
+
 networks:
   caddy:
     external: true
@@ -70,3 +80,5 @@ volumes:
   openclaw_workspace:
     name: openclaw_workspace
   obsidian_config:
+  ollama_models:
+    name: openclaw_ollama_models

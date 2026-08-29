@@ -45,7 +45,17 @@ log "Changes detected — recreating containers..."
 # compose project names caused "container name ... already in use".
 docker ps -aq --filter name=openclaw --filter status=exited | xargs -r docker rm -f 2>/dev/null || true
 
-docker compose up -d --force-recreate --remove-orphans openclaw obsidian-sync
+docker compose up -d --force-recreate --remove-orphans openclaw obsidian-sync ollama
+
+# ── 5. Ensure ollama embedding model is present (idempotent) ─────
+for i in $(seq 1 15); do
+    if docker exec openclaw-ollama ollama list > /dev/null 2>&1; then break; fi
+    sleep 2
+done
+if ! docker exec openclaw-ollama ollama list 2>/dev/null | grep -q "nomic-embed-text"; then
+    log "Pulling embedding model nomic-embed-text..."
+    docker exec openclaw-ollama ollama pull nomic-embed-text || log "WARN: embedding model pull failed"
+fi
 
 # ── 6. Wait for healthy (fail-closed) ───────────────────────────
 HEALTHY=0
