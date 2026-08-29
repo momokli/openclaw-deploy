@@ -61,8 +61,12 @@
         ]
       },
       "memorySearch": {
-        "provider": "ollama-local",
+        "provider": "ollama",
         "model": "nomic-embed-text",
+        "remote": {
+          "baseUrl": "http://ollama:11434",
+          "apiKey": "ollama-local"
+        },
         "fallback": "none",
         "extraPaths": ["/quill"]
       }
@@ -209,20 +213,6 @@
     "maintenance": {
       "maxEntries": 300,
       "pruneAfter": "14d"
-    }
-  },
-  "models": {
-    "providers": {
-      "ollama-local": {
-        "api": "ollama",
-        "baseUrl": "http://ollama:11434",
-        "models": [
-          {
-            "id": "nomic-embed-text",
-            "name": "nomic-embed-text"
-          }
-        ]
-      }
     }
   },
   "meta": {
