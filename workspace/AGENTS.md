@@ -101,6 +101,7 @@ Momo's second brain — synced via Obsidian Sync (obsidian-headless). Contains:
 - `main` — default assistant (Telegram DM), general questions + orchestration.
 - `coding-orchestrator` — spawns the `feature-dev-*` pipeline (planner/setup/developer/verifier/tester/reviewer).
 - `thinking-orchestrator` — Pro + high thinking; EIN Pass für komplexes Nachdenken (verify/analysieren/„was ist faul“/mehrdeutige Entscheidungen).
+- `operator` — Flash; operative Ausführung (deploy/monitor/inspect/SSH/Restart) mit `exec`-Zugriff.
 
 Code work goes through the coding pipeline (`sessions_spawn` → `coding-orchestrator`), see above.
 
@@ -124,6 +125,7 @@ BERICHTEN: <kurz zurückmelden: Ergebnis/Änderung/Beweis>
 
 - Denken/Planen/Analysieren → `agentId: "thinking-orchestrator"`.
 - Coding/Edits → `agentId: "coding-orchestrator"` (Pipeline) oder einen Worker-Agenten.
+- Operativ (deploy/monitor/SSH/inspect/restart/Infra-Status) → `agentId: "operator"`.
 - Mach NICHT viele kleine Verifikations-Turns selbst — das ist der Loop-Modus.
 
 ## Cost Control

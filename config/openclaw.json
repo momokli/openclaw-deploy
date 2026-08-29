@@ -52,6 +52,7 @@
         "allowAgents": [
           "coding-orchestrator",
           "thinking-orchestrator",
+          "operator",
           "feature-dev-planner",
           "feature-dev-setup",
           "feature-dev-developer",
@@ -102,6 +103,12 @@
         "workspace": "/home/node/.openclaw/workspaces/thinking-orchestrator",
         "model": "deepseek/deepseek-v4-pro",
         "thinkingDefault": "high"
+      },
+      {
+        "id": "operator",
+        "workspace": "/home/node/.openclaw/workspaces/operator",
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       },
       {
         "id": "feature-dev-planner",
