@@ -16,6 +16,9 @@
     "vars": {
       "KAGI_API": "${KAGI_API}",
       "GH_TOKEN": "${GH_TOKEN}",
+      "GH_APP_ID": "${GH_APP_ID}",
+      "GH_APP_INSTALLATION_ID": "${GH_APP_INSTALLATION_ID}",
+      "GH_APP_PRIVATE_KEY_FILE": "${GH_APP_PRIVATE_KEY_FILE}",
       "HETZNER_API_TOKEN_STORAGEBOXES": "${HETZNER_API_TOKEN_STORAGEBOXES}",
       "HETZNER_API_TOKEN_MITTELERDE": "${HETZNER_API_TOKEN_MITTELERDE}",
       "CONTABO_CLIENT_ID": "${CONTABO_CLIENT_ID}",
@@ -163,6 +166,13 @@
     },
     "groupChat": {
       "mentionPatterns": ["@molty", "@openclaw"]
+    }
+  },
+  "skills": {
+    "entries": {
+      "gh-issues": {
+        "apiKey": "${GH_TOKEN}"
+      }
     }
   },
   "tools": {

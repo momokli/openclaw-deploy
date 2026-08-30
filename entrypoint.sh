@@ -89,8 +89,29 @@ fi
 #     NOTE: `gh auth login --with-token` VALIDATES the token and fails with
 #     "missing required scope 'read:org'" for tokens without org access;
 #     writing hosts.yml directly skips that validation (token still works).
+#
+#     MODE A (GitHub App „momo-bot" — migration target): if the app env vars
+#     are set, fetch a FRESH installation token (~1h lifetime) via the
+#     gh-app-auth.sh helper (baked into the image, /usr/local/bin) and seed
+#     hosts.yml from it. The token is short-lived by design: agents re-run
+#     `gh-app-auth.sh` whenever a push/gh call returns 401.
+#     MODE B (classic PAT — current state): legacy block below, unchanged.
+APP_MODE=0
+if [ -n "$GH_APP_ID" ] && [ -n "$GH_APP_INSTALLATION_ID" ] && [ -n "$GH_APP_PRIVATE_KEY_FILE" ]; then
+    APP_MODE=1
+    log "gh auth: GitHub App mode (momo-bot) — fetching fresh installation token"
+    if gosu node env GH_APP_ID="$GH_APP_ID" GH_APP_INSTALLATION_ID="$GH_APP_INSTALLATION_ID" \
+        GH_APP_PRIVATE_KEY_FILE="$GH_APP_PRIVATE_KEY_FILE" gh-app-auth.sh; then
+        log "gh auth seeded via GitHub App (fresh ~1h token)"
+    else
+        log "WARN: GitHub App auth failed"
+    fi
+fi
+
 if [ -n "$GH_TOKEN" ]; then
-    if [ ! -f /home/node/.config/gh/hosts.yml ]; then
+    # Legacy PAT path: seed hosts.yml only if app mode did not already do so
+    # (a fresh app token wins over the PAT).
+    if [ "$APP_MODE" = "0" ] && [ ! -f /home/node/.config/gh/hosts.yml ]; then
         GH_USER="$(GH_TOKEN="$GH_TOKEN" gh api user --jq '.login' 2>/dev/null || echo momokli)"
         # dir must be node-owned (entrypoint runs as root; gh runs as node)
         install -d -o node -g node -m 700 /home/node/.config/gh
@@ -107,7 +128,7 @@ EOF
         install -o node -g node -m 600 /tmp/gh-hosts.yml /home/node/.config/gh/hosts.yml
         rm -f /tmp/gh-hosts.yml
         log "seeded gh auth (github.com as $GH_USER)"
-    else
+    elif [ "$APP_MODE" = "0" ]; then
         log "gh auth already present"
     fi
     if gosu node gh auth setup-git --hostname github.com; then
@@ -116,10 +137,10 @@ EOF
         log "WARN: failed to configure gh credential helper"
     fi
     if ! gosu node gh auth status >/dev/null 2>&1; then
-        log "WARN: gh is NOT authenticated — check GH_TOKEN format/scope"
+        log "WARN: gh is NOT authenticated — check token format/scope"
     fi
-else
-    log "WARN: GH_TOKEN not set — gh CLI / git HTTPS will fail"
+elif [ "$APP_MODE" = "0" ]; then
+    log "WARN: GH_TOKEN not set and GitHub App not configured — gh CLI / git HTTPS will fail"
 fi
 
 # 6. Start gateway as node (original entrypoint: tini)

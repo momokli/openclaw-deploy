@@ -55,5 +55,11 @@ RUN pip3 install --break-system-packages ansible
 # ── Entrypoint: sync git config into runtime home ────────────────
 COPY --chown=node:node entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+# ── GitHub App auth helpers (entrypoint step 5c + coding agents) ──
+# gh-app-auth.sh fetches a fresh ~1h installation token from the momo-bot
+# GitHub App and seeds gh/git auth; agents re-run it when a token expired.
+COPY --chown=node:node scripts/generate-github-token.sh scripts/gh-app-auth.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/generate-github-token.sh /usr/local/bin/gh-app-auth.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "openclaw.mjs", "gateway"]

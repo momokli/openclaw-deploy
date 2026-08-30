@@ -186,3 +186,24 @@ Der GHCR-Flow ist nur TEILWEISE im Repo.
 - Wichtig: `reasoning` ist Teilmenge von `output` (nicht extra berechnen); `*.jsonl.reset.*`-
   Snapshots mit einbeziehen (sonst wird `main` unterzählt); OpenClaws `usage.cost`-Feld nutzt
   andere (höhere) Preise als die offiziellen DeepSeek-off-peak-Preise.
+
+## GitHub-App-Auth „momo-bot" — Migration vorbereitet (2026-08-30)
+
+Geplant: persönliches PAT (`GH_TOKEN`, Scopes `repo, workflow, write:packages`) → GitHub App
+„momo-bot" (Minimal-Permissions: Contents RW, Pull requests RW, Metadata R; Webhooks aus;
+Installation nur auf betroffene Repos). **Noch NICHT aktiv** — solange `GH_APP_*` in
+`config/.env` leer sind, läuft alles unverändert mit dem PAT.
+
+- Neue Scripts (im Image unter `/usr/local/bin`, via Dockerfile): `generate-github-token.sh`
+  (JWT RS256 via openssl → Installation-Token, ~1h) + `gh-app-auth.sh` (hosts.yml + credential
+  helper + openclaw.json-`skills.entries["gh-issues"].apiKey` mit frischem Token; optional
+  `--setup-git-identity` → Commits als `momo-bot[bot]`).
+- `entrypoint.sh` Schritt 5c: MODE A (App-Vars gesetzt) → frisches Token bei Containerstart;
+  MODE B (PAT) → unveränderter Legacy-Pfad.
+- `ansible/deploy.yml`: `GH_APP_ID`/`GH_APP_INSTALLATION_ID` optional aus env; Assert erlaubt
+  App-Vars statt `GH_TOKEN`. Private Key liegt NICHT in .env, sondern auf dem Host
+  (`~/.secrets/momo-bot.pem`, chmod 600) und wird per docker-compose gemountet
+  (Mount auskommentiert — aktivieren, sobald App existiert).
+- Doku: `SETUP.md` (Web-UI-Schritte, IDs, Gotchas) + offene Fragen an Momo im PR-Body.
+- App-Tokens laufen nach ~1h ab → kein persistierter Dauer-Token mehr; Refresh on-demand
+  (`gh-app-auth.sh` bei 401) bzw. ggf. systemd-Timer (Entscheidung Momo).
