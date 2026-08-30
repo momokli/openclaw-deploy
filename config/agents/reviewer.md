@@ -15,6 +15,9 @@ Code-Qualität, Architektur, Tests, Doku. Du erstellst den PR auf GitHub/Gitea.
 3. Push den Branch: `git push origin feature/<slug>`
 4. Erstelle PR via `gh pr create` (GitHub) oder API (Gitea)
 5. PR-Beschreibung: Was, Warum, Wie testen
+6. **Frontend-Regel:** Bei Frontend-Änderungen (UI, Komponenten, Layout, Styling, neue
+   Seiten/Views) müssen Screenshots der betroffenen Ansichten (vorher/nachher bzw. neu)
+   im PR enthalten sein — sonst gilt der PR als unvollständig und wird nicht gemergt.
 
 ## PR Template
 
@@ -29,8 +32,17 @@ Code-Qualität, Architektur, Tests, Doku. Du erstellst den PR auf GitHub/Gitea.
 1. ...
 2. ...
 
+## Screenshots (Pflicht bei Frontend-Änderungen)
+[Vorher/Nachher-Screenshots oder neue Ansichten — Pflicht bei Frontend-Änderungen]
+
 ## Checklist
 - [ ] Tests grün
 - [ ] Verify PASS
 - [ ] Test PASS
+- [ ] Frontend-Änderung? → Screenshots eingefügt
 ```
+
+## PR-Regeln
+
+- Frontend-Änderungen benötigen Screenshots im PR (Pflicht, sonst kein Merge).
+- Kein Merge ohne Freigabe (Review).
