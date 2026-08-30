@@ -14,6 +14,11 @@
     kagi_api_key: "{{ lookup('env', 'KAGI_API') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
     gh_token: "{{ lookup('env', 'GH_TOKEN') }}"
+    # GitHub App „momo-bot" — optional, migriert Auth vom persönlichen PAT weg.
+    # Solange GH_APP_* leer sind, verhält sich das Playbook exakt wie bisher.
+    # Der Private Key liegt auf dem Host (NICHT in .env): ~/.secrets/momo-bot.pem.
+    gh_app_id: "{{ lookup('env', 'GH_APP_ID') | default('', true) }}"
+    gh_app_installation_id: "{{ lookup('env', 'GH_APP_INSTALLATION_ID') | default('', true) }}"
     groq_api_key: "{{ lookup('env', 'GROQ_API_KEY') }}"
     deepgram_api_key: "{{ lookup('env', 'DEEPGRAM_API_KEY') }}"
     gemini_api_key: "{{ lookup('env', 'GEMINI_API_KEY') }}"
@@ -30,15 +35,15 @@
           - deepseek_api_key | length > 0
           - kagi_api_key | length > 0
           - telegram_bot_token | length > 0
-          - gh_token | length > 0
+          - (gh_token | length > 0) or (gh_app_id | length > 0 and gh_app_installation_id | length > 0)
           - groq_api_key | length > 0
           - deepgram_api_key | length > 0
           - gemini_api_key | length > 0
         fail_msg: >
           Missing required environment variables.
           Set all keys from .env.example (DEEPSEEK_API_KEY, KAGI_API,
-          TELEGRAM_BOT_TOKEN, GH_TOKEN, GROQ_API_KEY, DEEPGRAM_API_KEY,
-          GEMINI_API_KEY) before running.
+          TELEGRAM_BOT_TOKEN, GH_TOKEN oder GH_APP_ID+GH_APP_INSTALLATION_ID,
+          GROQ_API_KEY, DEEPGRAM_API_KEY, GEMINI_API_KEY) before running.
 
     # ── Lab repo (mounted into OpenClaw as /lab:ro) ──────────────
     # Canonical remote: git@git.sr.ht:~momoy/lab
@@ -248,6 +253,12 @@
         - { key: GROQ_API_KEY, value: "{{ groq_api_key }}" }
         - { key: DEEPGRAM_API_KEY, value: "{{ deepgram_api_key }}" }
         - { key: GEMINI_API_KEY, value: "{{ gemini_api_key }}" }
+        # GitHub App „momo-bot" — nur schreiben, wenn gesetzt (sonst leer lassen).
+        # Der Private Key kommt NICHT in .env; er liegt auf dem Host unter
+        # ~/.secrets/momo-bot.pem und wird per docker-compose gemountet.
+        - { key: GH_APP_ID, value: "{{ gh_app_id }}" }
+        - { key: GH_APP_INSTALLATION_ID, value: "{{ gh_app_installation_id }}" }
+        - { key: GH_APP_PRIVATE_KEY_FILE, value: "/home/node/.secrets/momo-bot.pem" }
 
     - name: Provision webhook token (if DEPLOY_TOKEN is set)
       ansible.builtin.copy:

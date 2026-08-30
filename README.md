@@ -160,6 +160,7 @@ siehe [Secrets](#secrets)). Schnell-Check aller APIs:
 ├── Dockerfile.obsidian-sync # obsidian-headless sidecar
 ├── docker-compose.yml      # OpenClaw + Obsidian Sync sidecar
 ├── entrypoint.sh           # Syncs git config into runtime home on start
+├── SETUP.md                # GitHub App „momo-bot" Setup (PAT → App Migration)
 ├── ssh_config              # Git host keys (copied into image)
 ├── config/
 │   ├── openclaw.json       # Gateway config, agents, channels, media tools
@@ -167,6 +168,8 @@ siehe [Secrets](#secrets)). Schnell-Check aller APIs:
 ├── workspace/              # SOUL.md, AGENTS.md, USER.md, MEMORY.md
 ├── scripts/
 │   ├── build-and-deploy.sh # GHCR pull + atomic swap
+│   ├── generate-github-token.sh  # GitHub-App JWT (RS256) → ~1h Installation-Token
+│   ├── gh-app-auth.sh      # hosts.yml + credential helper mit frischem App-Token
 │   ├── obsidian-sync.sh    # Idempotent headless-sync entrypoint
 │   ├── webhook.py          # Deploy webhook receiver (port 18791)
 │   ├── openclaw-deploy-webhook.service  # systemd unit for webhook.py
@@ -189,8 +192,14 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
 - `KAGI_API` — Web search
 - `TELEGRAM_BOT_TOKEN` — Telegram channel
 - `OPENCLAW_GATEWAY_TOKEN` — Gateway auth token
-- `GH_TOKEN` — GitHub CLI auth (classic PAT, scopes `repo, workflow`) — used by `gh`
-  and as git's HTTPS credential helper (seeded via `gh auth setup-git` in `entrypoint.sh`)
+- `GH_TOKEN` — GitHub CLI auth (**aktuell**: persönliches PAT, Scopes `repo, workflow`)
+  — wird durch GitHub App „momo-bot" abgelöst (Migration: [SETUP.md](SETUP.md));
+  bis dahin aktiv als git HTTPS credential helper (seeded via `entrypoint.sh` Schritt 5c)
+- `GH_APP_ID` / `GH_APP_INSTALLATION_ID` — GitHub App „momo-bot" (optional, migriert
+  die Auth vom PAT weg; Installation-Tokens ~1h → frisches Token bei Containerstart
+  via `gh-app-auth.sh`, on-demand bei 401)
+- `GH_APP_PRIVATE_KEY_FILE` — Pfad zum App-Private-Key **im Container**
+  (Host: `~/.secrets/momo-bot.pem`, chmod 600, per docker-compose gemountet)
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
 - `GEMINI_API_KEY` — Image/Vision

@@ -36,6 +36,9 @@ services:
       - /opt/apps/lab:/lab:ro
       - /opt/apps/quill:/quill
       - ${HOME}/.ssh/id_ed25519:/home/node/.ssh/id_ed25519:ro
+      # GitHub App „momo-bot" Private Key — AKTIVIEREN sobald die App existiert
+      # (siehe SETUP.md). Bis dahin bleibt der persönliche PAT (GH_TOKEN) aktiv.
+      # - ${HOME}/.secrets/momo-bot.pem:/home/node/.secrets/momo-bot.pem:ro
       - repos:/home/node/repos
 
     env_file:
