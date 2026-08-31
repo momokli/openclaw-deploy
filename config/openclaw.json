@@ -152,6 +152,15 @@
       }
     }
   },
+  "bindings": [
+    {
+      "type": "route",
+      "agentId": "main",
+      "match": {
+        "channel": "telegram"
+      }
+    }
+  ],
   "messages": {
     "responseUsage": "tokens",
     "queue": {
