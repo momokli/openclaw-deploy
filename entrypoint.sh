@@ -143,5 +143,31 @@ elif [ "$APP_MODE" = "0" ]; then
     log "WARN: GH_TOKEN not set and GitHub App not configured — gh CLI / git HTTPS will fail"
 fi
 
+# 5d. Ensure external provider plugins (deepseek + groq) are installed at the
+#     pinned version. Baking them into the image seeds only FRESH volumes;
+#     pre-existing volumes (this host) converge here idempotently — no
+#     destructive volume wipe. Pinned to the runtime version so plugin and
+#     config schema stay in lockstep. Failures are non-fatal: the gateway still
+#     starts, just possibly with a stale plugin version.
+ensure_plugin() {
+    pkg="$1"; id="$2"; ver="$3"
+    if gosu node env HOME=/home/node OPENCLAW_STATE_DIR=/home/node/.openclaw \
+        openclaw plugins list --json 2>/dev/null \
+        | jq -e --arg id "$id" --arg ver "$ver" \
+            '.plugins[] | select(.id == $id and .version == $ver)' >/dev/null 2>&1; then
+        log "plugin $id@$ver present"
+    else
+        log "installing plugin $pkg@$ver"
+        if gosu node env HOME=/home/node OPENCLAW_STATE_DIR=/home/node/.openclaw \
+            openclaw plugins install "$pkg@$ver" --force --accept-capabilities --pin; then
+            log "plugin $pkg@$ver installed"
+        else
+            log "WARN: failed to install $pkg@$ver"
+        fi
+    fi
+}
+ensure_plugin "@openclaw/deepseek-provider" "deepseek" "2026.8.1"
+ensure_plugin "@openclaw/groq-provider" "groq" "2026.8.1"
+
 # 6. Start gateway as node (original entrypoint: tini)
 exec gosu node tini -s -- "$@"

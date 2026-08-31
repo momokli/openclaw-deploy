@@ -40,6 +40,31 @@ fi
 
 log "Changes detected — recreating containers..."
 
+# ── 3b. Runtime-state migrations (idempotent, writers stopped) ──
+# Upgrades (e.g. 2026.7.1 → 2026.8.1) need `openclaw doctor --fix` against the
+# state volumes (agent-DB schema, session store, exec-approvals, device
+# identity, …). It runs BEFORE `docker compose up`, so the gateway is stopped.
+# Also clear a stale `startup-migrations` lease left by a previously SIGTERM'd
+# gateway, which would otherwise block the next boot for its ~5 min TTL.
+log "Clearing stale startup-migrations lease..."
+"$LOCAL_DIR/scripts/clear-openclaw-lease.sh" 2>/dev/null || true
+
+log "Running state migrations (doctor --fix)..."
+if docker run --rm -u node \
+    -e HOME=/home/node \
+    -e OPENCLAW_STATE_DIR=/home/node/.openclaw \
+    -v openclaw_home:/home/node/.openclaw \
+    -v openclaw_workspace:/home/node/.openclaw/workspace \
+    -v "$LOCAL_DIR/config:/openclaw-config:ro" \
+    --env-file "$LOCAL_DIR/config/.env" \
+    --entrypoint sh "$IMAGE" -c \
+    'cp /openclaw-config/openclaw.json /home/node/.openclaw/openclaw.json && openclaw doctor --fix --non-interactive && openclaw doctor --session-sqlite import --session-sqlite-all-agents' \
+    > "$LOCAL_DIR/.doctor-fix.log" 2>&1; then
+    log "doctor --fix OK"
+else
+    log "WARN: doctor --fix exited non-zero (see .doctor-fix.log) — continuing, health check will fail-closed"
+fi
+
 # ── 4. Swap containers — recreate so entrypoint re-copies config ──
 # Clean up stale EXITED openclaw containers first: leftovers from old
 # compose project names caused "container name ... already in use".

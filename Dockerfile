@@ -65,5 +65,18 @@ RUN chmod +x /entrypoint.sh
 # GitHub App and seeds gh/git auth; agents re-run it when a token expired.
 COPY --chown=node:node scripts/generate-github-token.sh scripts/gh-app-auth.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/generate-github-token.sh /usr/local/bin/gh-app-auth.sh
+
+# ── External provider plugins (deepseek + groq) ────────────────────
+# deepseek and groq are NOT bundled in 2026.8.1 (unlike deepgram/google) —
+# they ship as official external npm packages. Bake them into the image so a
+# FRESH openclaw_home volume works out of the box. Docker only seeds a named
+# volume from image content on FIRST use, so pre-existing volumes are
+# converged idempotently by entrypoint.sh (step 5d) instead. Pinned to the
+# runtime version so plugin + config schema stay in lockstep.
+USER node
+RUN openclaw plugins install @openclaw/deepseek-provider@2026.8.1 --force --accept-capabilities --pin \
+ && openclaw plugins install @openclaw/groq-provider@2026.8.1 --force --accept-capabilities --pin
+USER root
+
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "openclaw.mjs", "gateway"]
