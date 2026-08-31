@@ -18,7 +18,16 @@ log() { echo "[$(date '+%H:%M:%S')] $*"; }
 # ── 1. Sync config from git ─────────────────────────────────────
 log "Syncing config from git..."
 cd "$LOCAL_DIR"
+SELF="$LOCAL_DIR/scripts/build-and-deploy.sh"
+SELF_BEFORE="$(sha256sum "$SELF" 2>/dev/null | cut -d' ' -f1 || true)"
 git pull origin main
+# Re-exec if this deploy script itself was updated by the pull above. bash
+# keeps the OLD file open while executing; `git pull` atomically replaces the
+# file, so without this we'd finish the run on stale logic (one deploy behind).
+if [ "$(sha256sum "$SELF" 2>/dev/null | cut -d' ' -f1 || true)" != "$SELF_BEFORE" ]; then
+    log "deploy script self-updated — re-executing"
+    exec bash "$SELF" "$@"
+fi
 
 NEW_GIT="$(git rev-parse HEAD)"
 OLD_GIT="$(cat "$GIT_HASH_FILE" 2>/dev/null || echo '')"
@@ -83,8 +92,11 @@ if ! docker exec openclaw-ollama ollama list 2>/dev/null | grep -q "nomic-embed-
 fi
 
 # ── 6. Wait for healthy (fail-closed) ───────────────────────────
+# The entrypoint runs openclaw CLI steps (auth seeding, plugin ensure) before
+# the gateway binds its HTTP port, so startup can take up to ~2 min on a cold
+# boot. Give it a generous window before declaring failure.
 HEALTHY=0
-for i in $(seq 1 30); do
+for i in $(seq 1 90); do
     if docker exec openclaw curl -sf http://localhost:18789/healthz > /dev/null 2>&1; then
         HEALTHY=1
         log "Container healthy"

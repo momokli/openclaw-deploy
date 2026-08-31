@@ -149,10 +149,10 @@ fi
 #     destructive volume wipe. Pinned to the runtime version so plugin and
 #     config schema stay in lockstep. Failures are non-fatal: the gateway still
 #     starts, just possibly with a stale plugin version.
+PLUGIN_LIST="$(gosu node env HOME=/home/node OPENCLAW_STATE_DIR=/home/node/.openclaw openclaw plugins list --json 2>/dev/null || true)"
 ensure_plugin() {
     pkg="$1"; id="$2"; ver="$3"
-    if gosu node env HOME=/home/node OPENCLAW_STATE_DIR=/home/node/.openclaw \
-        openclaw plugins list --json 2>/dev/null \
+    if printf '%s\n' "$PLUGIN_LIST" \
         | jq -e --arg id "$id" --arg ver "$ver" \
             '.plugins[] | select(.id == $id and .version == $ver)' >/dev/null 2>&1; then
         log "plugin $id@$ver present"
