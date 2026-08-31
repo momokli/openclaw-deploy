@@ -67,7 +67,7 @@ if docker run --rm -u node \
     -v "$LOCAL_DIR/config:/openclaw-config:ro" \
     --env-file "$LOCAL_DIR/config/.env" \
     --entrypoint sh "$IMAGE" -c \
-    'cp /openclaw-config/openclaw.json /home/node/.openclaw/openclaw.json && openclaw doctor --fix --non-interactive && openclaw doctor --session-sqlite import --session-sqlite-all-agents' \
+    'cp /openclaw-config/openclaw.json /home/node/.openclaw/openclaw.json && exec openclaw doctor --fix --non-interactive' \
     > "$LOCAL_DIR/.doctor-fix.log" 2>&1; then
     log "doctor --fix OK"
 else
