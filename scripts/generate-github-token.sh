@@ -6,7 +6,11 @@
 #   2. exchanges it for an installation access token via the REST API.
 #
 # Prerequisites (env): GH_APP_ID, GH_APP_INSTALLATION_ID, GH_APP_PRIVATE_KEY_FILE
-#   GH_APP_PRIVATE_KEY_FILE — path to the app's private key (PEM), chmod 600.
+#   GH_APP_PRIVATE_KEY_FILE — path to the app's private key (PEM) INSIDE the
+#   container (host dir ~/.secrets is mounted read-only to /home/node/.secrets).
+#   If the configured path is not readable, the newest readable *.pem in the
+#   same directory is used instead (GitHub names downloads
+#   "<app-slug>.<date>.private-key.pem", so the filename can change).
 #
 # Usage:
 #   GH_APP_ID=123 GH_APP_INSTALLATION_ID=456 GH_APP_PRIVATE_KEY_FILE=/run/secrets/momo-bot.pem \
@@ -23,7 +27,32 @@ set -eu
 : "${GH_APP_INSTALLATION_ID:?GH_APP_INSTALLATION_ID not set (numeric — from App install page URL /api.github.com/app/installations)}"
 : "${GH_APP_PRIVATE_KEY_FILE:?GH_APP_PRIVATE_KEY_FILE not set (path to app private key .pem)}"
 
-[ -r "$GH_APP_PRIVATE_KEY_FILE" ] || { echo "ERROR: private key not readable: $GH_APP_PRIVATE_KEY_FILE" >&2; exit 1; }
+# ── Private key resolution ─────────────────────────────────────────
+# GH_APP_PRIVATE_KEY_FILE zeigt IN den Container. Das Host-Verzeichnis
+# ~/.secrets wird read-only nach /home/node/.secrets gemountet
+# (docker-compose.yml). GitHub lädt App-Keys als
+# "<app-slug>.<datum>.private-key.pem" herunter — der Dateiname ändert sich
+# also bei jeder Key-Regenerierung. Ist der konfigurierte Pfad nicht lesbar,
+# fällt das Skript auf die neueste lesbare *.pem im selben Verzeichnis zurück
+# (MODE A bleibt damit auch ohne Umbenennen der Host-Datei funktionsfähig).
+KEY_FILE=""
+if [ -r "$GH_APP_PRIVATE_KEY_FILE" ]; then
+    KEY_FILE="$GH_APP_PRIVATE_KEY_FILE"
+else
+    KEY_DIR="$(dirname "$GH_APP_PRIVATE_KEY_FILE")"
+    for f in "$KEY_DIR"/*.pem; do
+        [ -f "$f" ] && [ -r "$f" ] || continue
+        [ -z "$KEY_FILE" ] || [ "$f" -nt "$KEY_FILE" ] || continue
+        KEY_FILE="$f"
+    done
+fi
+if [ -z "$KEY_FILE" ] || [ ! -r "$KEY_FILE" ]; then
+    echo "ERROR: private key not readable: $GH_APP_PRIVATE_KEY_FILE (no readable *.pem in ${KEY_DIR:-$(dirname "$GH_APP_PRIVATE_KEY_FILE")})" >&2
+    exit 1
+fi
+if [ "$KEY_FILE" != "$GH_APP_PRIVATE_KEY_FILE" ]; then
+    echo "WARN: $GH_APP_PRIVATE_KEY_FILE not readable — using newest key in $(dirname "$KEY_FILE"): $(basename "$KEY_FILE")" >&2
+fi
 
 MODE="${1:-token}"   # token | expires-at | jwt | json
 # normalize: accept both "--jwt" and "jwt" style flags
@@ -41,7 +70,7 @@ EXP="$((NOW + 540))"
 HEADER="$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)"
 PAYLOAD="$(printf '{"iat":%s,"exp":%s,"iss":"%s"}' "$IAT" "$EXP" "$GH_APP_ID" | b64url)"
 SIGNING_INPUT="$HEADER.$PAYLOAD"
-SIGNATURE="$(printf '%s' "$SIGNING_INPUT" | openssl dgst -sha256 -sign "$GH_APP_PRIVATE_KEY_FILE" | b64url)"
+SIGNATURE="$(printf '%s' "$SIGNING_INPUT" | openssl dgst -sha256 -sign "$KEY_FILE" | b64url)"
 JWT="$SIGNING_INPUT.$SIGNATURE"
 
 if [ "$MODE" = "jwt" ]; then
