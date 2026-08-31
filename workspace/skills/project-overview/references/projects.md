@@ -87,8 +87,8 @@ push GitHub (main)
 - `coding-orchestrator` — DeepSeek V4 Pro.
 - `feature-dev-*` (Flash): `planner`, `setup`, `developer`, `verifier`, `tester`, `reviewer`.
 
-Defaults: Sub-Agents erlaubt (`maxSpawnDepth: 2`), `memorySearch` via `gemini-embedding-001`
-(extra Pfad `/quill`).
+Defaults: Sub-Agents erlaubt (`maxSpawnDepth: 2`), `memorySearch` via `ollama` /
+`nomic-embed-text` (lokal, extra Pfad `/quill`).
 
 **Channels:** Telegram (enabled, `dmPolicy: pairing`, Gruppen `requireMention: true`,
 Mention-Patterns `@molty`/`@openclaw`).

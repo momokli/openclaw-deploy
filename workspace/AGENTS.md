@@ -92,7 +92,7 @@ Momo's second brain — synced via Obsidian Sync (obsidian-headless). Contains:
 
 ### Memory System
 
-- Semantisches Memory ist aktiv: `memory.search` (gemini-embedding-001) indexiert `/quill`.
+- Semantisches Memory ist aktiv: `memory.search` (ollama / `nomic-embed-text`, lokal) indexiert `/quill`.
 - Zusätzlich: `grep`, `find`, `cat` in `/home/node/.openclaw/workspace/` und `/quill/`.
 - MEMORY.md per `read` lesen/schreiben für wichtige Fakten.
 

@@ -36,7 +36,7 @@ Die früher notierten Preise waren **~3× zu niedrig**. Aktuell (offiziell `api-
 ## ✅ Erledigt
 
 - **Deploy-Hook**: push `main` → CI → GHCR → HTTPS-Webhook → `.149` pull + recreate (ohne Tailscale/SSH).
-- **Semantisches Memory**: `agents.defaults.memorySearch.provider = "gemini"` (modell `gemini-embedding-001`) + `GEMINI_API_KEY` verdrahtet.
+- **Semantisches Memory**: `memory.search.provider = "ollama"` (lokal, Modell `nomic-embed-text`) — self-hosted, kein externer Embedding-API-Call.
 
 ## ⬜ Offen (korrigiert nach Docs)
 

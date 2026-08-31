@@ -69,6 +69,16 @@ services:
     image: ollama/ollama:latest
     container_name: openclaw-ollama
     restart: unless-stopped
+
+    # Tuning (CPU-only, kein GPU): das Modell resident halten (kein
+    # Entlade-/Lade-Latency zwischen Memory-Searches) und mehrere parallele
+    # Embedding-Anfragen zulassen, damit parallele Chats nicht hinter dem
+    # einzelnen Default-Slot serialisieren.
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1        # Modell nie entladen (default: 5m → Reload-Latenz)
+      - OLLAMA_MAX_LOADED_MODELS=1  # nur das Embedding-Modell resident
+      - OLLAMA_NUM_PARALLEL=4       # parallele Slots statt 1 (Default bei CPU)
+
     volumes:
       - ollama_models:/root/.ollama
     networks:
