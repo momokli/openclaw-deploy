@@ -79,6 +79,14 @@ services:
       - OLLAMA_MAX_LOADED_MODELS=1  # nur das Embedding-Modell resident
       - OLLAMA_NUM_PARALLEL=4       # parallele Slots statt 1 (Default bei CPU)
 
+    # CPU-Limit: weniger Threads = weniger Sync-Overhead für das winzige
+    # nomic-embed-text-Modell (E5-2650 v2, kein AVX2). Go/llama.cpp respektiert
+    # das cgroup-Limit und nutzt entsprechend weniger Threads statt aller 16 vCPUs.
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'
+
     volumes:
       - ollama_models:/root/.ollama
     networks:
