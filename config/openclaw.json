@@ -58,6 +58,9 @@
         }
       },
       "utilityModel": "deepseek/deepseek-v4-flash",
+      "systemAgent": {
+        "agentId": "main"
+      },
       "contextPruning": {
         "mode": "cache-ttl",
         "ttl": "5m"
@@ -172,7 +175,7 @@
     "media": {
       "models": [
         {
-          "provider": "groq",
+          "provider": "senseaudio",
           "model": "whisper-large-v3-turbo",
           "capabilities": ["audio"]
         },
