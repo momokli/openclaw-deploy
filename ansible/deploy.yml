@@ -255,7 +255,9 @@
         - { key: GEMINI_API_KEY, value: "{{ gemini_api_key }}" }
         # GitHub App „momo-bot" — nur schreiben, wenn gesetzt (sonst leer lassen).
         # Der Private Key kommt NICHT in .env; er liegt auf dem Host unter
-        # ~/.secrets/momo-bot.pem und wird per docker-compose gemountet.
+        # ~/.secrets/ und wird per docker-compose read-only nach
+        # /home/node/.secrets gemountet (generate-github-token.sh fällt auf die
+        # neueste *.pem zurück, falls dieser Pfad nicht lesbar ist).
         - { key: GH_APP_ID, value: "{{ gh_app_id }}" }
         - { key: GH_APP_INSTALLATION_ID, value: "{{ gh_app_installation_id }}" }
         - { key: GH_APP_PRIVATE_KEY_FILE, value: "/home/node/.secrets/momo-bot.pem" }

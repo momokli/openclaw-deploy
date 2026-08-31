@@ -199,7 +199,10 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
   die Auth vom PAT weg; Installation-Tokens ~1h → frisches Token bei Containerstart
   via `gh-app-auth.sh`, on-demand bei 401)
 - `GH_APP_PRIVATE_KEY_FILE` — Pfad zum App-Private-Key **im Container**
-  (Host: `~/.secrets/momo-bot.pem`, chmod 600, per docker-compose gemountet)
+  (Host: `~/.secrets/` read-only nach `/home/node/.secrets` gemountet, chmod 600;
+  generate-github-token.sh nutzt den konfigurierten Pfad und fällt auf die
+  neueste `*.pem` im Verzeichnis zurück — GitHub-Download-Namen wie
+  `<app-slug>.<datum>.private-key.pem` funktionieren ohne Umbenennen)
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
 - `GEMINI_API_KEY` — Image/Vision

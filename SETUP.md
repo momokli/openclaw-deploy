@@ -20,9 +20,10 @@ GitHub App hat **minimale, pro-Repo-Permissions**, eine eigene Commit-Identität
 ## Architektur (Zielbild)
 
 ```
-momo-bot (GitHub App, Web-UI erstellt)
-  ├─ Private Key  → ~/.secrets/momo-bot.pem (Host .149, chmod 600)
-  │                  └─ per docker-compose gemountet (→ /home/node/.secrets/momo-bot.pem)
+momo-clanker (GitHub App, Web-UI erstellt)
+  ├─ Private Key  → ~/.secrets/<app-slug>.<datum>.private-key.pem (Host .149, chmod 600)
+  │                  └─ per docker-compose gemountet (→ /home/node/.secrets, read-only;
+  │                     generate-github-token.sh wählt die neueste *.pem automatisch)
   ├─ App-ID + Installation-ID  → config/.env (GH_APP_ID, GH_APP_INSTALLATION_ID)
   │
   └─ Container-Start (entrypoint.sh Schritt 5c)
@@ -79,20 +80,23 @@ Danach auf der App-Seite (https://github.com/settings/apps/momo-bot):
 ```sh
 # auf .149 (Deploy-Host), als momo:
 mkdir -p ~/.secrets
-mv ~/Downloads/momo-bot.*.pem ~/.secrets/momo-bot.pem
-chmod 600 ~/.secrets/momo-bot.pem
-# sanity check:
-openssl rsa -in ~/.secrets/momo-bot.pem -check -noout
+# GitHub lädt den Key als "<app-slug>.<datum>.private-key.pem" herunter.
+# Umbenennen ist NICHT nötig: generate-github-token.sh wählt automatisch die
+# neueste *.pem in ~/.secrets (Mount-Verzeichnis /home/node/.secrets).
+chmod 600 ~/.secrets/*.pem
+# sanity check (Dateinamen ggf. anpassen):
+openssl rsa -in ~/.secrets/momo-clanker.2026-08-30.private-key.pem -check -noout
 ```
 
-Dann in `docker-compose.yml` den auskommentierten Mount aktivieren:
+Dann in `docker-compose.yml` den Mount aktivieren (Verzeichnis-Mount, read-only):
 
 ```yaml
-#      - ${HOME}/.secrets/momo-bot.pem:/home/node/.secrets/momo-bot.pem:ro
+      - ${HOME}/.secrets:/home/node/.secrets:ro
 ```
 
 > ❗ Key wird nur einmal angezeigt. Verloren → neuen Key generieren (App-Seite)
-> und alte PEM-Datei löschen.
+> und alte PEM-Datei löschen. Bei Regenerierung entsteht eine neue Datei mit
+> anderem Zeitstempel im Namen — der Mount bleibt dank Verzeichnis-Mount gültig.
 
 ---
 

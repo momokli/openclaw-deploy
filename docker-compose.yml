@@ -36,9 +36,13 @@ services:
       - /opt/apps/lab:/lab:ro
       - /opt/apps/quill:/quill
       - ${HOME}/.ssh/id_ed25519:/home/node/.ssh/id_ed25519:ro
-      # GitHub App „momo-bot" Private Key — AKTIVIEREN sobald die App existiert
-      # (siehe SETUP.md). Bis dahin bleibt der persönliche PAT (GH_TOKEN) aktiv.
-      # - ${HOME}/.secrets/momo-bot.pem:/home/node/.secrets/momo-bot.pem:ro
+      # GitHub App „momo-clanker" Private Key — App-Auth (MODE A), aktiviert 2026-08-31.
+      # Host-Secrets-Verzeichnis read-only gemountet: GitHub lädt App-Keys als
+      # „<app-slug>.<datum>.private-key.pem" herunter, daher Verzeichnis-Mount statt
+      # Einzeldatei. generate-github-token.sh nutzt GH_APP_PRIVATE_KEY_FILE und fällt
+      # auf die neueste *.pem im Verzeichnis zurück (siehe SETUP.md). chmod 600 der
+      # Host-Datei bleibt erhalten (uid 1000: momo auf dem Host == node im Container).
+      - ${HOME}/.secrets:/home/node/.secrets:ro
       - repos:/home/node/repos
 
     env_file:
