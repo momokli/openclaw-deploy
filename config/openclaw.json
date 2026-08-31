@@ -175,7 +175,7 @@
     "media": {
       "models": [
         {
-          "provider": "senseaudio",
+          "provider": "groq",
           "model": "whisper-large-v3-turbo",
           "capabilities": ["audio"]
         },
