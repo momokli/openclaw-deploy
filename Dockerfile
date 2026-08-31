@@ -1,4 +1,8 @@
-FROM openclaw/openclaw:slim
+# Pinned: `openclaw/openclaw:slim` floats to the newest runtime, which hard-fails
+# on a stale config schema (2026.8.1 rejects 2026.7.1-era keys like agents.list,
+# agents.defaults.memorySearch, meta.lastTouchedAt). Pin to a specific release so
+# runtime + config schema stay in lockstep; bump both together when upgrading.
+FROM openclaw/openclaw:2026.8.1-slim
 
 # Switch to root for package installs
 USER root

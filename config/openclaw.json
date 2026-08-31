@@ -30,7 +30,20 @@
       "HETZNER_ROBOT_PASSWORD": "${HETZNER_ROBOT_PASSWORD}"
     }
   },
+  "memory": {
+    "search": {
+      "provider": "ollama",
+      "model": "nomic-embed-text",
+      "remote": {
+        "baseUrl": "http://ollama:11434",
+        "apiKey": "ollama-local"
+      },
+      "fallback": "none",
+      "extraPaths": ["/quill"]
+    }
+  },
   "agents": {
+    "ownership": "explicit",
     "defaults": {
       "workspace": "/home/node/.openclaw/workspace",
       "model": {
@@ -63,80 +76,60 @@
           "feature-dev-tester",
           "feature-dev-reviewer"
         ]
-      },
-      "memorySearch": {
-        "provider": "ollama",
-        "model": "nomic-embed-text",
-        "remote": {
-          "baseUrl": "http://ollama:11434",
-          "apiKey": "ollama-local"
-        },
-        "fallback": "none",
-        "extraPaths": ["/quill"]
       }
     },
-    "list": [
-      {
-        "id": "main",
+    "entries": {
+      "main": {
         "workspace": "/home/node/.openclaw/workspace",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
-      {
-        "id": "coding-orchestrator",
+      "coding-orchestrator": {
         "workspace": "/home/node/.openclaw/workspaces/coding-orchestrator",
         "model": "deepseek/deepseek-v4-pro",
         "thinkingDefault": "low"
       },
-      {
-        "id": "thinking-orchestrator",
+      "thinking-orchestrator": {
         "workspace": "/home/node/.openclaw/workspaces/thinking-orchestrator",
         "model": "deepseek/deepseek-v4-pro",
         "thinkingDefault": "high"
       },
-      {
-        "id": "operator",
+      "operator": {
         "workspace": "/home/node/.openclaw/workspaces/operator",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
-      {
-        "id": "feature-dev-planner",
+      "feature-dev-planner": {
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-planner",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
-      {
-        "id": "feature-dev-setup",
+      "feature-dev-setup": {
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-setup",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
-      {
-        "id": "feature-dev-developer",
+      "feature-dev-developer": {
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-developer",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
-      {
-        "id": "feature-dev-verifier",
+      "feature-dev-verifier": {
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-verifier",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
-      {
-        "id": "feature-dev-tester",
+      "feature-dev-tester": {
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-tester",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
-      {
-        "id": "feature-dev-reviewer",
+      "feature-dev-reviewer": {
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-reviewer",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       }
-    ]
+    }
   },
   "channels": {
     "telegram": {
@@ -220,7 +213,6 @@
     }
   },
   "meta": {
-    "lastTouchedVersion": "2026.7.1",
-    "lastTouchedAt": "2026-08-11T21:58:40.365Z"
+    "lastTouchedVersion": "2026.8.1"
   }
 }
