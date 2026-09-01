@@ -396,7 +396,7 @@
           - "🌐 https://openclaw.simonklimke.de"
           - ""
           - "Pair Telegram: DM @momomemos_bot → get code →"
-          - "  ssh momo@192.168.178.149 docker exec openclaw openclaw pairing approve telegram <CODE>"
+          - "  ssh lan docker exec openclaw openclaw pairing approve telegram <CODE>"
           - ""
           - "Deploy webhook: https://deploy.openclaw.simonklimke.de/deploy (Bearer webhook-token)"
 

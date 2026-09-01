@@ -51,6 +51,23 @@ ssh lan "sudo systemctl start openclaw-build.service"
 ssh lan "sudo journalctl -u openclaw-build.service -f"
 ```
 
+## Admin-SSH: Mesh-first (Tailscale)
+
+Admin-SSH zu allen Hosts läuft **immer über Tailscale** (Aliase `lan` / `planet` →
+`100.x`-Adressen), nie über Public-IPs. Public-IPs sind ausschließlich für
+Service-Endpoints (Web, Webhook, Minecraft-Ports).
+
+```sh
+ssh lan       # .149  → 100.85.52.13  (Tailscale)
+ssh planet    # Hetzner → 100.77.143.105 (Tailscale)
+```
+
+> ⚠️ **Nicht** `ssh root@65.21.27.234` — SSH auf planet läuft nach dem Incident vom
+> 2026-09-01 (ufw-LIMIT auf 22/tcp → „Connection refused“) nur noch über Tailscale.
+
+Details, Host-Tabelle und Diagnose-Reihenfolge (ufw vor fail2ban):
+**[`docs/mesh-first-access.md`](docs/mesh-first-access.md)**.
+
 ## Obsidian Sync (Headless)
 
 `openclaw` mounts the shared `quill_data` volume at `/quill` (read-write). The
