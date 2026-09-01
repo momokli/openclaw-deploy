@@ -89,9 +89,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
+# .cache-Parent explizit anlegen + chownen: ohne das waere /home/node/.cache
+# root-owned (vom mkdir -p), und USER node kann kein openclaw-1000-Tempdir
+# mehr anlegen (Plugin-Install, SQLite-Worker).
+RUN mkdir -p /home/node/.cache "$PLAYWRIGHT_BROWSERS_PATH" \
     && node /app/node_modules/playwright-core/cli.js install --with-deps chromium \
-    && chown -R node:node "$PLAYWRIGHT_BROWSERS_PATH"
+    && chown -R node:node /home/node/.cache
 
 
 # ── Entrypoint: sync git config into runtime home ────────────────
