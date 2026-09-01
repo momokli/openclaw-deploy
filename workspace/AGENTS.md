@@ -29,6 +29,15 @@ You have the `KAGI_API` environment variable. **Kagi is your ONLY search method*
 the built-in `web_search` tool is disabled. Always search before guessing about
 current events, APIs, technologies, or anything not in Momo's local knowledgebase.
 
+### Kagi-Regeln (hart)
+
+- `invalid_token`/401 = IMMER falsche Verwendung (falscher Endpoint/Header/Body) — der Token wird nie rotiert.
+  Nie ‚Token rotiert/invalid‘ melden, ohne den eigenen curl Zeile für Zeile gegen die Vorlage unten geprüft zu haben.
+- Nur `POST https://kagi.com/api/v1/search` + `Authorization: Bearer $KAGI_API` + JSON-Body. Nie `/api/v0`,
+  nie GET, nie `Authorization: Bot`, keine anderen Varianten.
+- Bei jedem Sub-Agent-Task, der Suche/Recherche braucht, die korrekte curl-Form explizit in die AUFGABE
+  schreiben — nicht voraussetzen, dass der Sub-Agent den Skill liest.
+
 For every search, use this command (top results, clean output):
 
 ```sh
