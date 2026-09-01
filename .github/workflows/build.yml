@@ -1,13 +1,15 @@
 name: Build & Push Images
 
-# CI läuft für JEDE Branch-Push-Pipeline und JEDEN Pull Request (alle Base-Branches),
+# CI läuft für JEDEN Pull Request (alle Base-Branches) und für Pushes auf main,
 # damit vor dem Merge sichtbar ist, ob der Build grün ist.
+# Push-Trigger nur auf main, damit PR-Branch-Pushes nicht doppelt feuern
+# (push + pull_request) — auf PR-Branches läuft nur der pull_request-Run.
 # GHCR-Push + Deploy-Webhook sind weiterhin per `if: github.ref == 'refs/heads/main'`
 # auf main beschränkt.
 # Status-Check-Referenz für Branch Protection auf main: Job-Name "build".
 on:
   push:
-    branches: ['**']
+    branches: [main]
   workflow_dispatch:
   pull_request:
 
@@ -18,6 +20,9 @@ env:
 jobs:
   build:
     runs-on: self-hosted
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,10 +58,11 @@ jobs:
 
       # Trigger deploy on .149 via HTTPS webhook (no Tailscale/SSH).
       # The webhook validates DEPLOY_TOKEN and starts openclaw-build.service.
+      # Webhook is async on .149: answers immediately with 202, hence --max-time 30.
       - name: Trigger deploy on .149
         if: github.ref == 'refs/heads/main'
         timeout-minutes: 5
         run: |
-          curl -fsS -X POST \
+          curl -fsS --max-time 30 -X POST \
             -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
             https://deploy.openclaw.simonklimke.de/deploy
