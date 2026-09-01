@@ -1,6 +1,6 @@
 ---
 name: kagi-search
-description: "Externe Web-Suche und Seiten-Extraktion über die Kagi-API (curl), wenn natives web_search deaktiviert ist."
+description: "Externe Web-Suche und Seiten-Extraktion über die Kagi-API (curl), wenn natives web_search deaktiviert ist. Auch bei Kagi-Fehlern (invalid_token, 401) oder falsch gemeldeter Kagi-Nutzung."
 metadata:
   {
     "openclaw":
@@ -29,6 +29,11 @@ geraten wird. Kagi ist die einzige Suchmethode, weil natives `web_search` disabl
 3. **Extract-API** (`POST https://kagi.com/api/v1/extract`) liefert komplette Seiteninhalte als
    Markdown (bis 10 URLs pro Call) — nutzen statt `curl` auf die Roh-HTML-Seite.
 4. Bei Bug-Reports Trace-ID mitschicken: `meta.trace` im Response-Body oder `X-Kagi-Trace`-Header.
+5. **`invalid_token`/401 heißt IMMER falsche Verwendung** (falscher Endpoint, Header oder Body) — der
+   KAGI_API-Token wird nie rotiert. Bei diesem Fehler den eigenen curl Zeile für Zeile gegen die Vorlage
+   unten prüfen: `POST https://kagi.com/api/v1/search` (nicht `/api/v0`), Header `Authorization: Bearer $KAGI_API`
+   (nicht `Bot`), JSON-Body `{"query":"..."}`. NIE ‚Token rotiert/invalid‘ berichten, ohne diesen Check
+   gemacht zu haben.
 
 ## Search (Top-Ergebnisse, clean)
 
@@ -75,5 +80,6 @@ Verfügbarkeit, Händler-Bewertungen checken.
 ## Stop-Regel
 
 Keine Ergebnisse (leeres `data.search`) → NICHT denselben curl mit anderen Flags wiederholen.
-Stattdessen: (1) HTTP-Status + Response-Body mit `-i` prüfen, (2) `KAGI_API` gesetzt/valide
-checken, (3) bei anhaltendem 401/403 oder Auth-Fehler → Momo fragen.
+Stattdessen: (1) HTTP-Status + Response-Body mit `-i` prüfen, (2) `KAGI_API` gesetzt checken
+(`[ -n "$KAGI_API" ]`) und die curl-Form gegen die Vorlage prüfen; Token-Rotation ausschließen
+(findet nicht statt), (3) bei anhaltendem 401/403 oder Auth-Fehler → Momo fragen.
