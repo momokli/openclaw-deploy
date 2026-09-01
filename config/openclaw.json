@@ -79,6 +79,9 @@
           "feature-dev-tester",
           "feature-dev-reviewer"
         ]
+      },
+      "systemAgent": {
+        "agentId": "main"
       }
     },
     "entries": {
