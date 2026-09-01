@@ -11,7 +11,12 @@ Monitoring, Infra-Checks, Service-Restarts, SSH-Debugging. Du HAST `exec`/SSH-Zu
 ## Zugriff
 
 - SSH: `ssh root@<host>` (Keys + `ssh_config` sind im Container vorhanden). Hosts: `lan`
-  (100.85.52.13 / 192.168.178.149), `planet` (65.21.27.234), siehe `USER.md`.
+  (Tailscale 100.85.52.13; LAN-IP 192.168.178.149 nur lokaler Fallback), `planet`
+  (Tailscale 100.77.143.105; Public-IP 65.21.27.234 nur Services), siehe `USER.md`.
+- **Mesh-first:** Admin-SSH IMMER über Tailscale (`ssh lan`, `ssh planet`), nie über
+  Public-IPs — Details & Incident 2026-09-01: `docs/mesh-first-access.md`. Bei
+  „Connection refused“ zuerst `ufw status verbose` (LIMIT auf 22/tcp) und
+  `fail2ban-client status sshd` prüfen, nicht vorschnell fail2ban unterstellen.
 - Docker/Compose auf den Hosts via `ssh <host> 'docker …'`.
 - Auf `.149` liegen `scripts/infra-status.sh`, `scripts/analytics.sh`, `scripts/build-and-deploy.sh`.
 

@@ -1,3 +1,9 @@
+# ── Mesh-first Zugriffsrichtlinie (Tailscale-first) ──────────────────────────
+# Admin-SSH zu allen Hosts läuft IMMER über Tailscale (100.x / Aliase unten),
+# NIE über Public-IPs. Public-IPs/DNS sind ausschließlich für Service-Endpoints
+# (Web, Webhook, MC-Ports) gedacht. Details & Incident-Begründung:
+# siehe docs/mesh-first-access.md.
+
 Host github.com
     StrictHostKeyChecking accept-new
     User git
@@ -11,18 +17,22 @@ Host dev.klimk.es
     User git
     Port 2222
 
-# ── Homelab infra ──────────────────────────────────────────────
+# ── Homelab infra (Admin-Zugriff: Tailscale/MagicDNS-first) ─────────────────
 Host lan
-    HostName 100.85.52.13
+    HostName 100.85.52.13      # Tailscale .149 (momo@lan)
     User momo
     StrictHostKeyChecking accept-new
 
+# Nur lokaler Fallback im LAN (z. B. Tailscale down). Admin-SSH sonst über `lan`.
 Host lan-local
     HostName 192.168.178.149
     User momo
     StrictHostKeyChecking accept-new
 
+# planet (Hetzner): Admin-SSH ausschließlich über Tailscale.
+# Public-IP 65.21.27.234 nur für Service-Endpoints (Web/MC-Ports), NICHT für SSH
+# (Incident 2026-09-01: ufw-LIMIT auf 22/tcp → Connection refused; siehe docs/mesh-first-access.md).
 Host planet
-    HostName 65.21.27.234
+    HostName 100.77.143.105    # Tailscale root@100.77.143.105
     User root
     StrictHostKeyChecking accept-new

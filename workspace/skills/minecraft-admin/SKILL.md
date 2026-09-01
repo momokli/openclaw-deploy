@@ -17,8 +17,12 @@ Use für Admin-Aufgaben auf Momos Mellon-Server (Paper, Docker, itzg/minecraft-s
 ## Zugriff
 
 ```bash
-ssh root@65.21.27.234   # Hetzner "planet"
+ssh planet             # Hetzner "planet" via Tailscale (100.77.143.105)
 ```
+
+> Mesh-first: Admin-SSH zu planet NUR über Tailscale (`ssh planet`). Die Public-IP
+> `65.21.27.234` ist nur für Service-Endpoints (MC-Ports/Web), nicht für SSH —
+> Incident 2026-09-01 (ufw-LIMIT auf 22/tcp). Siehe `docs/mesh-first-access.md`.
 
 | Env  | Server-Container      | Proxy                   |
 | ---- | --------------------- | ----------------------- |
