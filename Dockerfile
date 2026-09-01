@@ -73,6 +73,27 @@ RUN curl -fsSL https://github.com/pimalaya/himalaya/releases/download/v2.0.0/him
 RUN pip3 install --break-system-packages ansible
 
 
+# ── Build-Environment (Playwright/Chromium + Fonts + flac) ──────
+# Coding-Agents laufen im Gateway-Container und brauchen für E2E-Tests
+# (Playwright) und mmm-DB-Tests eine vollständige Runtime. Vorher musste
+# jede Sandbox Workarounds nachrüsten: ~30 System-Libs als .debs nach
+# /tmp/pw-deps + LD_LIBRARY_PATH, Fonts nach ~/.local/share/fonts (sonst
+# rendert Headless-Chrome Text mit Höhe 0), flac/metaflac fehlte ganz.
+# Jetzt eingebacken: System-Libs + Browser via playwright-core --with-deps
+# (Pfad aus dem Basis-Image: /app/node_modules/playwright-core), Fonts +
+# flac explizit als apt-Pakete. PLAYWRIGHT_BROWSERS_PATH ist im Basis-Image
+# bereits auf /home/node/.cache/ms-playwright gesetzt.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    flac \
+    fonts-liberation \
+    fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
+    && node /app/node_modules/playwright-core/cli.js install --with-deps chromium \
+    && chown -R node:node "$PLAYWRIGHT_BROWSERS_PATH"
+
+
 # ── Entrypoint: sync git config into runtime home ────────────────
 COPY --chown=node:node entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

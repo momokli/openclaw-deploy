@@ -33,7 +33,10 @@ jobs:
 
       - name: Test openclaw image (entrypoint + tools present)
         run: |
-          docker run --rm $IMAGE:${{ github.sha }} which cargo rustc ansible gh himalaya
+          docker run --rm $IMAGE:${{ github.sha }} which cargo rustc ansible gh himalaya flac metaflac
+          # Build-Environment: Chromium-Bundle (Playwright) + Liberation-Fonts
+          # (Headless-Chrome rendert ohne Fonts Text mit Höhe 0).
+          docker run --rm $IMAGE:${{ github.sha }} sh -c 'ls "$PLAYWRIGHT_BROWSERS_PATH" | grep -qi chromium && fc-list | grep -qi liberation'
 
       - name: Build obsidian-sync image
         run: docker build -f Dockerfile.obsidian-sync -t $OBSIDIAN_IMAGE:${{ github.sha }} .
