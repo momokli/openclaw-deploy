@@ -15,14 +15,12 @@ FROM openclaw/openclaw:2026.8.1-slim AS prod
 # Switch to root for package installs
 USER root
 
-# Install git, SSH, GitHub CLI, and Rust
+# Install git, SSH, GitHub CLI
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     openssh-client \
     curl \
     jq \
-    cargo \
-    rustc \
     pkg-config \
     libssl-dev \
     libsqlite3-dev \
@@ -32,6 +30,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gosu \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Rust toolchain via rustup (pinned). Debian bookworm apt ships rustc 1.63 /
+# cargo 1.65 — too old for Rust edition 2024 (MSRV >= 1.85). Installed into
+# node's home so the runtime `node` user can use it (the image runs as `node`);
+# the explicit chown + PATH keep `which cargo rustc` green for every user.
+ENV RUSTUP_HOME=/home/node/.rustup \
+    CARGO_HOME=/home/node/.cargo
+RUN mkdir -p /home/node \
+    && curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.98.0 \
+    && chown -R node:node /home/node/.cargo /home/node/.rustup
+ENV PATH="/home/node/.cargo/bin:${PATH}"
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
