@@ -35,8 +35,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(401)
             self.end_headers()
             return
-        subprocess.run(["sudo", "-n", "systemctl", "start", "openclaw-build.service"])
-        self.send_response(200)
+        subprocess.Popen(["sudo", "-n", "systemctl", "start", "openclaw-build.service"], start_new_session=True)
+        self.send_response(202)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(b'{"status":"triggered"}')
