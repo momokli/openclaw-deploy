@@ -1,0 +1,62 @@
+# Dev-Umgebung für headless Minecraft-Mod-Entwicklung (create:yogglez,
+# NeoForge, MC 1.21.1, Java-21-Toolchain) gegen die Dev-Stage des
+# Dockerfiles (`--target dev`). Produktion (docker-compose.yml) bleibt
+# unberührt — eigenes Compose-Projekt (name: openclaw-dev), damit Prod
+# diesen Container nie als Orphan entfernt.
+#
+# Nutzung:
+#   # Einmaliger Task (z. B. Kompilieren):
+#   docker compose -f docker-compose.dev.yml run --rm yogglez-dev bash -lc \
+#     'cd /home/node/repos/create-yogglez && ./gradlew compileJava'
+#
+#   # Interaktiv (Gradle-Daemon bleibt warm für Folgetasks):
+#   docker compose -f docker-compose.dev.yml run --rm yogglez-dev bash
+#
+#   # Langlaufender Devserver (gameTestServer/runServer) + exec:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml exec yogglez-dev bash
+name: openclaw-dev
+
+services:
+  yogglez-dev:
+    image: ghcr.io/momokli/openclaw-deploy:dev
+    container_name: openclaw-yogglez-dev
+    restart: unless-stopped
+
+    environment:
+      - TZ=Europe/Berlin
+      # Gradle-Cache liegt im persistenten Volume (NeoForge-Deps: 2–4 GB)
+      - GRADLE_USER_HOME=/home/node/.gradle
+
+    volumes:
+      # Gleiches Named Volume wie Prod (openclaw_repos) → der yogglez-Clone
+      # unter /home/node/repos/create-yogglez ist bereits da.
+      - repos:/home/node/repos
+      # Persistenter Gradle-Cache: überlebt Container-Recreation, spart
+      # bei jedem Start die 2–4 GB Dependency-Downloads + Wrapper-Distro.
+      - gradle_home:/home/node/.gradle
+      # SSH-Key für git push / gh (wie Prod)
+      - ${HOME}/.ssh/id_ed25519:/home/node/.ssh/id_ed25519:ro
+
+    # NeoForge-Devserver (runServer/gameTestServer) braucht 4–8 GB RAM.
+    # Auf Hosts mit weniger RAM: `--memory 4g` beim run oder mem_limit anpassen.
+    mem_limit: 8g
+    mem_reservation: 4g
+
+    # Kein Port-Mapping nötig — nur headless Tasks (compileJava, test,
+    # runData, gameTestServer, runServer). runClient braucht ein Display
+    # und funktioniert hier NICHT.
+    command: ["sleep", "infinity"]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "command -v java && command -v git && test -d /home/node/repos"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  # Referenz auf die bestehenden Named Volumes (gleicher Name = gleiches Volume)
+  repos:
+    name: openclaw_repos
+  gradle_home:
+    name: openclaw_gradle_home

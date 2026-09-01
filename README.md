@@ -111,6 +111,58 @@ pulling changes to/from the remote vault. Credentials live only in the
 `obsidian_config` volume; the `--password` for E2E encryption is passed
 interactively at setup time and is never written to disk in this repo.
 
+## Yogglez Dev-Stage (Minecraft / NeoForge, headless)
+
+Zum Entwickeln von `create:yogglez` (Minecraft-Mod, MC 1.21.1 / NeoForge
+21.1.217, harte Java-21-Toolchain, Gradle 9.2.1 via Wrapper) gibt es eine
+**Dev-Stage** des Images — das Prod-Image bleibt davon unberührt:
+
+- **Multi-Stage im `Dockerfile`:** `FROM prod AS dev` ergänzt **JDK 21 (Temurin)**
+  + `GRADLE_USER_HOME`-Setup. `docker build .` ohne `--target` liefert weiterhin
+  das schlanke Prod-Image (kein JDK drin).
+- **CI (`build.yml`):** eigener `dev`-Job baut `--target dev` (BuildKit-Cache
+  `type=gha`), pusht auf `main` nach `ghcr.io/momokli/openclaw-deploy:dev` und
+  blockiert nie den Prod-Build/Deploy.
+- **`docker-compose.dev.yml`:** eigenes Compose-Projekt (`openclaw-dev`), mountet
+  das bestehende `openclaw_repos`-Volume (`/home/node/repos`, yogglez-Clone ist
+  schon da) + persistentes Gradle-Cache-Volume (`openclaw_gradle_home` →
+  `/home/node/.gradle`, NeoForge-Deps 2–4 GB) + SSH-Key. RAM-Limit `mem_limit: 8g`
+  (NeoForge-Devserver braucht 4–8 GB).
+
+### Nutzung
+
+```sh
+# Image: lokal bauen ODER aus GHCR ziehen (auf main gepusht)
+docker build --target dev -t openclaw-dev .
+# bzw. docker pull ghcr.io/momokli/openclaw-deploy:dev
+
+# Einmaliger Task (z. B. Kompilieren):
+docker compose -f docker-compose.dev.yml run --rm yogglez-dev bash -lc \
+  'cd /home/node/repos/create-yogglez && ./gradlew compileJava'
+
+# Interaktiv (Gradle-Daemon bleibt warm für Folgetasks):
+docker compose -f docker-compose.dev.yml run --rm yogglez-dev bash
+#   node@…:~$ cd /home/node/repos/create-yogglez
+#   node@…:~$ ./gradlew runData          # Data-Generation
+#   node@…:~$ ./gradlew gameTestServer   # Gametests auf Dedicated Server
+#   node@…:~$ ./gradlew runServer        # Dedicated Server (EULA: echo "eula=true" > runs/server/eula.txt)
+
+# Langlaufender Devserver + exec:
+docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml exec yogglez-dev bash
+```
+
+**Headless-Regel:** Nur Tasks ohne Display sind sinnvoll — `compileJava`, `test`,
+`runData`, `gameTestServer`, `runServer`. `runClient` braucht ein Display → im
+Devcontainer NICHT nutzbar (kein X-Server).
+
+Der erste `./gradlew`-Aufruf lädt noch die Gradle-9.2.1-Distribution + NeoForge-Deps
+(2–4 GB) in den persistenten Cache — danach ist alles gecacht. Das vorinstallierte
+Temurin-21 wird über `JAVA_HOME` gefunden (foojay-Toolchain-Resolver lädt nichts nach).
+
+RAM: `mem_limit: 8g` im Compose-File; auf Hosts mit weniger RAM `--memory 4g` beim
+`run` oder `mem_limit` anpassen (Gradle-Daemon `-Xmx3G` + Devserver-JVM).
+
 ## Make Changes
 
 1. Edit files in this repo
@@ -123,7 +175,9 @@ interactively at setup time and is never written to disk in this repo.
 Both images are built in **GitHub Actions** (self-hosted runner on projectmellon.de)
 and pushed to **GHCR**:
 
-- `ghcr.io/momokli/openclaw-deploy` — gateway (`Dockerfile`).
+- `ghcr.io/momokli/openclaw-deploy` — gateway (`Dockerfile`, Default-Target = Prod).
+- `ghcr.io/momokli/openclaw-deploy:dev` — Dev-Stage (`docker build --target dev`,
+  JDK 21 Temurin für headless NeoForge-Mod-Entwicklung, siehe oben).
 - `ghcr.io/momokli/openclaw-obsidian-sync` — Obsidian Sync sidecar (`Dockerfile.obsidian-sync`).
 
 To add new tools: edit the relevant Dockerfile, push, and the workflow rebuilds on `main`.
@@ -173,9 +227,10 @@ siehe [Secrets](#secrets)). Schnell-Check aller APIs:
 ## Files
 
 ```
-├── Dockerfile              # Rust, git, jq, gh, himalaya, ansible
+├── Dockerfile              # Prod: Rust, git, jq, gh, himalaya, ansible; Dev-Stage (--target dev): + JDK 21 Temurin
 ├── Dockerfile.obsidian-sync # obsidian-headless sidecar
 ├── docker-compose.yml      # OpenClaw + Obsidian Sync sidecar
+├── docker-compose.dev.yml  # Yogglez Dev-Stage (headless NeoForge, Gradle-Cache-Volume, 8 GB RAM)
 ├── entrypoint.sh           # Syncs git config into runtime home on start
 ├── SETUP.md                # GitHub App „momo-bot" Setup (PAT → App Migration)
 ├── ssh_config              # Git host keys (copied into image)

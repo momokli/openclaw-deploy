@@ -1,3 +1,6 @@
+# ── Prod-Stage: OpenClaw-Gateway (Default-Target) ────────────────
+# Schlankes Gateway-Image. Kein JDK, keine Dev-Toolchain — die gibt's
+# nur in der Dev-Stage weiter unten (`docker build --target dev`).
 # Pinned: `openclaw/openclaw:slim` floats to the newest runtime, which hard-fails
 # on a stale config schema (2026.8.1 rejects 2026.7.1-era keys like agents.list,
 # agents.defaults.memorySearch, meta.lastTouchedAt). Pin to a specific release so
@@ -7,7 +10,7 @@
 # (host-env security policy); the upstream "Native GitHub identity" exception
 # landed in 2026.8.1-beta.3 and is included in stable 2026.8.1, so this pin also
 # guarantees GH_TOKEN reaches exec/sub-agent shells. Details: docs/gh-token-exec-env.md.
-FROM openclaw/openclaw:2026.8.1-slim
+FROM openclaw/openclaw:2026.8.1-slim AS prod
 
 # Switch to root for package installs
 USER root
@@ -85,3 +88,59 @@ USER root
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "openclaw.mjs", "gateway"]
+
+
+# ════════════════════════════════════════════════════════════════
+# Dev-Stage: headless Minecraft-Mod-Entwicklung (create:yogglez)
+# ════════════════════════════════════════════════════════════════
+# Baut auf dem Prod-Image auf (git/gh/ssh/curl sind bereits drin) und
+# ergänzt die Java-21-Toolchain (Temurin) für NeoForge-Mods (MC 1.21.1,
+# NeoForge 21.1.217, Gradle 9.2.1 via Wrapper). Das Prod-Image bleibt
+# unverändert schlank — JDK gibt's nur hier.
+#
+#   docker build --target dev -t openclaw-dev .
+#
+# Nur HEADLESS Gradle-Tasks sind sinnvoll: compileJava, test, runData,
+# gameTestServer, runServer. `runClient` braucht ein Display → im
+# Devcontainer nicht nutzbar (kein X-Server).
+FROM prod AS dev
+
+USER root
+
+# Temurin JDK 21 (LTS) — passt zur harten Java-21-Toolchain der
+# NeoForge-Mods. Rolling "latest 21 LTS" vom Adoptium-API (Vendor
+# eclipse = Temurin); Arch wird aus dpkg abgeleitet (x64/aarch64).
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture | sed 's/amd64/x64/; s/arm64/aarch64/')"; \
+    curl -fsSL "https://api.adoptium.net/v3/binary/latest/21/ga/linux/${ARCH}/jdk/hotspot/normal/eclipse" -o /tmp/jdk21.tar.gz; \
+    mkdir -p /opt/java; \
+    tar -xzf /tmp/jdk21.tar.gz -C /opt/java --strip-components=1; \
+    rm /tmp/jdk21.tar.gz; \
+    /opt/java/bin/java -version; \
+    /opt/java/bin/javac -version
+
+ENV JAVA_HOME=/opt/java \
+    PATH="/opt/java/bin:${PATH}"
+
+# Persistenter Gradle-Cache: /home/node/.gradle (GRADLE_USER_HOME) als
+# Named Volume mounten (docker-compose.dev.yml). NeoForge-Deps sind
+# 2–4 GB — ohne Volume würde jeder Container-Start sie neu laden.
+RUN mkdir -p /home/node/.gradle /home/node/repos \
+    && chown -R node:node /home/node/.gradle /home/node/repos
+
+# Headless-Devcontainer: kein Gateway-Start, nur eine Shell. Der
+# Prod-ENTRYPOINT (entrypoint.sh) läuft weiter (no-ops ohne die
+# Config-Mounts von Prod) und droppt via gosu auf User `node` —
+# Gradle läuft also als `node`, Dateien im repos-Volume matchen.
+CMD ["/bin/bash"]
+
+
+# ════════════════════════════════════════════════════════════════
+# Default-Target bleibt Prod.
+# Die bestehende Pipeline (build.yml, test-branch.sh) baut OHNE
+# `--target` und bekommt so weiterhin das schlanke Prod-Image — die
+# Dev-Stage wird explizit via `docker build --target dev` gewählt.
+# ════════════════════════════════════════════════════════════════
+FROM prod
+LABEL org.opencontainers.image.title="openclaw-deploy (prod)" \
+      org.opencontainers.image.description="OpenClaw gateway image; dev toolchain: docker build --target dev"
