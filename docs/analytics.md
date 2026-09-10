@@ -1,7 +1,7 @@
 # Event-level analytics — `scripts/analytics.sh`
 
 Windowed report of everything OpenClaw did in a time range: **chats, tools, errors,
-model usage and cost**. Reads the live container state directly (no file copying), so it's
+model usage and cost**. Reads the live per-agent SQLite DBs directly (no file copying), so it's
 always current and repeatable — the source of truth is the runtime, not a cached export.
 
 ## Run
@@ -15,12 +15,13 @@ ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/analytics.sh [START_UTC] [END_U
 
 - `START`/`END` are ISO-8601 **UTC**. Berlin = UTC+2 (summer) / UTC+1 (winter).
 - No args → last 24 h.
-- Raw extracted data is left in `/tmp/oc_traj.jsonl` (trajectory) and `/tmp/oc_msgs.jsonl`
-  (attributed messages) so you can re-query with your own jq.
+- Raw normalized data is left in `/tmp/oc_sqlite.jsonl` (one JSON object per line, `kind` ∈
+  `session` | `usage` | `toolCall` | `toolResult`) so you can re-query with your own jq.
 
 ## What it reports
 
-1. **Sessions** — `session.started` per `sessionKey` (agent, run count, first/last ts).
+1. **Sessions** — per `sessionKey`: agent, run count (`session_windows` started in the window),
+   first/last start time.
 2. **Model usage + cost** — per agent+model: turns, input (cache-miss), cacheRead, cacheWrite,
    output, reasoning, `est_cost` (official off-peak prices) and `raw_cost` (OpenClaw's own `usage.cost`).
 3. **Tools** — `toolCall` counts per agent+tool.
@@ -28,14 +29,19 @@ ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/analytics.sh [START_UTC] [END_U
 
 ## Data sources & schema
 
-Two file kinds per session under `/home/node/.openclaw/agents/<agent>/sessions/`:
+Since the SQLite migration (2026-08-31) the old
+`/home/node/.openclaw/agents/<agent>/sessions/*.jsonl` files no longer exist. Extraction is done
+by `scripts/oc-sqlite.mjs` (Node 24, `node:sqlite`, no `sqlite3` CLI needed), which reads the
+per-agent DBs at `/home/node/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite`:
 
-| file | content |
-|---|---|
-| `<id>.trajectory.jsonl` | structured events: `session.started`, `prompt.submitted`, `context.compiled`, `model.completed`, `session.ended`, `trace.*`. `model.completed.data.usage` is the **per-session aggregate**. The agent is `sessionKey.split(":")[1]`. |
-| `<id>.jsonl` + `<id>.jsonl.reset.*` | `message` events, `role` ∈ `user`/`assistant`/`toolResult`. Assistant messages carry per-turn `message.usage` (with a `cost` breakdown) and `message.content[]` blocks (`thinking`, `toolCall`, `text`). |
+| table                       | content                                                                                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `session_windows`           | one row per session "run" (idle-reset chain via `previous_session_id`). `session_key` → `session_id(s)`, `started_at`/`ended_at` (**epoch ms**, nullable), `model`, `status`, `display_name`.                                                          |
+| `session_nodes`             | session metadata: `session_key`, `label`, `display_name`, `status`, `parent_session_key`, `current_session_id`.                                                                                                                                        |
+| `transcript_events`         | `session_id`, `seq`, `event_json` — the `message` events. Assistant messages carry `message.usage` and `message.content[]` blocks (`thinking`, `toolCall`, `text`). `toolResult` messages carry `message.toolName` and text content.                   |
+| `trajectory_runtime_events` | `session.started` / `model.completed` etc. (`ts`, `sessionKey`, `usage`). `model.completed.data.usage` is the per-run aggregate but has **no** cost/reasoning/cacheWrite — the helper therefore reads per-call usage from `transcript_events` instead. |
 
-Per-turn `usage` shape (assistant message):
+Per-call `usage` shape (assistant message in `transcript_events.event_json`):
 
 ```json
 "usage": {
@@ -45,27 +51,40 @@ Per-turn `usage` shape (assistant message):
 }
 ```
 
+The helper normalizes this into `reasoning` and flat `costInput`/`costCacheRead`/`costOutput`/
+`costCacheWrite`/`costTotal` fields (see the header comment in `scripts/oc-sqlite.mjs` for the
+full JSONL contract).
+
+## Window semantics
+
+- `session` rows use `session_windows.started_at ∈ [START, END)`.
+- `usage`/`toolCall`/`toolResult` rows come from sessions whose window **overlaps** the requested
+  range, further filtered by the event's own timestamp ∈ `[START, END)`. This attributes a
+  long-lived session to the correct UTC day instead of the day it started.
+
 ## Gotchas (important for correct analysis)
 
 1. **`reasoning` is a SUBSET of `output`**, not billed on top of it. DeepSeek's
    `completion_tokens` includes reasoning. Verified against the live data:
    `total == input + cacheRead + output` and `output >= reasoning` for every call.
-   The old `cost.html` formula `(output + reasoning) × price` **double-counts reasoning**.
-2. **Include `*.jsonl.reset.*` snapshots.** `main`'s direct DM is one long-lived session that
-   idle-resets every 120 min; the pre-reset turns live in `.reset.*` snapshots. Skipping them
-   undercounts `main` ~3× (the original cause of a wrong cost number in early analysis).
+   The old `cost.html` formula `(output + reasoning) × price` **double-counts reasoning**
+   (fixed in `scripts/cost-dashboard.sh`).
+2. **Idle-resets are now first-class.** The old `.jsonl.reset.*` snapshot handling is obsolete:
+   every idle-reset is a separate `session_windows` row linked via `previous_session_id`, and its
+   turns live in `transcript_events` under that `session_id`. No special casing required.
 3. **`delivery-mirror`** is a free echo/Telegram-delivery pseudo-model (0 tokens, 0 cost) — not an LLM call.
 4. **Two cost numbers disagree.** `est_cost` uses the official off-peak DeepSeek prices
    (pro $0.66/$1.98 + cache $0.022; flash $0.22/$0.66 + cache $0.007 per 1M). `raw_cost` is
    OpenClaw's own `usage.cost` field, which implies much higher prices (e.g. pro cacheRead
    ≈ $0.145/M). The gap is almost entirely cache-read pricing — verify against the real
-   DeepSeek bill before trusting either number.
+   DeepSeek bill before trusting either number. They are kept separate and never mixed.
 
 ## Extending / optimizing
 
-The jq filters are embedded as heredocs in the script (written to `/tmp/oc_*.jq` each run).
-To add a metric: extract from `/tmp/oc_msgs.jsonl` (`agent\tjson` lines) or `/tmp/oc_traj.jsonl`,
-add a `cat > /tmp/oc_*.jq <<'JQ' … JQ` block, and a report section.
+To add a metric: extend `scripts/oc-sqlite.mjs` (emit another normalized `kind`), then add a jq
+aggregation in `scripts/analytics.sh` over `/tmp/oc_sqlite.jsonl`.
 
 - Prices are env-overridable: `PRO_IN/CR/OUT`, `FLASH_IN/CR/OUT`.
 - Error signature is env-overridable: `ERR_PATTERN`.
+- The helper constrains `transcript_events` scans to sessions overlapping the window
+  (via a join on `session_windows`) to keep large multi-agent scans cheap.
