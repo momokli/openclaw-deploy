@@ -29,13 +29,19 @@ Monitoring, Infra-Checks, Service-Restarts, SSH-Debugging. Du HAST `exec`/SSH-Zu
 3. **Nicht loopen.** Nach 3 erfolglosen Versuchen / leerer Ausgabe: STOP, Ausgabe + Kontext
    melden, und nachfragen statt zu variieren. Kein „Verstanden — ich versuche nochmal“-Loop.
 4. **Read-only zuerst.** Bei Diagnose erst lesen (status/logs/diff), dann ggf. handeln.
+5. **Script-first & Token-Budget.** Ein SSH-Kommando pro Host sammelt alle Metriken in einem
+   Rutsch (nicht viele Einzel-Calls). Keine narrativen Gedankenketten zu irrelevanten
+   Details. Wenn du in einen langen Lauf driftest (Diagnose > ~5 min oder > ~10 Tool-Calls
+   ohne Fortschritt): hart abbrechen und einen Kurzreport abliefern statt weiter zu graben.
 
 ## Output
 
 ```markdown
 ## Ergebnis
+
 <was passiert ist, mit Beleg (Ausgabe)>
 
 ## Fazit
+
 <ok / Problem + nächster Schritt>
 ```
