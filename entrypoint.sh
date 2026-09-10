@@ -71,8 +71,30 @@ chown -R node:node "$HOME_DIR/workspaces" 2>/dev/null || true
 # 5b. Seed DeepSeek auth profile on main so sub-agents inherit via read-through.
 #     env-only auth does NOT reach sub-agent model auth (they resolve through
 #     their own store + read-through to main's store), so persist the key once.
+#     Re-seed not only when the profile is absent, but also when it is stale:
+#     a rotated key in config/.env leaves the OLD key behind, and a transient
+#     provider error can flag the profile "disabled:billing" (cooldown). Both
+#     would otherwise shadow the valid env key and fail every turn with a
+#     misleading "billing issue" — so detect those and re-seed.
 if [ -n "$DEEPSEEK_API_KEY" ]; then
-    if ! gosu node openclaw models auth list --agent main --provider deepseek 2>/dev/null | grep -q 'deepseek:'; then
+    # OpenClaw masks keys as "<first 8>...<last 8>" in `models status` output.
+    masked_env_key="$(printf '%s' "$DEEPSEEK_API_KEY" | sed -E 's/^(.{8}).*(.{8})$/\1...\2/')"
+    deepseek_status="$(gosu node openclaw models status --agent main 2>/dev/null | grep 'deepseek:manual=' || true)"
+    reseed=0
+    if [ -z "$deepseek_status" ]; then
+        reseed=1
+    elif printf '%s\n' "$deepseek_status" | grep -q 'disabled'; then
+        log "deepseek auth profile disabled (cooldown) — re-seeding"
+        reseed=1
+    elif ! printf '%s\n' "$deepseek_status" | grep -qF "$masked_env_key"; then
+        log "deepseek auth profile key stale (rotated) — re-seeding"
+        reseed=1
+    fi
+
+    if [ "$reseed" = "1" ]; then
+        # Remove the stale profile first: paste-api-key alone may leave a
+        # "disabled:billing" flag on the existing profile intact.
+        gosu node openclaw models auth logout --agent main deepseek:manual --yes >/dev/null 2>&1 || true
         if printf '%s\n' "$DEEPSEEK_API_KEY" | gosu node openclaw models auth --agent main paste-api-key --provider deepseek; then
             log "seeded deepseek auth profile on main"
         else
@@ -136,7 +158,7 @@ EOF
     else
         log "WARN: failed to configure gh credential helper"
     fi
-    if ! gosu node gh auth status >/dev/null 2>&1; then
+    if ! gosu node gh api user --jq .login >/dev/null 2>&1; then
         log "WARN: gh is NOT authenticated — check token format/scope"
     fi
 elif [ "$APP_MODE" = "0" ]; then
