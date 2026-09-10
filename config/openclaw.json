@@ -48,7 +48,7 @@
       "workspace": "/home/node/.openclaw/workspace",
       "model": {
         "primary": "deepseek/deepseek-v4-flash",
-        "fallbacks": ["deepseek/deepseek-v4-pro"]
+        "fallbacks": []
       },
       "compaction": {
         "model": "deepseek/deepseek-v4-flash",
@@ -139,7 +139,7 @@
   },
   "channels": {
     "telegram": {
-      "enabled": true,
+      "enabled": false,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
       "dmPolicy": "pairing",
       "streaming": {
