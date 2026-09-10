@@ -92,13 +92,13 @@
       },
       "coding-orchestrator": {
         "workspace": "/home/node/.openclaw/workspaces/coding-orchestrator",
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "thinking-orchestrator": {
         "workspace": "/home/node/.openclaw/workspaces/thinking-orchestrator",
-        "model": "deepseek/deepseek-v4-pro",
-        "thinkingDefault": "high"
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       },
       "operator": {
         "workspace": "/home/node/.openclaw/workspaces/operator",
