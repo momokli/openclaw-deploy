@@ -254,7 +254,11 @@ Take-into-account für Workflows:
 - Soll: (1) Zeit je Build-Phase auf .149 vs. planet messen; (2) Strategie festlegen und
   dokumentieren (Builds auf planet/c0 auslagern ODER dedizierter Build-Container mit
   persistenten Caches auf .149); (3) Laufzeiten als Baseline notieren.
-- DoD: dokumentierte Build-Host-Strategie + bekannte Build-Laufzeiten als Baseline.
+- **Strategie dokumentiert:** [docs/build-host-strategy.md](build-host-strategy.md)
+  (Entscheidung: Container-per-Job Build-Farm auf Planet, .149 nur Orchestrierung).
+- **Baseline:** noch zu messen via `scripts/build-benchmark.sh [host] [--run]`
+  (dry-run per Default; echte Build-Phasen separat, nie automatisch).
+- DoD: dokumentierte Build-Host-Strategie ✅ + bekannte Build-Laufzeiten als Baseline (offen).
 
 ---
 
