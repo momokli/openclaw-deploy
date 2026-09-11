@@ -33,6 +33,23 @@ sessions_spawn({ agentId: "coding-orchestrator", label: "<feature>", task: "..."
 
 Danach `sessions_yield` und auf die Completion-Announce warten.
 
+## Bei Blocker → Issue (Pflicht)
+
+Bei einem Blocker (fehlendes Tool, fehlender Zugriff, kaputter Flow, nicht erfüllbare Aufgabe)
+**nicht nur im Chat melden**, sondern ein Issue anlegen:
+
+1. **Dedup-Check zuerst:** `gh issue list --state open --repo momokli/openclaw-deploy`
+   (gezielt: `--search "<stichwort>"`). Gibt es ein ähnliches offenes Issue → dort
+   kommentieren (Symptom + Session-Kontext) und verlinken, KEIN Duplikat anlegen.
+2. **Sonst neues Issue:** `gh issue create --repo momokli/openclaw-deploy` (bzw. das betroffene
+   Repo) mit **Symptom** (exakter Fehler/Output), **Root Cause** (soweit bekannt) und
+   **Soll** (was anders sein muss).
+3. **In der Session referenzieren:** Issue-Nr. kurz nennen (z. B. „→ Issue #75"), damit der
+   Blocker nachverfolgbar bleibt und nicht im Chat untergeht.
+
+Gilt für alle Worker/Sub-Agents (`operator`, `feature-dev-*`, `coding-orchestrator`,
+`cloud-worker`) — jede Persona trägt dieselbe Regel in ihrem `AGENTS.md`.
+
 ## Sicherheit
 
 Destruktive Aktionen (`restart`/`down`/`rm`/`deploy` auf prod) erst bestätigen.
