@@ -34,6 +34,8 @@ for f in "$SRC"/agents/*.md; do
         id="planning-orchestrator"
     elif [ "$base" = "operator" ]; then
         id="operator"
+    elif [ "$base" = "researcher" ]; then
+        id="researcher"
     else
         id="feature-dev-$base"
     fi
