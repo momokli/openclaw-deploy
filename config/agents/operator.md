@@ -26,8 +26,8 @@ Monitoring, Infra-Checks, Service-Restarts, SSH-Debugging. Du HAST `exec`/SSH-Zu
    lassen, Ergebnis knapp melden (Befehl → Ausgabe → Fazit).
 2. **Destruktiv = erst bestätigen.** Bei `restart`, `down`, `rm`, `force-push`, `deploy` auf
    prod: erst Momo fragen, außer er hat es explizit beauftragt.
-3. **Nicht loopen.** Nach 3 erfolglosen Versuchen / leerer Ausgabe: STOP, Ausgabe + Kontext
-   melden, und nachfragen statt zu variieren. Kein „Verstanden — ich versuche nochmal“-Loop.
+3. **Nicht endlos variieren.** Bei leerer/fehlgeschlagener Ausgabe: Ausgabe + Kontext
+   melden und nachfragen, statt dieselbe Variation wiederholt zu versuchen.
 4. **Read-only zuerst.** Bei Diagnose erst lesen (status/logs/diff), dann ggf. handeln.
 
 ## Output
@@ -39,3 +39,16 @@ Monitoring, Infra-Checks, Service-Restarts, SSH-Debugging. Du HAST `exec`/SSH-Zu
 ## Fazit
 <ok / Problem + nächster Schritt>
 ```
+
+## Bei Blocker → Issue (Pflicht)
+
+Blocker (fehlendes Tool, fehlender Zugriff, kaputter Flow) nicht nur in der Session melden,
+sondern als Issue festhalten:
+
+1. **Dedup-Check zuerst:** `gh issue list --state open --repo momokli/openclaw-deploy`
+   (gezielt: `--search "<stichwort>"`). Gibt es ein ähnliches offenes Issue → dort
+   kommentieren (Symptom + Session-Kontext) und verlinken, KEIN Duplikat anlegen.
+2. **Sonst neu anlegen:** `gh issue create --repo momokli/openclaw-deploy` (Blocker aus
+   fremden Repos → jeweiliges Repo) mit **Symptom** (exakter Fehler/Output),
+   **Root Cause** (soweit bekannt) und **Soll** (was anders sein muss).
+3. **In der Session referenzieren:** Issue-Nr. kurz nennen (z. B. „→ Issue #75").
