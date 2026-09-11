@@ -18,6 +18,16 @@ ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/analytics.sh [START_UTC] [END_U
 - Raw normalized data is left in `/tmp/oc_sqlite.jsonl` (one JSON object per line, `kind` ∈
   `session` | `usage` | `toolCall` | `toolResult`) so you can re-query with your own jq.
 
+**Container-agnostic run.** Since the Docker→Native migration the gateway runs natively
+(`openclaw-gateway.service`, port 18789) and there is no `openclaw` container anymore. Extraction
+therefore goes through `scripts/oc-sqlite-run.sh`, which picks the live runtime automatically:
+
+- **Docker** — if the `openclaw` container is running: `docker exec -i -u node openclaw node …`.
+- **Native** — otherwise: `node --input-type=module` against the host agents dir
+  (`OC_AGENTS_DIR`, default `$HOME/.openclaw/agents`).
+
+The public API of `analytics.sh` is unchanged (same `START`/`END` args, same output sections).
+
 ## What it reports
 
 1. **Sessions** — per `sessionKey`: agent, run count (`session_windows` started in the window),
@@ -31,8 +41,17 @@ ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/analytics.sh [START_UTC] [END_U
 
 Since the SQLite migration (2026-08-31) the old
 `/home/node/.openclaw/agents/<agent>/sessions/*.jsonl` files no longer exist. Extraction is done
-by `scripts/oc-sqlite.mjs` (Node 24, `node:sqlite`, no `sqlite3` CLI needed), which reads the
-per-agent DBs at `/home/node/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite`:
+by `scripts/oc-sqlite.mjs` (Node 24, `node:sqlite`, no `sqlite3` CLI needed), launched via
+`scripts/oc-sqlite-run.sh` (Docker `openclaw` when running, else native node). It reads the
+per-agent DBs at `<agents-dir>/<agent>/agent/openclaw-agent.sqlite`, where `<agents-dir>` is:
+
+| runtime                          | agents dir                            |
+| -------------------------------- | ------------------------------------- |
+| native (gateway, `openclaw-gateway.service`) | `/home/momo/.openclaw/agents` (host) |
+| Docker container `openclaw`      | `/home/node/.openclaw/agents` (in-container) |
+
+The helper defaults to `/home/node/.openclaw/agents`; the native branch sets
+`OC_AGENTS_DIR=${OC_AGENTS_DIR:-$HOME/.openclaw/agents}`.
 
 | table                       | content                                                                                                                                                                                                                                                |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

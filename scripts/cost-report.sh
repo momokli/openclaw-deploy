@@ -8,16 +8,19 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd /opt/apps/openclaw
 
 echo "=== DeepSeek Balance ==="
-docker compose exec -T -u node openclaw openclaw status --usage 2>&1 \
-  | grep -iE 'deepseek|balance' | head -6
+# Container-agnostic: use the running container if present, else best-effort native CLI.
+if [ "$(docker inspect -f '{{.State.Running}}' openclaw 2>/dev/null || true)" = "true" ]; then
+  docker compose exec -T -u node openclaw openclaw status --usage 2>&1 \
+    | grep -iE 'deepseek|balance' | head -6 || true
+else
+  openclaw status --usage 2>&1 | grep -iE 'deepseek|balance' | head -6 || true
+fi
 
 # Per-call usage from the per-agent SQLite DBs (all history).
 END="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 START="1970-01-01T00:00:00Z"
-docker exec -i -u node \
-  -e "OC_START_UTC=$START" -e "OC_END_UTC=$END" \
-  openclaw node --input-type=module - < "$SCRIPT_DIR/oc-sqlite.mjs" \
-  > /tmp/oc_sqlite.jsonl
+OC_START_UTC="$START" OC_END_UTC="$END" \
+  "$SCRIPT_DIR/oc-sqlite-run.sh" > /tmp/oc_sqlite.jsonl
 
 jq -c 'select(.kind == "usage")' /tmp/oc_sqlite.jsonl > /tmp/oc_calls.jsonl || true
 

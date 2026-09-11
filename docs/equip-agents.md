@@ -24,6 +24,19 @@ per-Agent-DBs. `scripts/analytics.sh`, `scripts/cost-report.sh` und
 nur um den `est`-Doppelzähl-Bug (`output + reasoning`) bereinigt. Public-API
 unverändert, gegen die echte DB mit nicht-leerer Ausgabe getestet (vgl. `docs/analytics.md`).
 
+**Container-agnostisch (2026-09-12, Issue #23):** Seit der Docker→Native-Migration läuft der
+Gateway nativ (`openclaw-gateway.service`, Port 18789) — es gibt **keinen** `openclaw`-Container
+mehr. Ein direktes `docker exec … openclaw …` schlägt daher fehl („No such container: openclaw“)
+und liefert leere Reports. Die Skripte extrahieren jetzt über `scripts/oc-sqlite-run.sh`, das die
+Laufzeit automatisch wählt:
+
+- Container `openclaw` läuft → `docker exec -i -u node …`
+- sonst → nativ `node --input-type=module` gegen `OC_AGENTS_DIR` (Default `$HOME/.openclaw/agents`).
+
+Auch der Balance-Abruf (`openclaw status --usage`) ist adaptiv (Container → `docker compose exec`,
+sonst best-effort nativ; kein Hard-Fail). `scripts/cost-seed.sh` nutzt denselben Helper statt der
+nicht mehr existierenden `*.trajectory.jsonl`. Public-API (Fenster `START`/`END`) unverändert.
+
 Seit der SQLite-Migration (2026-08-31) liegen Sessions + Usage **nicht mehr** in
 `/home/node/.openclaw/agents/*/sessions/*.jsonl`, sondern in **per-Agent-SQLite**:
 `/home/node/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite`.
@@ -57,8 +70,9 @@ Verifizierte `event_json`-Feldpfade (Live-DB, 2026-09-10):
   `ended_at` (epoch ms, nullable), `status`, `model`, `model_provider`, `display_name`.
 
 Betroffene Skripte im Repo (umgesetzt): `scripts/analytics.sh`, `scripts/cost-report.sh`,
-`scripts/cost-snapshot.sh`, `scripts/cost-dashboard.sh` (nur est-Fix), Helper
-`scripts/oc-sqlite.mjs`. Public-API (Fenster START/END) unverändert.
+`scripts/cost-snapshot.sh`, `scripts/cost-dashboard.sh` (nur est-Fix), `scripts/cost-seed.sh`,
+Helper `scripts/oc-sqlite.mjs` + Runner `scripts/oc-sqlite-run.sh` (container-agnostisch).
+Public-API (Fenster START/END) unverändert.
 
 ### A2 gh-Health: `gh api user` statt `gh auth status` (Issue #24)
 
