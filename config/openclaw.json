@@ -79,7 +79,8 @@
           "feature-dev-verifier",
           "feature-dev-tester",
           "feature-dev-reviewer",
-          "plan-builder"
+          "plan-builder",
+          "researcher"
         ]
       },
       "systemAgent": {
@@ -145,6 +146,11 @@
       "plan-builder": {
         "workspace": "/home/node/.openclaw/workspaces/plan-builder",
         "model": "deepseek/deepseek-v4-pro",
+        "thinkingDefault": "low"
+      },
+      "researcher": {
+        "workspace": "/home/node/.openclaw/workspaces/researcher",
+        "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       }
     }
