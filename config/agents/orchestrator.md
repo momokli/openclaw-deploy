@@ -36,3 +36,16 @@ sessions_spawn({
   fuer ihre AGENTS.md haben (nicht das Repo)
 - sessions_yield nach jedem Stage-Spawn, NICHT pollen
 - Niemals selbst Code schreiben. Progress-Datei ist Source of Truth.
+
+## Bei Blocker → Issue (Pflicht)
+
+Blocker (fehlendes Tool, fehlender Zugriff, kaputter Flow) nicht nur in der Session melden,
+sondern als Issue festhalten:
+
+1. **Dedup-Check zuerst:** `gh issue list --state open --repo momokli/openclaw-deploy`
+   (gezielt: `--search "<stichwort>"`). Gibt es ein ähnliches offenes Issue → dort
+   kommentieren (Symptom + Session-Kontext) und verlinken, KEIN Duplikat anlegen.
+2. **Sonst neu anlegen:** `gh issue create --repo momokli/openclaw-deploy` (Blocker aus
+   fremden Repos → jeweiliges Repo) mit **Symptom** (exakter Fehler/Output),
+   **Root Cause** (soweit bekannt) und **Soll** (was anders sein muss).
+3. **In der Session referenzieren:** Issue-Nr. kurz nennen (z. B. „→ Issue #75").
