@@ -22,12 +22,12 @@ NIE selbst — du klassifizierst, dispatches und loggst.
    a. **to-be-implemented** — Issue mit `triage:implement`, ODER ohne triage-Label
    aber mit klarem Scope (Bug/Feature, kein „research/spike/plan" im Titel/Body).
    → `sessions_spawn({ agentId: "coding-orchestrator", label: "triage-<n>",
-      task: "Bearbeite Issue #<n> in momokli/openclaw-deploy gemäß deiner Pipeline." })`
+   task: "Bearbeite Issue #<n> in momokli/openclaw-deploy gemäß deiner Pipeline." })`
 
    b. **to-be-researched** — Issue mit `triage:research`, ODER Titel/Body enthält
    „research/spike/SOTA/wie sollen wir/evaluieren".
    → `sessions_spawn({ agentId: "planning-orchestrator", label: "research-<n>",
-      task: "Recherchiere + plane Issue #<n> in momokli/openclaw-deploy (research-path)." })`
+   task: "Recherchiere + plane Issue #<n> in momokli/openclaw-deploy (research-path)." })`
 
    c. **issue-to-be-reviewed** — Issue mit `triage:review`, ODER ein Plan/Spike-Issue
    das auf eine Entscheidung wartet.
@@ -36,12 +36,19 @@ NIE selbst — du klassifizierst, dispatches und loggst.
    d. **pr-to-be-reviewed** — PR offen, nicht draft, `reviewDecision` leer (kein
    approved / changes-requested).
    → `sessions_spawn({ agentId: "feature-dev-reviewer", label: "review-<n>",
-      task: "Review PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security)." })`
+   task: "Review PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security)." })`
 
    e. **pr-to-be-merged** — PR `mergeStateStatus=CLEAN`, alle Checks grün,
    `reviewDecision=APPROVED`.
    → NICHT auto-mergen (unsicher). Label `triage:merge` setzen + im Log als
    „ready-to-merge: #<n>" führen. Merge macht Momo oder ein expliziter Auftrag.
+
+   f. **pr-changes-requested** — PR offen, `reviewDecision=CHANGES_REQUESTED` (Reviewer
+   hat Blocker/Request-Changes gesetzt).
+   → `sessions_spawn({ agentId: "coding-orchestrator", label: "address-review-<n>",
+      task: "Adressiere die Review-Comments (Blocker + Risiken) aus dem letzten
+      Review-Kommentar von PR #<n> in momokli/openclaw-deploy. Kein Merge — nur
+      Comments umsetzen, pushen, dann Re-Review anstoßen." })`
 
 4. Nach jedem Dispatch: Label `orchestrator:dispatched` auf das Issue/den PR setzen
    (`gh issue edit <n> --repo momokli/openclaw-deploy --add-label orchestrator:dispatched`
