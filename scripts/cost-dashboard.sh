@@ -43,7 +43,7 @@ const data = __DATA__;
 const labels = data.map(d => d.date);
 const gridColor = '#262b36', tickColor = '#9aa4b2';
 const fmt = (n) => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(0)+'k' : (n ?? 0);
-const est = data.map(d => (d.input*0.66 + d.cacheRead*0.022 + (d.output + d.reasoning)*1.98) / 1e6);
+const est = data.map(d => (d.input*0.66 + d.cacheRead*0.022 + d.output*1.98) / 1e6);
 
 new Chart(document.getElementById('balance'), {
   type: 'line',

@@ -6,16 +6,23 @@ Workarounds neu zu erfinden (Meta-Issue: [#34](https://github.com/momokli/opencl
 
 Diese Datei konsolidiert die Faktenblöcke zweier Issue-Sammlungen:
 
-| Block | Quelle | Fakten-Issues |
-|---|---|---|
-| A — Agent-/Runtime-Plattform | Issue #34 (Meta) | #23–#33 |
-| B — Build-Environment (Mod-/Pack-Builds) | Issue #47 (Meta) | #39–#46 |
+| Block                                    | Quelle           | Fakten-Issues |
+| ---------------------------------------- | ---------------- | ------------- |
+| A — Agent-/Runtime-Plattform             | Issue #34 (Meta) | #23–#33       |
+| B — Build-Environment (Mod-/Pack-Builds) | Issue #47 (Meta) | #39–#46       |
 
 ---
 
 ## Block A — Agent-/Runtime-Plattform (aus #23–#33)
 
 ### A1 Analytics/Kosten: per-Agent-SQLite statt `.trajectory.jsonl` (Issue #23)
+
+**Status (2026-09-10): umgesetzt.** Die Skripte lesen jetzt über den Helper
+`scripts/oc-sqlite.mjs` (Node 24 `node:sqlite`, kein `sqlite3`-CLI) aus den
+per-Agent-DBs. `scripts/analytics.sh`, `scripts/cost-report.sh` und
+`scripts/cost-snapshot.sh` wurden umgestellt; `scripts/cost-dashboard.sh` wurde
+nur um den `est`-Doppelzähl-Bug (`output + reasoning`) bereinigt. Public-API
+unverändert, gegen die echte DB mit nicht-leerer Ausgabe getestet (vgl. `docs/analytics.md`).
 
 Seit der SQLite-Migration (2026-08-31) liegen Sessions + Usage **nicht mehr** in
 `/home/node/.openclaw/agents/*/sessions/*.jsonl`, sondern in **per-Agent-SQLite**:
@@ -39,9 +46,19 @@ Gotchas (nicht vergessen):
 - **Kein `sqlite3`-CLI garantiert** → `node:sqlite` (Node 24) bzw. JS/Node-Helper verwenden.
 - Zeitfilter über `started_at/ended_at` der `session_windows` (epoch **ms**).
 
-Betroffene Skripte im Repo: `scripts/analytics.sh`, `scripts/cost-report.sh`,
-`scripts/cost-snapshot.sh`, `scripts/cost-dashboard.sh`. Ziel beim Umbau: gleiche
-Public-API (Fenster START/END), Test gegen echte DB mit nicht-leerer Ausgabe.
+Verifizierte `event_json`-Feldpfade (Live-DB, 2026-09-10):
+
+- `transcript_events.event_json` → `message.role` ∈ `user|assistant|toolResult`,
+  `message.model`, `message.timestamp` (epoch ms), top-level `timestamp` (ISO);
+  Assistant-Messages: `message.usage.{input,cacheRead,cacheWrite,output,reasoningTokens,totalTokens}`
+  und `message.usage.cost.{input,cacheRead,cacheWrite,output,total}`;
+  `toolResult`: `message.toolName`, `message.isError`, `message.content[].{type:"text",text}`.
+- `session_windows`: `session_id` (PK), `session_key`, `previous_session_id`, `started_at`/
+  `ended_at` (epoch ms, nullable), `status`, `model`, `model_provider`, `display_name`.
+
+Betroffene Skripte im Repo (umgesetzt): `scripts/analytics.sh`, `scripts/cost-report.sh`,
+`scripts/cost-snapshot.sh`, `scripts/cost-dashboard.sh` (nur est-Fix), Helper
+`scripts/oc-sqlite.mjs`. Public-API (Fenster START/END) unverändert.
 
 ### A2 gh-Health: `gh api user` statt `gh auth status` (Issue #24)
 
@@ -122,7 +139,7 @@ Regeln:
 ### A8 Token-/Laufzeit-Disziplin: Reporting-Contract statt 106k-Token-Diagnose (Issue #30)
 
 Beispiel: wish-Diagnose 42k Input / 64k Output Tokens, 52 min für eine Standard-Diagnose
-(df/free/docker/dmesg) — Agent verlor sich in Gedankenkette zu /tmp/_MEI-Verzeichnissen
+(df/free/docker/dmesg) — Agent verlor sich in Gedankenkette zu /tmp/\_MEI-Verzeichnissen
 (für den Fix irrelevant).
 
 Regeln/Vorschläge:
