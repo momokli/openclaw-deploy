@@ -238,6 +238,7 @@ Take-into-account für Workflows:
   `enable-rcon=true`) war Ad-hoc-Edit beim Klon und nirgends versioniert.
 - Soll: Compose-Template inkl. RCON-Konfiguration im Repo festhalten, Fix im Runbook
   dokumentieren. DoD: nächster Klon übernimmt den Fix aus der Vorlage.
+- Erledigt (2026-09-12): Template `scripts/aero-test/compose.template.yaml` + Patch `scripts/aero-test/apply-rcon-fix.sh`, Runbook `docs/aero-test-rcon.md`.
 
 ### B6 FTB-Server-Installer: gute Version persistieren, /tmp-Artefakte vermeiden (Issue #44)
 
