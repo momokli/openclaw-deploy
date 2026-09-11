@@ -45,3 +45,12 @@ state/
 # Cost tracking (generated)
 cost.html
 cost-history.json
+
+# Deploy/agent drift artifacts on .149 (issue #29)
+__pycache__/
+*.pyc
+*.bak
+*.bak-*
+*~
+.doctor-fix.log
+webhook-token
