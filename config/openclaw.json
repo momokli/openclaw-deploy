@@ -215,7 +215,7 @@
         },
         {
           "provider": "google",
-          "model": "gemini-3-flash-preview",
+          "model": "gemini-3.6-flash",
           "capabilities": ["image"]
         }
       ],
