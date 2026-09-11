@@ -96,7 +96,7 @@ Mention-Patterns `@molty`/`@openclaw`).
 **Tools:**
 
 - Media: `groq/whisper-large-v3-turbo` (audio), `deepgram/nova-3` (audio, de),
-  `google/gemini-3-flash-preview` (image). `audio.enabled` + `image.enabled` beide true.
+  `google/gemini-3.6-flash` (image). `audio.enabled` + `image.enabled` beide true.
 - Search: Kagi (`POST https://kagi.com/api/v1/search`, `Authorization: Bearer <key>`,
   Body `{"query": "..."}`). Natives `web_search` disabled.
 - `loopDetection` enabled.

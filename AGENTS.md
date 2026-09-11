@@ -56,33 +56,22 @@ Wichtig: der **Build läuft in GitHub Actions**, nicht mehr auf projectmellon.de
 - `config/.env` auf `.149` enthält (laut README + ansible): `DEEPSEEK_API_KEY`, `KAGI_API`,
   `TELEGRAM_BOT_TOKEN`, `OPENCLAW_GATEWAY_TOKEN`, `GH_TOKEN`, `GROQ_API_KEY`, `DEEPGRAM_API_KEY`.
 
-## OFFENE AUFGABE: Gemini Vision (Bilder verstehen)
+## Gemini Vision (Bilder verstehen)
 
-**Status:** Config gefixt (`image`-Model + `image.enabled` in `config/openclaw.json`).
-Offen: `GEMINI_API_KEY` auf `.149` provisionieren (via Ansible + `.env.example`).
+**Status:** Erledigt (2026-09-10). Config + Key stehen; das Image-Model ist auf den
+stabilen GA-Endpoint `google/gemini-3.6-flash` umgestellt (der vorherige
+`gemini-3-flash-preview` lieferte 503 „high demand", der Agent-Fallback
+`gemini-2.5-flash` war tot mit 404).
 
-**Root cause (2 Blocker):**
-
-1. `config/openclaw.json` → `tools.media.models` hat NUR Audio (groq + deepgram), kein `image`-Model.
-2. `GEMINI_API_KEY` liegt nur im Repo-Root-`.env` (nicht deployt), nicht in `config/.env`.
-
-**Verifizierte Fakten (OpenClaw-Doku):**
+**Verifizierte Fakten (OpenClaw-Doku + live `openclaw models list --all --provider google`):**
 
 - Env-Var-Name: `GEMINI_API_KEY` und `GOOGLE_API_KEY` werden beide akzeptiert.
 - Provider-ID: `google`, Modell-Format `google/gemini-...`.
 - Für Vision MUSS ein Eintrag in `tools.media.models` mit `"capabilities": ["image"]` stehen.
 - `env.vars` in `openclaw.json` ist NICHT nötig für Provider-Auth (Provider-Auth liest Env-Vars
   direkt). Nur ergänzen, wenn der Agent den Key selbst in Tools/Scripts braucht.
-
-**Sauberer Fix (3 Schritte, zur Approval):**
-
-1. `config/openclaw.json` → `tools.media.models`:
-   ```json
-   { "provider": "google", "model": "gemini-3-flash-preview", "capabilities": ["image"] }
-   ```
-   plus `"image": { "enabled": true }` unter `tools.media`.
-2. `GEMINI_API_KEY` in `config/.env` auf `.149` eintragen (NICHT Repo-Root-`.env`).
-3. Secret-Provisioning + Docs sauber machen (siehe unten).
+- Config: `{ "provider": "google", "model": "gemini-3.6-flash", "capabilities": ["image"] }`
+  plus `"image": { "enabled": true }` unter `tools.media`.
 
 ## Bekannte Baustellen (gefixt 2026-08-14 / offen)
 
