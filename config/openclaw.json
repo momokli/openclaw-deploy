@@ -48,7 +48,7 @@
       "workspace": "/home/node/.openclaw/workspace",
       "model": {
         "primary": "deepseek/deepseek-v4-flash",
-        "fallbacks": ["deepseek/deepseek-v4-pro"]
+        "fallbacks": []
       },
       "compaction": {
         "model": "deepseek/deepseek-v4-flash",
@@ -71,13 +71,16 @@
         "allowAgents": [
           "coding-orchestrator",
           "thinking-orchestrator",
+          "planning-orchestrator",
           "operator",
           "feature-dev-planner",
           "feature-dev-setup",
           "feature-dev-developer",
           "feature-dev-verifier",
           "feature-dev-tester",
-          "feature-dev-reviewer"
+          "feature-dev-reviewer",
+          "plan-builder",
+          "researcher"
         ]
       },
       "systemAgent": {
@@ -92,13 +95,18 @@
       },
       "coding-orchestrator": {
         "workspace": "/home/node/.openclaw/workspaces/coding-orchestrator",
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "thinking-orchestrator": {
         "workspace": "/home/node/.openclaw/workspaces/thinking-orchestrator",
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
+      },
+      "planning-orchestrator": {
+        "workspace": "/home/node/.openclaw/workspaces/planning-orchestrator",
         "model": "deepseek/deepseek-v4-pro",
-        "thinkingDefault": "high"
+        "thinkingDefault": "low"
       },
       "operator": {
         "workspace": "/home/node/.openclaw/workspaces/operator",
@@ -134,12 +142,22 @@
         "workspace": "/home/node/.openclaw/workspaces/feature-dev-reviewer",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
+      },
+      "plan-builder": {
+        "workspace": "/home/node/.openclaw/workspaces/plan-builder",
+        "model": "deepseek/deepseek-v4-pro",
+        "thinkingDefault": "low"
+      },
+      "researcher": {
+        "workspace": "/home/node/.openclaw/workspaces/researcher",
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
       }
     }
   },
   "channels": {
     "telegram": {
-      "enabled": true,
+      "enabled": false,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
       "dmPolicy": "pairing",
       "streaming": {
