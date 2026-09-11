@@ -1,0 +1,24 @@
+# Fixture: aero-test Compose-Template (Spiegel von #43 scripts/aero-test/compose.template.yaml).
+services:
+  aero-test:
+    image: itzg/minecraft-server:java21
+    container_name: "${CONTAINER_NAME:-aero-test}"
+    tty: true
+    stdin_open: true
+    stop_grace_period: 120s
+    ports:
+      - "${MC_PORT:-25582}:25565"
+    environment:
+      EULA: "TRUE"
+      TYPE: "${TYPE:-NEOFORGE}"
+      VERSION: "${VERSION:-1.21.1}"
+      NEOFORGE_VERSION: "${NEOFORGE_VERSION:-21.1.248}"
+      LEVEL_TYPE: "${LEVEL_TYPE:-sky_archipelago:sky_islands}"
+      MEMORY: "${MEMORY:-6G}"
+      USE_AIKAR_FLAGS: "${USE_AIKAR_FLAGS:-TRUE}"
+      TZ: "${TZ:-Europe/Berlin}"
+      ENABLE_RCON: "TRUE"
+      RCON_PASSWORD: "${RCON_PASSWORD:?set RCON_PASSWORD in .env (not committed)}"
+    volumes:
+      - "${DATA_DIR:-./data}:/data"
+    restart: "no"
