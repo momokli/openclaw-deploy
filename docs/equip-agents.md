@@ -256,6 +256,25 @@ Take-into-account für Workflows:
   persistenten Caches auf .149); (3) Laufzeiten als Baseline notieren.
 - DoD: dokumentierte Build-Host-Strategie + bekannte Build-Laufzeiten als Baseline.
 
+### B11 Planet-Node Exec-Approvals-Allowlist (Issue #65)
+
+- Die Exec-Approvals des Node-Hosts `planet` waren leer; unter `security=full`
+  unkritisch, aber bei einer späteren `allowlist`-Policy würde jeder nicht
+  gelistete Befehl verweigert ("not in the allowlist") und `cargo test`-Builds
+  brächen ab.
+- Soll: **minimale** Toolchain-Allowlist (`git`, `gh`, `cargo`, `rustc`,
+  `rustup`, `node`, `npm`) für die Build-Agents via
+  `scripts/setup-node-exec-allowlist.sh` (idempotent, `--remove` als Rollback);
+  Doku: `docs/node-exec-allowlist.md`. Bewusst kein YOLO (`security=full`).
+- Voraussetzung: Issue [#64](https://github.com/momokli/openclaw-deploy/issues/64)
+  (Build-Toolchain auf `planet`, Block B10).
+- Hinweis: `openclaw nodes invoke --node planet --command …` filtert
+  node-**Command-IDs** (Gateway-Policy) und ist **nicht** der Build-Pfad —
+  Shell-Ausführung läuft über `exec host=node`.
+- DoD: `openclaw approvals get --node planet` zeigt die Einträge; `exec
+  host=node` + `cargo test` (momokli/momos-music-manager) läuft ohne
+  Allowlist-Fehler.
+
 ---
 
 ## Status
