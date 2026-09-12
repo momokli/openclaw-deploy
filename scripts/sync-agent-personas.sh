@@ -22,6 +22,15 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Verzeichnisse VOR dem Sync dem Runtime-User zuordnen. `install -d` setzt Owner/Mode
+# nur auf dem benannten Zielverzeichnis, `mkdir -p` gar nicht: auf einem frischen Host
+# entstuenden ~/.openclaw und ~/.openclaw/workspaces als root:root und der Runtime-User
+# koennte in seinem eigenen Workspace keine State-Dateien anlegen (Issue #96).
+mkdir -p "$STATE_DIR"
+chown "$RUN_USER":"$RUN_USER" "$STATE_DIR"
+mkdir -p "$STATE_DIR/workspaces"
+chown "$RUN_USER":"$RUN_USER" "$STATE_DIR/workspaces"
+
 map_id() {
     case "$1" in
         orchestrator)          echo "coding-orchestrator" ;;
@@ -37,7 +46,8 @@ for f in "$REPO_DIR"/config/agents/*.md; do
     base="$(basename "$f" .md)"
     id="$(map_id "$base")"
     dest="$STATE_DIR/workspaces/$id/AGENTS.md"
-    mkdir -p "$(dirname "$dest")"
+    # Owner+Mode direkt beim Anlegen setzen (statt mkdir als root ohne chown).
+    install -d -m 700 -o "$RUN_USER" -g "$RUN_USER" "$(dirname "$dest")"
     install -m 644 -o "$RUN_USER" -g "$RUN_USER" "$f" "$dest"
     echo "synced $base -> workspaces/$id/AGENTS.md"
 done
