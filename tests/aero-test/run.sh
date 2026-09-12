@@ -55,6 +55,10 @@ check "green: default-server.properties rcon.password=testpw43" \
   grep -qxF "rcon.password=testpw43" "$WORK/data/default-server.properties"
 check "green: default-server.properties broadcast-rcon-to-ops=true" \
   grep -qxF "broadcast-rcon-to-ops=true" "$WORK/data/default-server.properties"
+check "green: default-server.properties rcon.port=25575" \
+  grep -qxF "rcon.port=25575" "$WORK/data/default-server.properties"
+check "green: default-server.properties enable-query=false" \
+  grep -qxF "enable-query=false" "$WORK/data/default-server.properties"
 check "green: server.properties enable-rcon=true" \
   grep -qxF "enable-rcon=true" "$WORK/data/server.properties"
 check "green: server.properties rcon.port=25575" \
@@ -63,6 +67,10 @@ check "green: server.properties enable-query=false" \
   grep -qxF "enable-query=false" "$WORK/data/server.properties"
 check "keine doppelten enable-rcon-Keys" \
   test "$(grep -c '^enable-rcon=' "$WORK/data/server.properties")" -eq 1
+# Runbook greppt beide Dateien mit demselben Muster -> Patch muss symmetrisch sein.
+check "default- und server.properties tragen denselben RCON-Satz" \
+  bash -c 'diff <(grep -E "^(enable-rcon|broadcast-rcon-to-ops|rcon\.password|rcon\.port|enable-query)=" "$1" | sort) <(grep -E "^(enable-rcon|broadcast-rcon-to-ops|rcon\.password|rcon\.port|enable-query)=" "$2" | sort)' \
+  _ "$WORK/data/default-server.properties" "$WORK/data/server.properties"
 
 # --- Idempotenz: 2. Lauf ändert nichts ---
 SUM_BEFORE="$(find "$WORK/data" -type f -name '*.properties' -exec sha256sum {} + | sort | sha256sum)"

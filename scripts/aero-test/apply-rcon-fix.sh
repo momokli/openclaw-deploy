@@ -48,18 +48,18 @@ set_prop() {
   mv "$tmp" "$file"
 }
 
+# Symmetrisch für beide Dateien: der Runbook-Verify greppt default-server.properties UND
+# server.properties mit demselben Muster (enable-rcon, rcon.password, rcon.port, enable-query).
 patch_file() {
-  local file="$1" label="$2"
+  local file="$1"
   [ -e "$file" ] || : > "$file"
   local before after
   before="$(sha256sum "$file" | awk '{print $1}')"
   set_prop "$file" "enable-rcon" "true"
   set_prop "$file" "broadcast-rcon-to-ops" "true"
   set_prop "$file" "rcon.password" "$PASSWORD"
-  if [ "$label" = "server" ]; then
-    set_prop "$file" "rcon.port" "25575"
-    set_prop "$file" "enable-query" "false"
-  fi
+  set_prop "$file" "rcon.port" "25575"
+  set_prop "$file" "enable-query" "false"
   after="$(sha256sum "$file" | awk '{print $1}')"
   if [ "$before" = "$after" ]; then
     echo "OK  (unchanged): $file"
@@ -68,7 +68,7 @@ patch_file() {
   fi
 }
 
-patch_file "$DATA_DIR/default-server.properties" "default"
-patch_file "$DATA_DIR/server.properties" "server"
+patch_file "$DATA_DIR/default-server.properties"
+patch_file "$DATA_DIR/server.properties"
 
 echo "RCON-Fix angewendet in $DATA_DIR (enable-rcon=true, rcon.password=***, rcon.port=25575)."
