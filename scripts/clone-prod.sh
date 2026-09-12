@@ -75,6 +75,22 @@ run() {
   "$@"
 }
 
+# run_masked: wie run(), aber maskiert ein Secret im dry-run-Log.
+# $1 = zu maskierender Klartext (nicht in die Ausgabe uebernehmen), Rest = Kommando.
+run_masked() {
+  local secret="$1"; shift
+  if [ "$DRY_RUN" -eq 1 ]; then
+    local out="" a
+    for a in "$@"; do
+      [ -n "$secret" ] && a="${a//"$secret"/***}"
+      out="$out $a"
+    done
+    printf '[dry-run]%s\n' "$out"
+    return 0
+  fi
+  "$@"
+}
+
 # as_root: fuehrt Kommando mit $SUDO aus (falls gesetzt/erforderlich).
 as_root() {
   if [ -n "$SUDO" ]; then "$SUDO" "$@"; else "$@"; fi
@@ -299,7 +315,7 @@ if [ "$DO_DATA" -eq 0 ]; then
   log "Properties-Patch übersprungen (--no-data)."
 elif [ -f "$RCON_FIX_SCRIPT" ]; then
   log "RCON-Properties patchen: $RCON_FIX_SCRIPT"
-  run as_root env RCON_PASSWORD="$RCON_PASSWORD" "$RCON_FIX_SCRIPT" --data-dir "$DATA_DIR" --password "$RCON_PASSWORD"
+  run_masked "$RCON_PASSWORD" as_root env RCON_PASSWORD="$RCON_PASSWORD" "$RCON_FIX_SCRIPT" --data-dir "$DATA_DIR" --password "$RCON_PASSWORD"
 else
   warn "Properties-Patch-Script fehlt: $RCON_FIX_SCRIPT"
   warn "  Es kommt aus Issue #43 (scripts/aero-test/apply-rcon-fix.sh)."

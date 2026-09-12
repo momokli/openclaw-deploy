@@ -162,6 +162,22 @@ check_not "dry-run: keine compose.yaml" test -f "$TESTD4/compose.yaml"
 check_not "dry-run: keine .env" test -f "$TESTD4/.env"
 check_not "dry-run: TEST_DIR gar nicht angelegt" test -d "$TESTD4"
 
+# --- Dry-run leakt kein RCON-Passwort (Step 6, run_masked) -------------------
+TESTD5="$WORK/srv/aero-test5"
+out5="$("$SCRIPT" --dry-run --prod-dir "$PROD" --test-dir "$TESTD5" --test-name aero-test5 \
+  --compose-template "$WORK/template/compose.template.yaml" \
+  --rcon-fix "$WORK/apply-rcon-fix.sh" --password SuperSecretPW123 2>&1)"
+if printf '%s' "$out5" | grep -q "SuperSecretPW123"; then
+  no "dry-run: RCON-Passwort nicht in stdout (Step 6)"
+else
+  ok "dry-run: RCON-Passwort nicht in stdout (Step 6)"
+fi
+if printf '%s' "$out5" | grep -q 'RCON_PASSWORD=\*\*\*'; then
+  ok "dry-run: Step 6 maskiert RCON_PASSWORD=***"
+else
+  no "dry-run: Step 6 maskiert RCON_PASSWORD=***"
+fi
+
 # --- Statische Checks / Runbook / Secrets -----------------------------------
 check "clone-prod.sh: bash -n" bash -n "$SCRIPT"
 check "clone-prod.sh: shellcheck" shellcheck "$SCRIPT"
