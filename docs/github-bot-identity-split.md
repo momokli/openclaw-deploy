@@ -6,10 +6,10 @@ Stand: 2026-09-12. Status: **Plan + Code bereit, App-Registrierung ausstehend (m
 
 Die A/B-Runner sollen in der GitHub-UI als **zwei getrennte Bots** sichtbar sein:
 
-| Rolle                       | Bot       | UI-Login       | Was er tut                                   |
-| --------------------------- | --------- | -------------- | -------------------------------------------- |
-| Runner A (triage/coder)     | `clanker` | `clanker[bot]` | Issues labeln, PRs erstellen, Commits pushen |
-| Runner B (pr-gate/reviewer) | `claw`    | `claw[bot]`    | Reviews posten, mergen, rejecten             |
+| Rolle                       | Bot            | UI-Login            | Was er tut                                   |
+| --------------------------- | -------------- | ------------------- | -------------------------------------------- |
+| Runner A (triage/coder)     | `momo-clanker` | `momo-clanker[bot]` | Issues labeln, PRs erstellen, Commits pushen |
+| Runner B (pr-gate/reviewer) | `momo-claw`    | `momo-claw[bot]`    | Reviews posten, mergen, rejecten             |
 
 ## Befund (verifiziert)
 

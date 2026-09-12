@@ -1,19 +1,20 @@
 #!/bin/bash
-# claw-git — run `git` as claw[bot]; falls back to default identity until the app is
-# configured (~/.config/gh-bots/claw.env present).
+# claw-git — run `git` as momo-claw[bot]; falls back to the default identity until
+# the app is configured (~/.config/gh-bots/momo-claw.env present).
 set -euo pipefail
-if gh-bot-auth.sh --app claw >/dev/null 2>&1; then
-  export GH_CONFIG_DIR="$HOME/.config/gh-claw"
-  BOT_ID="$(gh-bot-auth.sh --app claw --bot-id 2>/dev/null || true)"
+APP="momo-claw"
+if gh-bot-auth.sh --app "$APP" >/dev/null 2>&1; then
+  export GH_CONFIG_DIR="$HOME/.config/gh-$APP"
+  BOT_ID="$(gh-bot-auth.sh --app "$APP" --bot-id 2>/dev/null || true)"
   if [ -n "$BOT_ID" ] && [ "$BOT_ID" != "null" ]; then
-    export GIT_AUTHOR_NAME="claw[bot]"
-    export GIT_AUTHOR_EMAIL="${BOT_ID}+claw[bot]@users.noreply.github.com"
-    export GIT_COMMITTER_NAME="claw[bot]"
-    export GIT_COMMITTER_EMAIL="${BOT_ID}+claw[bot]@users.noreply.github.com"
+    export GIT_AUTHOR_NAME="${APP}[bot]"
+    export GIT_AUTHOR_EMAIL="${BOT_ID}+${APP}[bot]@users.noreply.github.com"
+    export GIT_COMMITTER_NAME="${APP}[bot]"
+    export GIT_COMMITTER_EMAIL="${BOT_ID}+${APP}[bot]@users.noreply.github.com"
   else
-    echo "claw-git: WARN could not resolve claw[bot] user id" >&2
+    echo "claw-git: WARN could not resolve ${APP}[bot] user id" >&2
   fi
 else
-  echo "claw-git: claw not configured — falling back to default git" >&2
+  echo "claw-git: $APP not configured — falling back to default git" >&2
 fi
 exec git "$@"

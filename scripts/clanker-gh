@@ -1,10 +1,11 @@
 #!/bin/bash
-# clanker-gh — run `gh` as clanker[bot]; falls back to the default identity until the
-# app is configured (~/.config/gh-bots/clanker.env present).
+# clanker-gh — run `gh` as momo-clanker[bot]; falls back to the default identity
+# until the app is configured (~/.config/gh-bots/momo-clanker.env present).
 set -euo pipefail
-if gh-bot-auth.sh --app clanker >/dev/null 2>&1; then
-  export GH_CONFIG_DIR="$HOME/.config/gh-clanker"
+APP="momo-clanker"
+if gh-bot-auth.sh --app "$APP" >/dev/null 2>&1; then
+  export GH_CONFIG_DIR="$HOME/.config/gh-$APP"
 else
-  echo "clanker-gh: clanker not configured — falling back to default gh" >&2
+  echo "clanker-gh: $APP not configured — falling back to default gh" >&2
 fi
 exec gh "$@"
