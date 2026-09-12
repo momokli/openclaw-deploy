@@ -110,6 +110,14 @@ check ".env chmod 600" test "$(stat -c '%a' "$TESTD/.env")" = "600"
 contains "rcon-fix-Stub mit data-dir aufgerufen" "--data-dir $TESTD/data" "$WORK/rcon.log"
 contains "rcon-fix-Stub mit Passwort aufgerufen" "--password testpw42" "$WORK/rcon.log"
 
+# --- Drift: compose.yaml da, aber Container fehlt (das eigentliche PR-Motiv) -
+# Vor dem --start-Lauf: compose.yaml/.env/data existieren, docker_psa ist leer.
+out_drift="$("$SCRIPT" --check --test-dir "$TESTD" --test-name aero-test 2>&1)"
+rc=$?
+if [ "$rc" -eq 3 ]; then ok "drift: --check exit 3 (compose da, Container fehlt)"; else no "drift: --check exit $rc (want 3)"; fi
+if printf '%s' "$out_drift" | grep -q "DRIFT"; then ok "drift: --check meldet DRIFT"; else no "drift: --check meldet DRIFT"; fi
+if printf '%s' "$out_drift" | grep -q "MISSING"; then no "drift: --check meldet nicht MISSING"; else ok "drift: --check meldet nicht MISSING"; fi
+
 # --- Idempotenz: vorhandener Container => No-op -----------------------------
 hash_c="$(sha256sum "$TESTD/compose.yaml" | awk '{print $1}')"
 hash_e="$(sha256sum "$TESTD/.env" | awk '{print $1}')"
@@ -182,7 +190,27 @@ fi
 check "clone-prod.sh: bash -n" bash -n "$SCRIPT"
 check "clone-prod.sh: shellcheck" shellcheck "$SCRIPT"
 check "clone-prod.sh: ausführbar" test -x "$SCRIPT"
+
+# --help darf `set -euo pipefail` nicht mitdrucken (Header endet vor der set-Zeile).
+help_out="$("$SCRIPT" --help 2>&1)"
+if printf '%s' "$help_out" | grep -q 'set -euo pipefail'; then
+  no "--help enthält kein 'set -euo pipefail'"
+else
+  ok "--help enthält kein 'set -euo pipefail'"
+fi
+if printf '%s' "$help_out" | grep -q 'Exit-Codes'; then ok "--help zeigt Header bis Exit-Codes"; else no "--help zeigt Header bis Exit-Codes"; fi
+
+# Fixture-Guard: die Fixture ist nur ein Spiegel des #43-Templates -> kein Drift.
+if [ -f "$REPO_ROOT/scripts/aero-test/compose.template.yaml" ]; then
+  check "Fixture == #43-Template (kein Drift)" cmp -s "$FIXTURES/template/compose.template.yaml" "$REPO_ROOT/scripts/aero-test/compose.template.yaml"
+else
+  no "Fixture-Guard: #43-Template fehlt ($REPO_ROOT/scripts/aero-test/compose.template.yaml)"
+fi
+
 check "Runbook existiert" test -f "$RUNBOOK"
+# Verlinkte Datei aus #43 (PR #84) muss existieren — kein Dangling Link.
+check "Runbook-Link docs/aero-test-rcon.md existiert" test -f "$REPO_ROOT/docs/aero-test-rcon.md"
+check "#43-Patch-Script existiert" test -f "$REPO_ROOT/scripts/aero-test/apply-rcon-fix.sh"
 contains "Runbook: Schritt 0 Preflight" "Schritt 0" "$RUNBOOK"
 contains "Runbook: clone-prod.sh --check" "clone-prod.sh --check" "$RUNBOOK"
 contains "Runbook: Preflight vorhanden? sonst klonen" "Instanz vorhanden? sonst klonen" "$RUNBOOK"

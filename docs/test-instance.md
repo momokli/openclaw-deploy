@@ -9,9 +9,14 @@ zu berühren. Ergänzt das RCON-Runbook `docs/aero-test-rcon.md` (Issue #43).
 
 ## Schritt 0 — Preflight: „Instanz vorhanden? sonst klonen"
 
-Historischer Drift-Fall (2026-09-02): `/srv/aero-test` enthielt nur ein verwaistes
-`monitoring/`, aber **keinen Container**. Der Test-Deploy lief ins Leere und die Instanz wurde
-ad hoc rekonstruiert. Der Preflight erkennt genau das.
+Historischer Fall (2026-09-02): `/srv/aero-test` enthielt nur ein verwaistes `monitoring/`,
+aber **weder `compose.yaml` noch `data/`** und **keinen Container**. Der Test-Deploy lief ins
+Leere und die Instanz wurde ad hoc rekonstruiert.
+
+Klassifikation (wichtig für die Diagnose): dieser Fall ist **`missing`** (keine Basis vorhanden),
+**nicht** `drift`. `drift` heißt: `compose.yaml` bzw. ein `data/`-Verzeichnis existiert, aber der
+Container fehlt. Beide Wege enden bewusst in Exit `3` mit klarer Meldung, damit ein Agent nicht
+improvisiert.
 
 ```bash
 # Läuft ein aero-test-Container?
@@ -26,8 +31,8 @@ Ergebnis und Reaktion:
 | `--check` | Bedeutung | Aktion |
 |---|---|---|
 | Exit `0` | Container `aero-test` existiert | weiter mit Schritt 1 |
-| Exit `3` (Drift) | Verzeichnis/Compose da, Container fehlt | `scripts/clone-prod.sh --start` |
-| Exit `3` (missing) | nichts vorhanden | `scripts/clone-prod.sh --start` |
+| Exit `3` (drift) | `compose.yaml`/`data/` da, **Container fehlt** | `scripts/clone-prod.sh --start` |
+| Exit `3` (missing) | nichts vorhanden (auch der Fall 2026-09-02) | `scripts/clone-prod.sh --start` |
 
 Klonen/Sicherstellen (idempotent — zweiter Lauf ist ein No-op):
 
@@ -60,9 +65,12 @@ Was `clone-prod.sh` macht (Details: `--help`):
 6. **Properties patchen** via `scripts/aero-test/apply-rcon-fix.sh` (#43), damit RCON den
    `default-server-properties`-Reset übersteht (Ursache: `docs/aero-test-rcon.md`).
 
-Die Vorlage und der Properties-Patch kommen aus **#43** (Compose-Template + RCON-Fix). Sind sie
-im Checkout nicht vorhanden, bricht `clone-prod.sh` mit Exit `4` und klarer Meldung ab (kein
-stiller Ad-hoc-Fix).
+Die Vorlage und der Properties-Patch kommen aus **#43** (Compose-Template + RCON-Fix) und sind
+seit dem Merge von PR **#84** auf `main` versioniert vorhanden
+(`scripts/aero-test/compose.template.yaml`, `scripts/aero-test/apply-rcon-fix.sh`,
+`docs/aero-test-rcon.md`). Fehlen sie in einem alten Checkout, bricht `clone-prod.sh` mit Exit
+`4` und klarer Meldung ab (kein stiller Ad-hoc-Fix) — die Abhängigkeit aus #42 ist damit
+aufgelöst.
 
 ## IST-Stand (verifiziert auf planet, 2026-09-12)
 
@@ -122,7 +130,7 @@ Erwartung: Container `aero-test` läuft, Port aus `.env` gemappt, RCON-Listener 
 | Symptom | Ursache | Fix |
 |---|---|---|
 | Kein Container, aber `/srv/aero-test` existiert | Drift (Ad-hoc-Reste) | `scripts/clone-prod.sh --start` |
-| `clone-prod.sh` Exit `4` | Vorlage/`apply-rcon-fix.sh` fehlt (#43 nicht im Checkout) | #43 mergen/checkout oder `--compose-template`/`--rcon-fix` angeben |
+| `clone-prod.sh` Exit `4` | Vorlage/`apply-rcon-fix.sh` fehlt (veralteter Checkout ohne #43/PR #84) | auf `main` aktualisieren/mergen oder `--compose-template`/`--rcon-fix` angeben |
 | Port belegt | anderer MC-Server auf planet | Script vergibt automatisch den nächsten freien Port ≥ 25582 |
 | `Permission denied` in `/srv/aero-test` | Verzeichnis `root`-owned | `sudo scripts/clone-prod.sh` |
 | `docker compose stop` killt per SIGKILL | RCON im Container aus | `docs/aero-test-rcon.md` (Properties-Reset durch Pack-Mod) |
@@ -145,6 +153,8 @@ ssh planet 'sudo rm -rf /srv/aero-test'
       RCON-Test-Passwort setzen).
 - [x] Runbook `docs/test-instance.md` an IST-Stand angeglichen (Tabelle oben, planet 2026-09-12).
 - [x] Offline-Nachweis: `tests/clone-prod/run.sh` (red-before-green, alle Checks PASS).
+- [x] Abhängigkeit aufgelöst: #43-Artefakte sind nach Merge von PR **#84** auf `main` versioniert
+      vorhanden; `clone-prod.sh` konsumiert sie (Reihenfolge #84 → #87).
 
 ## Siehe auch
 

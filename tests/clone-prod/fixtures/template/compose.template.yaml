@@ -1,10 +1,33 @@
-# Fixture: aero-test Compose-Template (Spiegel von #43 scripts/aero-test/compose.template.yaml).
+# Aero TEST instance — versioniertes Compose-Template (Issue #43).
+#
+# Zweck: kanonische Vorlage für die aero-test-Instanz, inkl. des bislang nur
+# ad-hoc angewendeten RCON-Fixes. Beim nächsten Klon wird diese Datei nach
+# /srv/aero-test/compose.yaml kopiert (siehe #42, clone-prod.sh) — kein
+# Ad-hoc-Edit am Compose mehr.
+#
+# RCON ist hier absichtlich fest verdrahtet:
+#   * ENABLE_RCON=TRUE + RCON_PASSWORD  -> itzg konfiguriert RCON und nutzt es für
+#     `docker compose stop` (graceful statt SIGKILL nach stop_grace_period).
+#   * Der Pack-Mod "default-server-properties" setzt beim ersten Boot
+#     `enable-rcon` in server.properties zurück. Compose-Env allein genügt daher
+#     NICHT: zusätzlich müssen default-server.properties + server.properties
+#     gepatcht werden -> scripts/aero-test/apply-rcon-fix.sh (Runbook:
+#     docs/aero-test-rcon.md).
+#
+# Kopieren:  cp compose.template.yaml /srv/aero-test/compose.yaml
+# Starten:   cd /srv/aero-test && ./apply-rcon-fix.sh  # Properties patchen
+#            docker compose up -d
+#
+# Pflicht-Env (nicht im Repo, z. B. in /srv/aero-test/.env):
+#   RCON_PASSWORD   RCON-Passwort der Instanz (kein Default — sonst Fail beim Start)
+
 services:
   aero-test:
     image: itzg/minecraft-server:java21
     container_name: "${CONTAINER_NAME:-aero-test}"
     tty: true
     stdin_open: true
+    # generous: modded server needs time to flush the world on SIGTERM
     stop_grace_period: 120s
     ports:
       - "${MC_PORT:-25582}:25565"
@@ -17,6 +40,7 @@ services:
       MEMORY: "${MEMORY:-6G}"
       USE_AIKAR_FLAGS: "${USE_AIKAR_FLAGS:-TRUE}"
       TZ: "${TZ:-Europe/Berlin}"
+      # --- RCON fix (Issue #43): required so `docker compose stop` is graceful ---
       ENABLE_RCON: "TRUE"
       RCON_PASSWORD: "${RCON_PASSWORD:?set RCON_PASSWORD in .env (not committed)}"
     volumes:

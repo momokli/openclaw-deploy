@@ -96,7 +96,9 @@ as_root() {
   if [ -n "$SUDO" ]; then "$SUDO" "$@"; else "$@"; fi
 }
 
-usage() { sed -n '2,42p' "$0"; }
+# usage: druckt den Header-Kommentar (Zeile 2 bis vor `set -euo pipefail`).
+# Der letzte Treffer der Range wird verworfen, sonst leakt die `set`-Zeile in --help.
+usage() { sed -n '2,/^set /{/^set /d;p}' "$0"; }
 
 # --- Argumente --------------------------------------------------------------
 while [ $# -gt 0 ]; do
@@ -134,7 +136,8 @@ container_exists() {
   docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$TEST_NAME"
 }
 
-# dir_present: TEST_DIR hat Compose und (mindestens) ein data-Verzeichnis.
+# dir_present: TEST_DIR hat eine Compose-Datei (Hinweis auf ein frueheres Setup).
+# data/ wird separat geprueft (siehe instance_status): verwaistes data/ allein = drift.
 dir_present() {
   [ -f "$COMPOSE_FILE" ]
 }
