@@ -62,6 +62,10 @@ Wenn du einen bereits reviewten PR **kritisch re-reviewen** sollst:
    - **Blocker behoben + Code sauber + Checks grün** → MERGE: `gh pr merge <n> --squash --delete-branch`.
    - **Blocker offen** → verbleibende Blocker als Review-Kommentar posten (`gh pr comment <n>`), KEIN Merge.
    - **Merge scheitert** (Checks noch pending / Branch behind) → im Log „waiting on CI: #<n>" notieren, KEIN Retry-Loop.
+4. **Nach erfolgreichem Merge → verlinkte Issues schließen:**
+   - Lies die Issue-Referenzen aus dem PR-Body (`Closes #<n>` / `Refs #<n>`) und dem Branch-Namen.
+   - `gh issue close <n> --reason completed` für jedes Issue, das der PR tatsächlich abschließt.
+   - **NICHT schließen**, wenn das Issue offene Player-Test-/Human-Punkte behält (z. B. „Welle spawnt sichtbar") — dann im Issue kommentieren, was offen bleibt.
 
 ## Bei Blocker → Issue (Pflicht)
 
