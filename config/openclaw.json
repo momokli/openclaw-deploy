@@ -2,6 +2,9 @@
   "gateway": {
     "bind": "lan",
     "mode": "local",
+    "remote": {
+      "url": "https://openclaw.simonklimke.de"
+    },
     "trustedProxies": ["172.23.0.0/16"],
     "auth": {
       "mode": "token",
@@ -43,9 +46,9 @@
   "agents": {
     "ownership": "explicit",
     "defaults": {
-      "workspace": "/home/node/.openclaw/workspace",
+      "workspace": "/home/momo/.openclaw/workspace",
       "model": {
-        "primary": "deepseek/deepseek-v4-flash",
+        "primary": "deepseek/deepseek-flash",
         "fallbacks": []
       },
       "compaction": {
@@ -55,7 +58,7 @@
           "enabled": true
         }
       },
-      "utilityModel": "deepseek/deepseek-v4-flash",
+      "utilityModel": "deepseek/deepseek-flash",
       "systemAgent": {
         "agentId": "main"
       },
@@ -78,76 +81,85 @@
           "feature-dev-tester",
           "feature-dev-reviewer",
           "plan-builder",
-          "researcher"
+          "critic",
+          "researcher",
+          "web-researcher"
         ]
-      },
-      "systemAgent": {
-        "agentId": "main"
       }
     },
     "entries": {
       "main": {
-        "workspace": "/home/node/.openclaw/workspace",
-        "model": "deepseek/deepseek-v4-flash",
+        "workspace": "/home/momo/.openclaw/workspace",
+        "model": "deepseek/deepseek-flash",
         "thinkingDefault": "low"
       },
       "coding-orchestrator": {
-        "workspace": "/home/node/.openclaw/workspaces/coding-orchestrator",
+        "workspace": "/home/momo/.openclaw/workspaces/coding-orchestrator",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "thinking-orchestrator": {
-        "workspace": "/home/node/.openclaw/workspaces/thinking-orchestrator",
+        "workspace": "/home/momo/.openclaw/workspaces/thinking-orchestrator",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "planning-orchestrator": {
-        "workspace": "/home/node/.openclaw/workspaces/planning-orchestrator",
+        "workspace": "/home/momo/.openclaw/workspaces/planning-orchestrator",
         "model": "deepseek/deepseek-v4-pro",
         "thinkingDefault": "low"
       },
       "operator": {
-        "workspace": "/home/node/.openclaw/workspaces/operator",
+        "workspace": "/home/momo/.openclaw/workspaces/operator",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-planner": {
-        "workspace": "/home/node/.openclaw/workspaces/feature-dev-planner",
+        "workspace": "/home/momo/.openclaw/workspaces/feature-dev-planner",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-setup": {
-        "workspace": "/home/node/.openclaw/workspaces/feature-dev-setup",
+        "workspace": "/home/momo/.openclaw/workspaces/feature-dev-setup",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-developer": {
-        "workspace": "/home/node/.openclaw/workspaces/feature-dev-developer",
+        "workspace": "/home/momo/.openclaw/workspaces/feature-dev-developer",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-verifier": {
-        "workspace": "/home/node/.openclaw/workspaces/feature-dev-verifier",
+        "workspace": "/home/momo/.openclaw/workspaces/feature-dev-verifier",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-tester": {
-        "workspace": "/home/node/.openclaw/workspaces/feature-dev-tester",
+        "workspace": "/home/momo/.openclaw/workspaces/feature-dev-tester",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-reviewer": {
-        "workspace": "/home/node/.openclaw/workspaces/feature-dev-reviewer",
+        "workspace": "/home/momo/.openclaw/workspaces/feature-dev-reviewer",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       },
       "plan-builder": {
-        "workspace": "/home/node/.openclaw/workspaces/plan-builder",
+        "workspace": "/home/momo/.openclaw/workspaces/plan-builder",
+        "model": "deepseek/deepseek-v4-pro",
+        "thinkingDefault": "low"
+      },
+      "critic": {
+        "workspace": "/home/momo/.openclaw/workspaces/critic",
         "model": "deepseek/deepseek-v4-pro",
         "thinkingDefault": "low"
       },
       "researcher": {
-        "workspace": "/home/node/.openclaw/workspaces/researcher",
+        "workspace": "/home/momo/.openclaw/workspaces/researcher",
+        "model": "deepseek/deepseek-v4-flash",
+        "thinkingDefault": "low"
+      },
+      "web-researcher": {
+        "workspace": "/home/momo/.openclaw/workspaces/web-researcher",
         "model": "deepseek/deepseek-v4-flash",
         "thinkingDefault": "low"
       }
@@ -230,6 +242,9 @@
     },
     "loopDetection": {
       "enabled": true
+    },
+    "exec": {
+      "node": "planet"
     }
   },
   "session": {

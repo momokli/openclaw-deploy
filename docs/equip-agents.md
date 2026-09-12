@@ -101,6 +101,13 @@ explizit setzen.
 
 ### A5 Subagent-Announcements: lang → truncated, identisch → Duplikate (Issue #27)
 
+**Status (2026-09-12): mitigiert.** Root Cause: die Runtime kappt Announce-Texte **hart**
+(`MAX_TASK_COMPLETION_RESULT_ESCAPED_CHARS`/`MAX_RESULT_CHARS_PER_ITEM` = 6000, `MAX_CHILD_COMPLETION_RESULT_CHARS` = 512 — kein Env-Override), das ist **kein Timeout**.
+Fix am Sender: Helper `scripts/announce-guard.sh` (Cap Default 1500 + Volltext-Detail-Datei,
+Dedupe per sha256/TTL), Offline-Tests `tests/announce-guard/run.sh`, Runbook
+[docs/announce-hygiene.md](announce-hygiene.md). Reporting-Contract in
+`config/agents/orchestrator.md` + `workspace/AGENTS.md` verankert.
+
 Beobachtet: lange Reports kommen als "[child result truncated]" (Text mitten im Satz ab,
 Rest nur via `sessions_history` nachladbar); identische Reports kamen 3x als
 Inter-Session-Message an (Duplikat-Zustellung).
@@ -203,6 +210,12 @@ Take-into-account für Workflows:
 
 ### B2 gh-Metadaten-Edits über REST (Issue #40)
 
+**Status (2026-09-12): standardisiert.** PR-Metadaten-Edits laufen jetzt fest über REST:
+Helper `scripts/pr-metadata.sh` (Body/Titel/Base via `PATCH /pulls/<n>`, Labels/Kommentar via
+`/issues/<n>`), Offline-Tests `tests/pr-metadata/run.sh`, Runbook
+[docs/github-pr-rest-edits.md](github-pr-rest-edits.md). `gh pr edit`/`gh pr view` bleiben
+wegen fehlendem `read:org` gesperrt — REST ist der verbindliche Standard.
+
 - `gh pr edit --body-file` scheitert ohne `read:org`-Scope (GraphQL-Query im Hintergrund:
   "'login' field requires … ['read:org']").
 - Workaround-Standard: PR-Metadaten-Edits via REST
@@ -261,6 +274,7 @@ Take-into-account für Workflows:
   aero-test" (aktuell realistisch) mit klarer Checkliste (HUD, Overlays, JEI, Rezepte);
   Xvfb-Harness als langfristige Option offen lassen.
 - DoD: Release-Runbook enthält explizites Client-Gate.
+- **Umgesetzt (2026-09-12):** Entscheidung dokumentiert + Gate definiert -> [docs/release-runbook.md](release-runbook.md).
 
 ### B8 Build-Host-Strategie (Issue #46)
 

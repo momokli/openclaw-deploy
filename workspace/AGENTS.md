@@ -33,6 +33,14 @@ sessions_spawn({ agentId: "coding-orchestrator", label: "<feature>", task: "..."
 
 Danach `sessions_yield` und auf die Completion-Announce warten.
 
+### Announce-Hygiene (Issue #27)
+
+Lange Subagent-Reports werden in der Announce-Pipeline hart gekappt
+(`[child result truncated]`) und identische Events ggf. mehrfach zugestellt. Abschluss-
+Reports daher kurz halten (≤ 1500 Zeichen); Details in Datei/PR-/Issue-Comment. Vor dem
+Absenden `scripts/announce-guard.sh <report>` (Cap + Dedupe, Exit 10 = Duplikat) —
+Runbook: `docs/announce-hygiene.md`.
+
 ## Bei Blocker → Issue (Pflicht)
 
 Bei einem Blocker (fehlendes Tool, fehlender Zugriff, kaputter Flow, nicht erfüllbare Aufgabe)
