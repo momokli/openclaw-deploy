@@ -203,6 +203,12 @@ Take-into-account für Workflows:
 
 ### B2 gh-Metadaten-Edits über REST (Issue #40)
 
+**Status (2026-09-12): standardisiert.** PR-Metadaten-Edits laufen jetzt fest über REST:
+Helper `scripts/pr-metadata.sh` (Body/Titel/Base via `PATCH /pulls/<n>`, Labels/Kommentar via
+`/issues/<n>`), Offline-Tests `tests/pr-metadata/run.sh`, Runbook
+[docs/github-pr-rest-edits.md](github-pr-rest-edits.md). `gh pr edit`/`gh pr view` bleiben
+wegen fehlendem `read:org` gesperrt — REST ist der verbindliche Standard.
+
 - `gh pr edit --body-file` scheitert ohne `read:org`-Scope (GraphQL-Query im Hintergrund:
   "'login' field requires … ['read:org']").
 - Workaround-Standard: PR-Metadaten-Edits via REST
