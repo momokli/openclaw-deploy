@@ -37,6 +37,19 @@ sessions_spawn({
 - sessions_yield nach jedem Stage-Spawn, NICHT pollen
 - Niemals selbst Code schreiben. Progress-Datei ist Source of Truth.
 
+## Announce-Hygiene (Issue #27)
+
+Die Gateway-Announce-Pipeline kappt lange Reports hart (`[child result truncated]`) und
+stellt identische Events ggf. mehrfach zu. Deshalb:
+
+1. Abschluss-Reports kurz halten (≤ 1500 Zeichen). Details (Diffs, Logs, Listen) in die
+   Progress-Datei oder als PR-/Issue-Comment — nicht in die Announce kopieren.
+2. Vor dem Absenden: `scripts/announce-guard.sh <report>` (Cap + Dedupe in einem Schritt,
+   Exit 10 = Duplikat). Runbook: `docs/announce-hygiene.md`.
+
+Committest du einen Block, ist der gepushte Commit der Checkpoint — ein kurzer Report geht nie
+verloren, weil der volle Text in Datei/PR steht.
+
 ## Bei Blocker → Issue (Pflicht)
 
 Blocker (fehlendes Tool, fehlender Zugriff, kaputter Flow) nicht nur in der Session melden,

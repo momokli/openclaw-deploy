@@ -1,6 +1,6 @@
 ---
 name: deploy-status
-description: "OpenClaw-Deploy (GHCR-CI/CD, Deploy-Webhook, .149) prüfen und debuggen: Flow, Status-Checks, Gotchas."
+description: "OpenClaw-Deploy (GHCR-CI/CD, Deploy-Webhook, .149) und GitHub-Pages-Deploys prüfen/debuggen: Flow, API-Status-Checks, Gotchas."
 metadata:
   {
     "openclaw":
@@ -64,6 +64,41 @@ Compose-Status (aus dem Deploy-Dir, Projektname ist fix `openclaw`):
 ssh momo@lan 'cd /opt/apps/openclaw && docker compose ps'
 ```
 
+## Pages-Deploy verifizieren (GitHub Pages)
+
+**NIE** `sleep 20; curl -s <url> | grep …` als Deploy-Verifikation — das ist blind, langsam
+und erkennt weder `errored` noch einen stale `built`-Build. Immer der Build-Status **API**:
+
+```bash
+gh api repos/<owner>/<repo>/pages/builds/latest --jq '.status'   # built | building | queued | errored
+```
+
+Kanonischer Helfer im Repo (Timeout + Backoff + Stale-Schutz):
+
+```bash
+scripts/verify-pages.sh <owner/repo> --commit <sha> --url https://<owner>.github.io/<repo>/
+```
+
+- Nach dem Push den **Commit-SHA** mitgeben (stärkstes Signal) oder Default-Baseline nutzen:
+  ohne `--commit`/`--since` snapshottet das Script den aktuellen `created_at` und akzeptiert nur
+  einen **echten neuen** Build (sonst greift das sofort-`built` des Vorgängers = falsch grün).
+- **Nach einem Repo-Rename** vor dem ersten Check kurz warten (CDN-Invalidierung):
+  `--rename-wait 20` (oder manuell 20 s, dann pollen).
+- `--url` prüft nach `built` zusätzlich die Live-URL (HTTP 200); CDN kann hinter dem
+  Build-Status nachlaufen.
+
+| `status` | Bedeutung | Aktion |
+|---|---|---|
+| `queued`, `building` | Build läuft | weiter pollen (Backoff) |
+| `built` | fertig | fertig — bei `--url` zusätzlich 200 abwarten |
+| `errored`, `cancelled` | fehlgeschlagen | **abbrechen**, Fehler lesen (s. Stop-Regel) |
+
+Exit-Codes `verify-pages.sh`: `0` built (URL ok) · `1` Timeout · `2` errored/cancelled ·
+`3` Pages nicht aktiv (404) · `4` Usage/`gh` fehlt · `5` built, aber URL kein 200.
+
+Beispiele: `momokli/yogglez` (`https://momokli.github.io/yogglez/`, `build_type: legacy`),
+`momokli/riftbreaker-battle-mod`. `openclaw-deploy` selbst hat **kein** Pages (404).
+
 ## Gotchas
 
 1. **Build NICHT mehr lokal auf projectmellon.de** — läuft in GitHub Actions (`runs-on: self-hosted`). projectmellon.de ist nur der Runner.
@@ -73,7 +108,14 @@ ssh momo@lan 'cd /opt/apps/openclaw && docker compose ps'
 5. Webhook-Shared-Secret: `/opt/apps/openclaw/webhook-token` (NICHT in git); GitHub hält denselben Wert als Repo-Secret `DEPLOY_TOKEN`. HTTP 401 = Token-Mismatch.
 6. Deploy-Skip basiert auf Hash-Files unter `/opt/apps/openclaw/`: `.deploy-git-hash`, `.deploy-img-hash`, `.deploy-obsidian-img-hash`. „No changes — skipping" heißt nur: alle drei gleich geblieben.
 7. Healthz-Check ist **fail-closed**: wird der Container nicht healthy, werden die Hashes NICHT persistiert → nächster Run versucht erneut.
+8. **Pages-Verifikation nur über die Build-Status-API** (Abschnitt „Pages-Deploy verifizieren"), nie per `sleep`/`curl | grep`. `pages/builds/latest` ist bis zum neuen Build der **alte**
+   Build — ohne Baseline/`--commit` wäre ein nacktes „poll bis built" sofort grün (falsch).
 
 ## Stop-Regel
 
 Deploy „hängt" oder „No changes" obwohl ein Change erwartet wird → NICHT blind Webhook re-triggern oder `docker compose up` variieren. Erst: (1) `gh run list` + Run-Log, (2) Hash-Files + Image-IDs auf `.149` vergleichen, (3) Webhook 401/Token prüfen. Unklar → Momo fragen.
+
+Pages-Build `errored`/`cancelled` → NICHT weiter pollen. Ursache lesen:
+`gh api repos/<owner>/<repo>/pages/builds/latest --jq '.error.message'` + betroffenen
+Pages-Workflow-Run (`.github/workflows/*pages*`, `gh run list --workflow=…`), dann fixen und
+neu auslösen.
