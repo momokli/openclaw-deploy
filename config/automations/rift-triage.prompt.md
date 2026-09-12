@@ -19,7 +19,7 @@ Du bist der Riftbreaker-Triage-Dispatcher für `momokli/riftbreaker-battle-mod`.
 
 1. Holen:
    - Issues: `gh issue list --repo momokli/riftbreaker-battle-mod --state open --milestone <n> --json number,title,labels,body,url`
-   - PRs: `gh pr list --repo momokli/riftbreaker-battle-mod --state open --json number,title,labels,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,url,headRefName`
+   - PRs: `gh pr list --repo momokli/riftbreaker-battle-mod --state open --json number,title,labels,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,url,headRefName,body` (für Rework-Erkennung: PR → Issue über `Fixes #m`/`Closes #m`/`Relates #m`)
 2. Items mit `orchestrator:dispatched` skippen (kein Doppel-Dispatch).
 3. Klassifizieren (nur Items OHNE dispatch-Label). Dispatch-Priorität: **P1 (#243-Familie) und P2 (#253) VOR allen anderen.**
 
@@ -29,6 +29,7 @@ Du bist der Riftbreaker-Triage-Dispatcher für `momokli/riftbreaker-battle-mod`.
    d. **research** — Spike/SOTA/findings/Baseline (z. B. #213, #242). → `planning-orchestrator` (research-path).
    e. **interview/design** — „Interview", Design-Entscheidungen (z. B. #185, #184, #183, #199). → KEIN Dispatch, nur im Log als „awaiting human (Momo/Matheo): #<n>".
    f. **follow-up** — „Follow-up zu #X" (derivative/blocked, z. B. #204, #221, #223). → KEIN Dispatch, nur im Log.
+   g. **rework (vom `rift-pr-gate` freigegeben)** — Issue OHNE `orchestrator:dispatched`, das einen offenen PR mit `[VERDICT: REQUEST_CHANGES]`-Kommentar hat → dispatche an `coding-orchestrator` mit Task: „Behebe die Blocker aus dem letzten Review-Kommentar von PR #<n> (Issue #<m>) im BESTEHENDEN Branch und pushe. KEIN neuer PR."
 
 4. Nach Dispatch: `orchestrator:dispatched` Label setzen (`gh issue edit <n> --repo momokli/riftbreaker-battle-mod --add-label orchestrator:dispatched`).
 5. **Kein Review, kein Merge** — das ist ausschließlich Aufgabe des `rift-pr-gate`.
