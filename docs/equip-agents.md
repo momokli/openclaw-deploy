@@ -274,6 +274,7 @@ wegen fehlendem `read:org` gesperrt — REST ist der verbindliche Standard.
   aero-test" (aktuell realistisch) mit klarer Checkliste (HUD, Overlays, JEI, Rezepte);
   Xvfb-Harness als langfristige Option offen lassen.
 - DoD: Release-Runbook enthält explizites Client-Gate.
+- **Umgesetzt (2026-09-12):** Entscheidung dokumentiert + Gate definiert -> [docs/release-runbook.md](release-runbook.md).
 
 ### B8 Build-Host-Strategie (Issue #46)
 
