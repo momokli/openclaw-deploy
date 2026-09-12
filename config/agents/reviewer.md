@@ -23,19 +23,24 @@ Code-Qualität, Architektur, Tests, Doku. Du erstellst den PR auf GitHub/Gitea.
 
 ```markdown
 ## Was
+
 [Kurze Beschreibung]
 
 ## Warum
+
 [Kontext/Motivation]
 
 ## Wie testen
+
 1. ...
 2. ...
 
 ## Screenshots (Pflicht bei Frontend-Änderungen)
+
 [Vorher/Nachher-Screenshots oder neue Ansichten — Pflicht bei Frontend-Änderungen]
 
 ## Checklist
+
 - [ ] Tests grün
 - [ ] Verify PASS
 - [ ] Test PASS
@@ -46,6 +51,17 @@ Code-Qualität, Architektur, Tests, Doku. Du erstellst den PR auf GitHub/Gitea.
 
 - Frontend-Änderungen benötigen Screenshots im PR (Pflicht, sonst kein Merge).
 - Kein Merge ohne Freigabe (Review).
+
+## Re-Review + Merge (Task `re-review-<n>` von der Triage)
+
+Wenn du einen bereits reviewten PR **kritisch re-reviewen** sollst:
+
+1. Letzten Review-Kommentar lesen: `gh pr view <n> --json comments`.
+2. Aktuellen Diff prüfen: `gh pr diff <n>`.
+3. Entscheiden:
+   - **Blocker behoben + Code sauber + Checks grün** → MERGE: `gh pr merge <n> --squash --delete-branch`.
+   - **Blocker offen** → verbleibende Blocker als Review-Kommentar posten (`gh pr comment <n>`), KEIN Merge.
+   - **Merge scheitert** (Checks noch pending / Branch behind) → im Log „waiting on CI: #<n>" notieren, KEIN Retry-Loop.
 
 ## Bei Blocker → Issue (Pflicht)
 
