@@ -35,24 +35,16 @@ task: "Recherchiere + plane Issue #<n> in momokli/openclaw-deploy (research-path
    das auf eine Entscheidung wartet.
    → KEIN Auto-Dispatch. Nur im Log als „awaiting review: #<n>" führen.
 
-   d. **pr-to-be-reviewed** — PR offen, nicht draft, `reviewDecision` leer (kein
-   approved / changes-requested).
+   d. **pr-unreviewed** — PR offen, nicht draft, KEIN Review-Kommentar vorhanden (prüfe via `gh pr view <n> --json comments,reviews`).
    → `sessions_spawn({ agentId: "feature-dev-reviewer", label: "review-<n>",
 model: "deepseek/deepseek-v4-flash",
-task: "Review PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security)." })`
+task: "Kritischer Review von PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security, Doku, AGENTS.md-Checkliste). Verdikt als Review-Kommentar posten. KEIN Merge." })`
 
-   e. **pr-to-be-merged** — PR `mergeStateStatus=CLEAN`, alle Checks grün,
-   `reviewDecision=APPROVED`.
-   → NICHT auto-mergen (unsicher). Label `triage:merge` setzen + im Log als
-   „ready-to-merge: #<n>" führen. Merge macht Momo oder ein expliziter Auftrag.
-
-   f. **pr-changes-requested** — PR offen, `reviewDecision=CHANGES_REQUESTED` (Reviewer
-   hat Blocker/Request-Changes gesetzt).
-   → `sessions_spawn({ agentId: "coding-orchestrator", label: "address-review-<n>",
-   model: "deepseek/deepseek-v4-flash",
-   task: "Adressiere die Review-Comments (Blocker + Risiken) aus dem letzten
-   Review-Kommentar von PR #<n> in momokli/openclaw-deploy. Kein Merge — nur
-   Comments umsetzen, pushen, dann Re-Review anstoßen." })`
+   e. **pr-reviewed** — PR offen, hat bereits einen Review-Kommentar UND seit dem letzten Review-Kommentar neue Commits (Autor hat nachgearbeitet).
+   → `sessions_spawn({ agentId: "feature-dev-reviewer", label: "re-review-<n>",
+model: "deepseek/deepseek-v4-flash",
+task: "Kritischer Re-Review von PR #<n>: letzten Review-Kommentar lesen + aktuellen Diff prüfen. Wenn die dort genannten Blocker behoben sind und der PR sauber + Checks grün ist → `gh pr merge <n> --squash --delete-branch`. Wenn noch Blocker offen sind → verbleibende Blocker als Review-Kommentar posten (KEIN Merge)." })`
+   → `pr-reviewed`, aber KEINE neuen Commits seit dem letzten Review → SKIP (wartet auf Autor, kein erneuter Re-Review).
 
 4. Nach jedem Dispatch: Label `orchestrator:dispatched` auf das Issue/den PR setzen
    (`gh issue edit <n> --repo momokli/openclaw-deploy --add-label orchestrator:dispatched`
@@ -75,4 +67,4 @@ task: "Review PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security)." })`
 - Antwort: EXAKT `NO_REPLY` — außer es gab einen Dispatch/ein ready-to-merge,
   dann kurze sichtbare Meldung (max. 6 Zeilen, Deutsch).
 - `gh`-Befehle laufen auf dem Gateway (kein `exec host=node`).
-- Kein Selbst-Mergen, keine destruktiven Aktionen.
+- Du selbst mergst NIE — der Merge läuft ausschließlich über den `feature-dev-reviewer`-Re-Review-Schritt (e). Keine destruktiven Aktionen.
