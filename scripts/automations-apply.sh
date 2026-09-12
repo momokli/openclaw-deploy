@@ -23,6 +23,8 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODEL="deepseek/deepseek-flash"
+# Ziel-Milestone der rift-*-Runner (Name im GitHub-Milestone).
+RIFT_MILESTONE="${RIFT_MILESTONE:-1.0}"
 
 JOBS="$(openclaw automations list --all --json 2>/dev/null || echo '{"jobs":[]}')"
 
@@ -30,11 +32,14 @@ job_id() {
   printf '%s' "$JOBS" | jq -r --arg k "$1" '.jobs[] | select(.declarationKey == $k) | .id' | head -1
 }
 
-# apply NAME KEY EVERY PROMPT_FILE
+# apply NAME KEY EVERY PROMPT_FILE [MILESTONE]
 apply() {
-  local name="$1" key="$2" every="$3" prompt_file="$4"
+  local name="$1" key="$2" every="$3" prompt_file="$4" milestone="${5:-}"
   local msg id
   msg="$(cat "$DIR/config/automations/$prompt_file")"
+  if [ -n "$milestone" ]; then
+    msg="$(printf '%s' "$msg" | sed "s|__RIFT_MILESTONE__|$milestone|g")"
+  fi
   id="$(job_id "$key")"
 
   if [ -n "$id" ]; then
@@ -74,8 +79,8 @@ remove_stale() {
   done
 }
 
-apply "rift-triage"  "rift-triage:main"  "5m"  "rift-triage.prompt.md"
-apply "rift-pr-gate" "rift-pr-gate:main" "5m"  "rift-pr-gate.prompt.md"
+apply "rift-triage"  "rift-triage:main"  "5m"  "rift-triage.prompt.md"  "$RIFT_MILESTONE"
+apply "rift-pr-gate" "rift-pr-gate:main" "5m"  "rift-pr-gate.prompt.md" "$RIFT_MILESTONE"
 apply "ocd-triage"   "ocd-triage:main"   "30m" "ocd-triage.prompt.md"
 apply "ocd-pr-gate"  "ocd-pr-gate:main"  "30m" "ocd-pr-gate.prompt.md"
 
