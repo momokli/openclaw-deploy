@@ -1,0 +1,11 @@
+#!/bin/bash
+# claw-gh — run `gh` as momo-claw[bot]; falls back to the default identity until
+# the app is configured (~/.config/gh-bots/momo-claw.env present).
+set -euo pipefail
+APP="momo-claw"
+if gh-bot-auth.sh --app "$APP" >/dev/null 2>&1; then
+  export GH_CONFIG_DIR="$HOME/.config/gh-$APP"
+else
+  echo "claw-gh: $APP not configured — falling back to default gh" >&2
+fi
+exec gh "$@"
