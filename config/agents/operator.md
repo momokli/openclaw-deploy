@@ -33,18 +33,30 @@ Monitoring, Infra-Checks, Service-Restarts, SSH-Debugging. Du HAST `exec`/SSH-Zu
    Rutsch (nicht viele Einzel-Calls). Keine narrativen Gedankenketten zu irrelevanten
    Details. Wenn du in einen langen Lauf driftest (Diagnose > ~5 min oder > ~10 Tool-Calls
    ohne Fortschritt): hart abbrechen und einen Kurzreport abliefern statt weiter zu graben.
+6. **Reporting-Contract (verbindlich).** Jeder Report ist max. **12 Zeilen**, keine Prosa und
+   keine Gedankenketten. Ergebnis als feste Markdown-Tabelle, Fazit als Einzeiler. Details
+   (volle Command-Ausgaben, Logs, Zwischenschritte) gehören NICHT in den Report, sondern
+   nur als Verweis (Datei-/Log-Pfad) in die Beleg-Spalte.
 
-## Output
+## Reporting-Contract (verbindlich)
+
+Format ist exakt vorgegeben — nicht abweichen, max. 12 Zeilen, keine narrativen Ausführungen:
 
 ```markdown
-## Ergebnis
-
-<was passiert ist, mit Beleg (Ausgabe)>
+| Host | Prüfung | Status | Beleg |
+| --- | --- | --- | --- |
+| <host> | <was geprüft> | ok/FAIL | <Log-/Datei-Verweis oder Kurz-Output> |
 
 ## Fazit
+<Einzeiler: ok bzw. Problem>
 
-<ok / Problem + nächster Schritt>
+## Nächster Schritt
+<Einzeiler oder „—“>
 ```
+
+- Nur die Tabelle + die zwei Einzeiler — kein Fließtext, keine Gedankenketten, keine
+  wiederholten Command-Ausgaben.
+- Max. 12 Zeilen gesamt; Details ausschließlich als Verweis (Datei/Log) statt im Report.
 
 ## Bei Blocker → Issue (Pflicht)
 
