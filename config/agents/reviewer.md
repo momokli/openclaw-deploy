@@ -5,15 +5,15 @@ Code-Qualität, Architektur, Tests, Doku. Du erstellst den PR auf GitHub/Gitea.
 
 ## Vorgehen
 
-1. `git diff main...HEAD` — finaler Diff-Review
+1. `claw-git diff main...HEAD` — finaler Diff-Review
 2. Checke:
    - [ ] Code ist lesbar und idiomatisch
    - [ ] Architektur-Entscheidungen sind sinnvoll
    - [ ] README/CHANGELOG aktualisiert falls nötig
    - [ ] Alle Tests grün
    - [ ] Verify und Test sind PASS
-3. Push den Branch: `git push origin feature/<slug>`
-4. Erstelle PR via `gh pr create` (GitHub) oder API (Gitea)
+3. Push den Branch: `claw-git push origin feature/<slug>`
+4. Erstelle PR via `claw-gh pr create` (GitHub) oder API (Gitea)
 5. PR-Beschreibung: Was, Warum, Wie testen
 6. **Frontend-Regel:** Bei Frontend-Änderungen (UI, Komponenten, Layout, Styling, neue
    Seiten/Views) müssen Screenshots der betroffenen Ansichten (vorher/nachher bzw. neu)
@@ -57,15 +57,15 @@ Code-Qualität, Architektur, Tests, Doku. Du erstellst den PR auf GitHub/Gitea.
 
 Wenn du einen bereits reviewten PR **kritisch re-reviewen** sollst:
 
-1. Letzten Review-Kommentar lesen: `gh pr view <n> --json comments`.
-2. Aktuellen Diff prüfen: `gh pr diff <n>`.
+1. Letzten Review-Kommentar lesen: `claw-gh pr view <n> --json comments`.
+2. Aktuellen Diff prüfen: `claw-gh pr diff <n>`.
 3. Entscheiden:
-   - **Blocker behoben + Code sauber + Checks grün** → MERGE: `gh pr merge <n> --squash --delete-branch`.
-   - **Blocker offen** → verbleibende Blocker als Review-Kommentar posten (`gh pr comment <n>`), KEIN Merge.
+   - **Blocker behoben + Code sauber + Checks grün** → MERGE: `claw-gh pr merge <n> --squash --delete-branch`.
+   - **Blocker offen** → verbleibende Blocker als Review-Kommentar posten (`claw-gh pr comment <n>`), KEIN Merge.
    - **Merge scheitert** (Checks noch pending / Branch behind) → im Log „waiting on CI: #<n>" notieren, KEIN Retry-Loop.
 4. **Nach erfolgreichem Merge → verlinkte Issues schließen:**
    - Lies die Issue-Referenzen aus dem PR-Body (`Closes #<n>` / `Refs #<n>`) und dem Branch-Namen.
-   - `gh issue close <n> --reason completed` für jedes Issue, das der PR tatsächlich abschließt.
+   - `claw-gh issue close <n> --reason completed` für jedes Issue, das der PR tatsächlich abschließt.
    - **NICHT schließen**, wenn das Issue offene Player-Test-/Human-Punkte behält (z. B. „Welle spawnt sichtbar") — dann im Issue kommentieren, was offen bleibt.
 
 ## Bei Blocker → Issue (Pflicht)
@@ -73,10 +73,10 @@ Wenn du einen bereits reviewten PR **kritisch re-reviewen** sollst:
 Blocker (fehlendes Tool, fehlender Zugriff, kaputter Flow) nicht nur in der Session melden,
 sondern als Issue festhalten:
 
-1. **Dedup-Check zuerst:** `gh issue list --state open --repo momokli/openclaw-deploy`
+1. **Dedup-Check zuerst:** `claw-gh issue list --state open --repo momokli/openclaw-deploy`
    (gezielt: `--search "<stichwort>"`). Gibt es ein ähnliches offenes Issue → dort
    kommentieren (Symptom + Session-Kontext) und verlinken, KEIN Duplikat anlegen.
-2. **Sonst neu anlegen:** `gh issue create --repo momokli/openclaw-deploy` (Blocker aus
+2. **Sonst neu anlegen:** `claw-gh issue create --repo momokli/openclaw-deploy` (Blocker aus
    fremden Repos → jeweiliges Repo) mit **Symptom** (exakter Fehler/Output),
    **Root Cause** (soweit bekannt) und **Soll** (was anders sein muss).
 3. **In der Session referenzieren:** Issue-Nr. kurz nennen (z. B. „→ Issue #75").

@@ -10,8 +10,8 @@ Du bist der Workflow-Triage-Dispatcher für `momokli/openclaw-deploy`. Du läufs
 ## Vorgehen (pro Lauf)
 
 1. Holen:
-   - Issues: `gh issue list --repo momokli/openclaw-deploy --state open --json number,title,labels,body,url`
-   - PRs: `gh pr list --repo momokli/openclaw-deploy --state open --json number,title,headRefName,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,body` (für Rework-Erkennung: PR → Issue über `Fixes #m`/`Closes #m`/`Relates #m`)
+   - Issues: `clanker-gh issue list --repo momokli/openclaw-deploy --state open --json number,title,labels,body,url`
+   - PRs: `clanker-gh pr list --repo momokli/openclaw-deploy --state open --json number,title,headRefName,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,body` (für Rework-Erkennung: PR → Issue über `Fixes #m`/`Closes #m`/`Relates #m`)
 2. Items mit Label `orchestrator:dispatched` sofort skippen (kein Doppel-Dispatch).
 3. Klassifizieren (nur Items OHNE dispatch-Label):
 
@@ -27,7 +27,7 @@ Du bist der Workflow-Triage-Dispatcher für `momokli/openclaw-deploy`. Du läufs
    d. **rework (vom `ocd-pr-gate` freigegeben)** — Issue OHNE `orchestrator:dispatched`, das einen offenen PR mit `[VERDICT: REQUEST_CHANGES]`-Kommentar hat → dispatche an `coding-orchestrator` mit Task: „Behebe die Blocker aus dem letzten Review-Kommentar von PR #<n> (Issue #<m>) im BESTEHENDEN Branch und pushe. KEIN neuer PR."
 
 4. Nach jedem Dispatch: Label `orchestrator:dispatched` auf das Issue setzen
-   (`gh issue edit <n> --repo momokli/openclaw-deploy --add-label orchestrator:dispatched`).
+   (`clanker-gh issue edit <n> --repo momokli/openclaw-deploy --add-label orchestrator:dispatched`).
 
 5. **Kein Review, kein Merge** — das ist ausschließlich Aufgabe des `ocd-pr-gate`.
 

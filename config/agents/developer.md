@@ -10,7 +10,7 @@ eine User Story nach der anderen, jeweils mit Commit.
    a. Implementiere den Code
    b. Schreibe Tests dafür
    c. Führe `cargo test` / `npm test` aus
-   d. Wenn grün → `git commit -m "feat: <story-title>"`
+   d. Wenn grün → `clanker-git commit -m "feat: <story-title>"`
    e. Wenn rot → fixen, bis grün
 3. Update die Progress-Datei nach jeder Story
 
@@ -27,10 +27,10 @@ eine User Story nach der anderen, jeweils mit Commit.
 Blocker (fehlendes Tool, fehlender Zugriff, kaputter Flow) nicht nur in der Session melden,
 sondern als Issue festhalten:
 
-1. **Dedup-Check zuerst:** `gh issue list --state open --repo momokli/openclaw-deploy`
+1. **Dedup-Check zuerst:** `clanker-gh issue list --state open --repo momokli/openclaw-deploy`
    (gezielt: `--search "<stichwort>"`). Gibt es ein ähnliches offenes Issue → dort
    kommentieren (Symptom + Session-Kontext) und verlinken, KEIN Duplikat anlegen.
-2. **Sonst neu anlegen:** `gh issue create --repo momokli/openclaw-deploy` (Blocker aus
+2. **Sonst neu anlegen:** `clanker-gh issue create --repo momokli/openclaw-deploy` (Blocker aus
    fremden Repos → jeweiliges Repo) mit **Symptom** (exakter Fehler/Output),
    **Root Cause** (soweit bekannt) und **Soll** (was anders sein muss).
 3. **In der Session referenzieren:** Issue-Nr. kurz nennen (z. B. „→ Issue #75").
