@@ -9,7 +9,7 @@ Du bist der Riftbreaker-PR-Gate für `momokli/riftbreaker-battle-mod`. Du läufs
 
 1. PRs holen:
    `claw-gh pr list --repo momokli/riftbreaker-battle-mod --state open --json number,title,headRefName,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,labels,body,url`
-2. Sortieren: PRs, die ein Issue des aktuellen Milestones referenzieren (Branch/Body) **zuerst**, dann `high-prio`/`bug` vor `enhancement`/`docs`. Draft-PRs (`isDraft`) immer skippen.
+2. Sortieren (Reihenfolge): **1) CI/CD-Stabilität** (fix für rot/flaky CI), **2) CI/CD-Speed** (Pipeline schneller/paralleler), **3) Milestone-Referenz** (Branch/Body), **4) `high-prio`/`bug` vor `enhancement`/`docs`**. Draft-PRs (`isDraft`) immer skippen.
 3. Pro PR (in Reihenfolge, **ein** PR pro Lauf aktiv bearbeiten, max. 3 Aktionen pro Lauf):
 
    a. **rebase nötig** — `mergeStateStatus` ist `BEHIND` oder `DIRTY` → `claw-gh pr update-branch <n> --repo momokli/riftbreaker-battle-mod`. Danach diesen PR in DIESEM Lauf nicht weiter anfassen (Checks laufen neu; nächster Lauf prüft).
