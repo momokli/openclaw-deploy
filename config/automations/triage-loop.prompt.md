@@ -22,12 +22,14 @@ NIE selbst — du klassifizierst, dispatches und loggst.
    a. **to-be-implemented** — Issue mit `triage:implement`, ODER ohne triage-Label
    aber mit klarem Scope (Bug/Feature, kein „research/spike/plan" im Titel/Body).
    → `sessions_spawn({ agentId: "coding-orchestrator", label: "triage-<n>",
-   task: "Bearbeite Issue #<n> in momokli/openclaw-deploy gemäß deiner Pipeline." })`
+model: "deepseek/deepseek-v4-flash",
+task: "Bearbeite Issue #<n> in momokli/openclaw-deploy gemäß deiner Pipeline." })`
 
    b. **to-be-researched** — Issue mit `triage:research`, ODER Titel/Body enthält
    „research/spike/SOTA/wie sollen wir/evaluieren".
    → `sessions_spawn({ agentId: "planning-orchestrator", label: "research-<n>",
-   task: "Recherchiere + plane Issue #<n> in momokli/openclaw-deploy (research-path)." })`
+model: "deepseek/deepseek-v4-pro",
+task: "Recherchiere + plane Issue #<n> in momokli/openclaw-deploy (research-path)." })`
 
    c. **issue-to-be-reviewed** — Issue mit `triage:review`, ODER ein Plan/Spike-Issue
    das auf eine Entscheidung wartet.
@@ -36,7 +38,8 @@ NIE selbst — du klassifizierst, dispatches und loggst.
    d. **pr-to-be-reviewed** — PR offen, nicht draft, `reviewDecision` leer (kein
    approved / changes-requested).
    → `sessions_spawn({ agentId: "feature-dev-reviewer", label: "review-<n>",
-   task: "Review PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security)." })`
+model: "deepseek/deepseek-v4-flash",
+task: "Review PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security)." })`
 
    e. **pr-to-be-merged** — PR `mergeStateStatus=CLEAN`, alle Checks grün,
    `reviewDecision=APPROVED`.
@@ -46,9 +49,10 @@ NIE selbst — du klassifizierst, dispatches und loggst.
    f. **pr-changes-requested** — PR offen, `reviewDecision=CHANGES_REQUESTED` (Reviewer
    hat Blocker/Request-Changes gesetzt).
    → `sessions_spawn({ agentId: "coding-orchestrator", label: "address-review-<n>",
-      task: "Adressiere die Review-Comments (Blocker + Risiken) aus dem letzten
-      Review-Kommentar von PR #<n> in momokli/openclaw-deploy. Kein Merge — nur
-      Comments umsetzen, pushen, dann Re-Review anstoßen." })`
+   model: "deepseek/deepseek-v4-flash",
+   task: "Adressiere die Review-Comments (Blocker + Risiken) aus dem letzten
+   Review-Kommentar von PR #<n> in momokli/openclaw-deploy. Kein Merge — nur
+   Comments umsetzen, pushen, dann Re-Review anstoßen." })`
 
 4. Nach jedem Dispatch: Label `orchestrator:dispatched` auf das Issue/den PR setzen
    (`gh issue edit <n> --repo momokli/openclaw-deploy --add-label orchestrator:dispatched`
@@ -62,6 +66,9 @@ NIE selbst — du klassifizierst, dispatches und loggst.
 
 ## Regeln
 
+- **Modell bei `sessions_spawn` IMMER explizit setzen** (nie vom Parent vererben lassen):
+  `coding-orchestrator`/`feature-dev-*` → `model: "deepseek/deepseek-v4-flash"`,
+  `planning-orchestrator` → `model: "deepseek/deepseek-v4-pro"`.
 - Isolated, frischer Start, KEIN Kontext-Aufbau (kein „was war letztes Mal").
 - Kompakter Status-Log an `$HOME/.openclaw/workspace/triage-loop-status.md`
   (Zeitstempel, gescannt, dispatched, awaiting-review, ready-to-merge).

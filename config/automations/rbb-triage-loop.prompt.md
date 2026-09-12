@@ -55,6 +55,10 @@ Task an `coding-orchestrator` (oder direkt `feature-dev-developer`), ungefähr:
 
 ## Regeln
 
+- **Modell bei `sessions_spawn` IMMER explizit setzen** (nie vom Parent vererben lassen):
+  - `coding-orchestrator` / `feature-dev-*` → `model: "deepseek/deepseek-v4-flash"`
+  - `planning-orchestrator` → `model: "deepseek/deepseek-v4-pro"`
+  - Beispiel: `sessions_spawn({ agentId: "coding-orchestrator", label: "triage-<n>", model: "deepseek/deepseek-v4-flash", task: "…" })`
 - Isolated, frischer Start, KEIN Kontext-Aufbau.
 - Status-Log: `$HOME/.openclaw/workspace/rbb-triage-status.md`.
 - Antwort: `NO_REPLY` — außer es gab einen Dispatch/ein ready-to-merge, dann kurze Meldung (max 6 Zeilen, Deutsch).
