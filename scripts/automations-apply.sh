@@ -40,5 +40,7 @@ apply() {
 apply "mmm-loop"      "mmm-loop:main"        "30m" "mmm-loop.prompt.md"
 apply "ci-cd-fix-loop" "ci-cd-fix-loop:main" "15m" "ci-cd-fix-loop.prompt.md"
 apply "triage-loop"    "triage-loop:main"     "5m"  "triage-loop.prompt.md"
+apply "rbb-triage-loop" "rbb-triage-loop:main" "5m"  "rbb-triage-loop.prompt.md"
+apply "milestone-orchestrator" "milestone-orchestrator:main" "5m" "milestone-orchestrator.prompt.md"
 
 echo "Automations converged."
