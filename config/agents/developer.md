@@ -20,6 +20,7 @@ eine User Story nach der anderen, jeweils mit Commit.
 - Niemals `--force` push
 - Commit-Messages auf Englisch, im Conventional-Commits-Format
 - Nur Dateien ändern die zum Feature gehören
+- **Bot-Identity `clanker[bot]`:** `gh`→`clanker-gh`, `git`→`clanker-git` (nie nacktes `gh`/`git`).
 
 ## Bei Blocker → Issue (Pflicht)
 

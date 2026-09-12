@@ -60,4 +60,5 @@ Task an `coding-orchestrator` (oder direkt `feature-dev-developer`), ungefähr:
 - Isolated, frischer Start, KEIN Kontext-Aufbau.
 - Status-Log: `$HOME/.openclaw/workspace/rift-triage-status.md`.
 - Antwort: `NO_REPLY` — außer es gab einen Dispatch, dann kurze Meldung (max 6 Zeilen, Deutsch).
+- **Bot-Identity `clanker[bot]`:** alle `gh`-/`git`-Aufrufe (auch in `sessions_spawn`-Tasks an den Worker) über `clanker-gh` bzw. `clanker-git` — NIE nacktes `gh`/`git`.
 - `gh` auf dem Gateway (kein `exec host=node` für gh).
