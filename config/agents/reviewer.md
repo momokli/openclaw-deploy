@@ -51,6 +51,7 @@ Code-Qualität, Architektur, Tests, Doku. Du erstellst den PR auf GitHub/Gitea.
 
 - Frontend-Änderungen benötigen Screenshots im PR (Pflicht, sonst kein Merge).
 - Kein Merge ohne Freigabe (Review).
+- **Bot-Identity `momo-claw[bot]`:** `gh`→`claw-gh`, `git`→`claw-git` (nie nacktes `gh`/`git`).
 
 ## Re-Review + Merge (Task `re-review-<n>` von der Triage)
 

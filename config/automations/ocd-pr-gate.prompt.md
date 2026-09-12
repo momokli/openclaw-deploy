@@ -33,4 +33,5 @@ Du bist der PR-Gate für `momokli/openclaw-deploy`. Du läufst alle 30 Minuten, 
 - Du mergst selbst (Schritt d), aber NIE mit `--admin` und NIE unter Umgehung von Branch-Protection.
 - Status-Log: `$HOME/.openclaw/workspace/ocd-pr-gate-status.md` (Zeitstempel, pro PR: rebased/reviewed/merged/rejected/skipped).
 - Antwort: `NO_REPLY` — außer es gab eine Aktion (Merge/Reject/Rebase), dann kurze Meldung (max 6 Zeilen, Deutsch).
+- **Bot-Identity `momo-claw[bot]`:** alle `gh`-/`git`-Aufrufe (auch in `sessions_spawn`-Tasks an den Reviewer) über `claw-gh` bzw. `claw-git` — NIE nacktes `gh`/`git`.
 - `gh`-Befehle laufen auf dem Gateway (kein `exec host=node`).
