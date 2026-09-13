@@ -67,6 +67,17 @@ ein Test-PR/Review), dann Monitoring der ersten A/B-Läufe.
 
 ## Gotchas
 
+- **Ambientes `GH_TOKEN` hebelt die Bot-Identität aus** (Issue #103): `gh` gibt
+  `GH_TOKEN`/`GITHUB_TOKEN`/`GH_ENTERPRISE_TOKEN` aus der Umgebung Vorrang vor der
+  `hosts.yml` in `GH_CONFIG_DIR` — die Wrapper liefen dann still als Ambient-User
+  (`momokli`) statt als `[bot]`. Die Wrapper (`clanker-gh`/`claw-gh` und, weil der
+  git-Credential-Helper `gh auth git-credential` denselben Token liest,
+  `clanker-git`/`claw-git`) neutralisieren die drei Variablen daher, sobald die
+  App-Config greift; `gh-bot-auth.sh` ruft sein eigenes `gh auth setup-git` mit
+  `env -u …` auf. Im **Fallback** (App nicht konfiguriert) bleiben sie bewusst
+  unangetastet, damit der Wrapper wie dokumentiert auf die Default-Identität fällt.
+  Offline-Nachweis: `bash tests/clanker-gh/run.sh` (14 Fälle, PATH-Shims, kein Netz),
+  red-before-green via `bash tests/clanker-gh/run.sh --red`.
 - App-Token laufen ~1h ab → Mint-per-Call (robust, <2s).
 - Commit-Email = `<bot_user_id>+<app>[bot]@users.noreply.github.com` (BOT-USER-ID,
   **nicht** App-ID).

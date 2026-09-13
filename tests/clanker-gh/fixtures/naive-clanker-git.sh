@@ -1,15 +1,11 @@
 #!/bin/bash
-# clanker-git — run `git` as momo-clanker[bot]; falls back to the default identity
-# until the app is configured (~/.config/gh-bots/momo-clanker.env present).
+# fixtures/naive-clanker-git.sh — PRE-FIX-Stand von scripts/clanker-git (Issue #103).
+# Nur fuer tests/clanker-gh/run.sh --red: belegt, dass der git-Credential-Helper das
+# ambient GH_TOKEN sieht → push laeuft als Ambient-User.
 set -euo pipefail
 APP="momo-clanker"
 if gh-bot-auth.sh --app "$APP" >/dev/null 2>&1; then
   export GH_CONFIG_DIR="$HOME/.config/gh-$APP"
-  # gh precedence: the git credential helper (`gh auth git-credential`) picks up an
-  # ambient GH_TOKEN/GITHUB_TOKEN/GH_ENTERPRISE_TOKEN and would push as the ambient
-  # user instead of the App identity. Strip them from the child env — but only in
-  # the App branch, so the not-configured fallback keeps the default identity (#103).
-  unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN
   BOT_ID="$(gh-bot-auth.sh --app "$APP" --bot-id 2>/dev/null || true)"
   if [ -n "$BOT_ID" ] && [ "$BOT_ID" != "null" ]; then
     export GIT_AUTHOR_NAME="${APP}[bot]"

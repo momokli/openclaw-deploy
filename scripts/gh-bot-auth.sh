@@ -94,7 +94,10 @@ EOF
   echo "[gh-bot-auth] $BOT_LOGIN token minted (~1h)"
   # Wire git's credential helper to gh (uses GH_CONFIG_DIR at runtime) so HTTPS
   # git push/clone authenticates as this bot.
-  GH_CONFIG_DIR="$CFG" gh auth setup-git --hostname github.com >/dev/null 2>&1 || true
+  # gh precedence: an ambient GH_TOKEN/GITHUB_TOKEN/GH_ENTERPRISE_TOKEN would make
+  # this gh run as the ambient user instead of the App config. Neutralise it (#103).
+  env -u GH_TOKEN -u GITHUB_TOKEN -u GH_ENTERPRISE_TOKEN \
+      GH_CONFIG_DIR="$CFG" gh auth setup-git --hostname github.com >/dev/null 2>&1 || true
 else
   echo "[gh-bot-auth] $BOT_LOGIN token cached (fresh)"
 fi
