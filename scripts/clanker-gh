@@ -5,6 +5,11 @@ set -euo pipefail
 APP="momo-clanker"
 if gh-bot-auth.sh --app "$APP" >/dev/null 2>&1; then
   export GH_CONFIG_DIR="$HOME/.config/gh-$APP"
+  # gh precedence: an ambient GH_TOKEN/GITHUB_TOKEN/GH_ENTERPRISE_TOKEN silently
+  # beats hosts.yml in GH_CONFIG_DIR, so gh would run as the ambient user instead
+  # of the App identity. Strip them from the child env — but only in the App
+  # branch, so the not-configured fallback below keeps the default identity (#103).
+  unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN
 else
   echo "clanker-gh: $APP not configured — falling back to default gh" >&2
 fi
