@@ -43,10 +43,9 @@ FLASH_IN="${FLASH_IN:-0.15}"; FLASH_CR="${FLASH_CR:-0.003}"; FLASH_OUT="${FLASH_
 echo "== OpenClaw analytics — $START → $END (UTC) =="
 
 # ── pull normalized data from per-agent SQLite (read-only) ────────────
-docker exec -i -u node \
-  -e "OC_START_UTC=$START" -e "OC_END_UTC=$END" \
-  openclaw node --input-type=module - < "$SCRIPT_DIR/oc-sqlite.mjs" \
-  > /tmp/oc_sqlite.jsonl
+OC_START_UTC="$START" OC_END_UTC="$END" \
+  OC_AGENTS_DIR="${OC_AGENTS_DIR:-$HOME/.openclaw/agents}" \
+  node "$SCRIPT_DIR/oc-sqlite.mjs" > /tmp/oc_sqlite.jsonl
 
 # ── report ────────────────────────────────────────────────────────────
 

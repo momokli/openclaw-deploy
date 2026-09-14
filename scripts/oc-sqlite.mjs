@@ -2,14 +2,14 @@
 // oc-sqlite.mjs — read per-agent OpenClaw SQLite DBs, emit normalized JSONL for a UTC window.
 //
 // Replaces the pre-SQLite-migration extraction from
-//   /home/node/.openclaw/agents/<agent>/sessions/*.jsonl (and *.trajectory.jsonl).
+//   ~/.openclaw/agents/<agent>/sessions/*.jsonl (and *.trajectory.jsonl).
 // Since 2026-08-31 the sessions/usage live in per-agent SQLite DBs:
-//   /home/node/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite
+//   ~/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite
 //
 // Input (env, optional):
 //   OC_START_UTC  ISO-8601 UTC start of the window (default: now - 24h)
 //   OC_END_UTC    ISO-8601 UTC end of the window   (default: now)
-//   OC_AGENTS_DIR base dir of per-agent DBs        (default: /home/node/.openclaw/agents)
+//   OC_AGENTS_DIR base dir of per-agent DBs        (default: ~/.openclaw/agents)
 //
 // Output (stdout): one JSON object per line (JSONL), `kind` ∈ session|usage|toolCall|toolResult.
 //   session    {kind, agent, sessionKey, sessionId, previousSessionId, startedAt, endedAt,
@@ -36,7 +36,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-const AGENTS_DIR = process.env.OC_AGENTS_DIR || '/home/node/.openclaw/agents';
+const AGENTS_DIR = process.env.OC_AGENTS_DIR || path.join(process.env.HOME ?? '/home/momo', '.openclaw', 'agents');
 
 function toMs(s) {
   if (s == null || s === '') return null;

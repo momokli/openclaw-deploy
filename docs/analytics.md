@@ -30,9 +30,10 @@ ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/analytics.sh [START_UTC] [END_U
 ## Data sources & schema
 
 Since the SQLite migration (2026-08-31) the old
-`/home/node/.openclaw/agents/<agent>/sessions/*.jsonl` files no longer exist. Extraction is done
+`~/.openclaw/agents/<agent>/sessions/*.jsonl` files no longer exist. Extraction is done
 by `scripts/oc-sqlite.mjs` (Node 24, `node:sqlite`, no `sqlite3` CLI needed), which reads the
-per-agent DBs at `/home/node/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite`:
+per-agent DBs at `~/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite` (override the base dir
+via `OC_AGENTS_DIR`):
 
 | table                       | content                                                                                                                                                                                                                                                |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
