@@ -35,6 +35,7 @@
     run_user: momo
     deploy_dir: /opt/apps/openclaw # Host-Staging (Secrets + Scripts + git-Config)
     state_dir: "{{ ansible_user_dir }}/.openclaw" # = /home/momo/.openclaw
+    bin_dir: "{{ ansible_user_dir }}/.local/bin" # Bot-Wrappers (clanker-gh/…) on PATH
     gateway_service: openclaw-gateway.service
     gateway_port: 18789
     # Automations sind Runtime-Cron (NICHT in openclaw.json, docs/automations.md).
@@ -87,6 +88,23 @@
         - converge-openclaw-config.sh
         - sync-agent-personas.sh
         - automations-apply.sh
+
+    # Bot-Wrappers müssen auf PATH (~/.local/bin) liegen, weil die Automations-
+    # Prompts sie als `clanker-gh`/`claw-git` aufrufen (kein exec host=node).
+    # `gh-bot-auth.sh` erwartet `generate-github-token.sh` im selben Verzeichnis.
+
+    - name: Install bot wrappers to ~/.local/bin
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/{{ item }}"
+        dest: "{{ bin_dir }}/{{ item }}"
+        mode: "0755"
+      loop:
+        - clanker-gh
+        - clanker-git
+        - claw-gh
+        - claw-git
+        - gh-bot-auth.sh
+        - generate-github-token.sh
 
     - name: Ensure jq is installed (config merge)
       ansible.builtin.package:

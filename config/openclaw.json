@@ -1,4 +1,36 @@
 {
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "deepseek-flash",
+            "name": "DeepSeek Flash",
+            "api": "openai-completions",
+            "reasoning": true,
+            "input": ["text"],
+            "contextWindow": 1000000,
+            "maxTokens": 384000,
+            "cost": {
+              "input": 0.14,
+              "output": 0.28,
+              "cacheRead": 0.0028,
+              "cacheWrite": 0
+            },
+            "compat": {
+              "supportsUsageInStreaming": true,
+              "supportsReasoningEffort": true,
+              "maxTokensField": "max_tokens",
+              "codeMode": "preferred"
+            }
+          }
+        ]
+      }
+    }
+  },
   "gateway": {
     "bind": "lan",
     "mode": "local",
