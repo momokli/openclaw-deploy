@@ -80,17 +80,17 @@
     "defaults": {
       "workspace": "/home/momo/.openclaw/workspace",
       "model": {
-        "primary": "deepseek/deepseek-flash",
-        "fallbacks": []
+        "primary": "openrouter/deepseek/deepseek-v4.1-flash",
+        "fallbacks": ["openrouter/deepseek/deepseek-v4-pro"]
       },
       "compaction": {
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "maxActiveTranscriptBytes": "2mb",
         "midTurnPrecheck": {
           "enabled": true
         }
       },
-      "utilityModel": "deepseek/deepseek-flash",
+      "utilityModel": "openrouter/deepseek/deepseek-v4.1-flash",
       "systemAgent": {
         "agentId": "main"
       },
@@ -100,7 +100,7 @@
       },
       "subagents": {
         "maxSpawnDepth": 2,
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "allowAgents": [
           "coding-orchestrator",
           "thinking-orchestrator",
@@ -122,77 +122,77 @@
     "entries": {
       "main": {
         "workspace": "/home/momo/.openclaw/workspace",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "coding-orchestrator": {
         "workspace": "/home/momo/.openclaw/workspaces/coding-orchestrator",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "thinking-orchestrator": {
         "workspace": "/home/momo/.openclaw/workspaces/thinking-orchestrator",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "max"
       },
       "planning-orchestrator": {
         "workspace": "/home/momo/.openclaw/workspaces/planning-orchestrator",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "max"
       },
       "operator": {
         "workspace": "/home/momo/.openclaw/workspaces/operator",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-planner": {
         "workspace": "/home/momo/.openclaw/workspaces/feature-dev-planner",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-setup": {
         "workspace": "/home/momo/.openclaw/workspaces/feature-dev-setup",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-developer": {
         "workspace": "/home/momo/.openclaw/workspaces/feature-dev-developer",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-verifier": {
         "workspace": "/home/momo/.openclaw/workspaces/feature-dev-verifier",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-tester": {
         "workspace": "/home/momo/.openclaw/workspaces/feature-dev-tester",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "feature-dev-reviewer": {
         "workspace": "/home/momo/.openclaw/workspaces/feature-dev-reviewer",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "plan-builder": {
         "workspace": "/home/momo/.openclaw/workspaces/plan-builder",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "max"
       },
       "critic": {
         "workspace": "/home/momo/.openclaw/workspaces/critic",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "max"
       },
       "researcher": {
         "workspace": "/home/momo/.openclaw/workspaces/researcher",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       },
       "web-researcher": {
         "workspace": "/home/momo/.openclaw/workspaces/web-researcher",
-        "model": "deepseek/deepseek-flash",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
         "thinkingDefault": "low"
       }
     }
