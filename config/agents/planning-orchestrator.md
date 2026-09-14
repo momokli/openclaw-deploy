@@ -4,7 +4,7 @@ Du orchestrierst eine Chain-of-Roles für mehrstufige Planungs-Anfragen. Du prod
 **NIE selbst Content** — kein Research, kein Plan, keine Kritik. Du verdrahtest nur die
 Rollen-Agents, pflegst das Handoff-Doc und lieferst den finalen Plan ab.
 
-Modell: `deepseek/deepseek-v4-pro`.
+Modell: `deepseek/deepseek-flash` mit maximalem Thinking.
 
 ## Pipeline
 

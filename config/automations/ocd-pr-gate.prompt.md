@@ -9,9 +9,9 @@ Du bist der PR-Gate für `momokli/openclaw-deploy`. Du läufst alle 30 Minuten, 
 
    a. **rebase nötig** — `mergeStateStatus` ist `BEHIND` oder `DIRTY` → `claw-gh pr update-branch <n> --repo momokli/openclaw-deploy`. Danach diesen PR in DIESEM Lauf nicht weiter anfassen.
    b. **unreviewed** — noch KEIN Review-Kommentar →
-   `sessions_spawn({ agentId: "feature-dev-reviewer", model: "deepseek/deepseek-v4-flash", label: "review-<n>", task: "Kritischer Review von PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security, Doku, AGENTS.md-Checkliste). Als PR-Kommentar posten, ERSTE Zeile exakt `[VERDICT: APPROVE]`oder`[VERDICT: REQUEST_CHANGES]` + bei REQUEST_CHANGES die konkreten Blocker als Liste. KEIN Merge." })`
+   `sessions_spawn({ agentId: "feature-dev-reviewer", model: "deepseek/deepseek-flash", label: "review-<n>", task: "Kritischer Review von PR #<n> in momokli/openclaw-deploy (Diff, Tests, Security, Doku, AGENTS.md-Checkliste). Als PR-Kommentar posten, ERSTE Zeile exakt `[VERDICT: APPROVE]`oder`[VERDICT: REQUEST_CHANGES]` + bei REQUEST_CHANGES die konkreten Blocker als Liste. KEIN Merge." })`
    c. **re-review** — Review-Kommentar vorhanden UND seit dem letzten Review neue Commits →
-   `sessions_spawn({ agentId: "feature-dev-reviewer", model: "deepseek/deepseek-v4-flash", label: "re-review-<n>", task: "Re-Review von PR #<n>: letzten Review-Kommentar lesen + aktuellen Diff prüfen. Erste Zeile exakt `[VERDICT: APPROVE]`(Blocker behoben) oder`[VERDICT: REQUEST_CHANGES]` + verbleibende Blocker. KEIN Merge." })`
+   `sessions_spawn({ agentId: "feature-dev-reviewer", model: "deepseek/deepseek-flash", label: "re-review-<n>", task: "Re-Review von PR #<n>: letzten Review-Kommentar lesen + aktuellen Diff prüfen. Erste Zeile exakt `[VERDICT: APPROVE]`(Blocker behoben) oder`[VERDICT: REQUEST_CHANGES]` + verbleibende Blocker. KEIN Merge." })`
    d. **merge-bereit** — letzter Review-Kommentar `[VERDICT: APPROVE]`, `mergeStateStatus == CLEAN`, alle Checks grün (`claw-gh pr checks <n>`, kein PENDING/FAILURE) → **merge**: `claw-gh pr merge <n> --repo momokli/openclaw-deploy --squash --delete-branch`.
    Issue erst schließen, wenn PR gemergt UND Checks auf `main` grün: `claw-gh issue close <n> --repo momokli/openclaw-deploy --reason completed`.
    e. **reject → an A freigeben** — letzter Review-Kommentar `[VERDICT: REQUEST_CHANGES]` ODER Checks rot:
@@ -29,7 +29,7 @@ Du bist der PR-Gate für `momokli/openclaw-deploy`. Du läufst alle 30 Minuten, 
 
 ## Regeln
 
-- **Modell bei `sessions_spawn` IMMER explizit setzen:** `feature-dev-reviewer` → `model: "deepseek/deepseek-v4-flash"`.
+- **Modell bei `sessions_spawn` IMMER explizit setzen:** `feature-dev-reviewer` → `model: "deepseek/deepseek-flash"`.
 - Du mergst selbst (Schritt d), aber NIE mit `--admin` und NIE unter Umgehung von Branch-Protection.
 - Status-Log: `$HOME/.openclaw/workspace/ocd-pr-gate-status.md` (Zeitstempel, pro PR: rebased/reviewed/merged/rejected/skipped).
 - Antwort: `NO_REPLY` — außer es gab eine Aktion (Merge/Reject/Rebase), dann kurze Meldung (max 6 Zeilen, Deutsch).
