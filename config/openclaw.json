@@ -11,13 +11,13 @@
             "name": "DeepSeek Flash",
             "api": "openai-completions",
             "reasoning": true,
-            "input": ["text"],
+            "input": ["text", "image"],
             "contextWindow": 1000000,
             "maxTokens": 384000,
             "cost": {
-              "input": 0.14,
-              "output": 0.28,
-              "cacheRead": 0.0028,
+              "input": 0.15,
+              "output": 0.6,
+              "cacheRead": 0.003,
               "cacheWrite": 0
             },
             "compat": {
