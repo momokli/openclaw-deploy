@@ -118,8 +118,8 @@ Zum Entwickeln von `create:yogglez` (Minecraft-Mod, MC 1.21.1 / NeoForge
 **Dev-Stage** des Images — das Prod-Image bleibt davon unberührt:
 
 - **Multi-Stage im `Dockerfile`:** `FROM prod AS dev` ergänzt **JDK 21 (Temurin)**
-  + `GRADLE_USER_HOME`-Setup. `docker build .` ohne `--target` liefert weiterhin
-  das schlanke Prod-Image (kein JDK drin).
+  - `GRADLE_USER_HOME`-Setup. `docker build .` ohne `--target` liefert weiterhin
+    das schlanke Prod-Image (kein JDK drin).
 - **CI (`build.yml`):** eigener `dev`-Job baut `--target dev` (BuildKit-Cache
   `type=gha`), pusht auf `main` nach `ghcr.io/momokli/openclaw-deploy:dev` und
   blockiert nie den Prod-Build/Deploy.
@@ -197,15 +197,14 @@ The receiver validates the token and starts `openclaw-build.service`.
 ## Infra-Zugriff
 
 Die Agent-Umgebung hat Zugriff auf die Cloud-APIs von **Hetzner** (zwei Projekte),
-**Contabo**, **Cloudflare** und den Domain-Registrar **INWX** (z. B. für den
-Dekommissionierungs-Plan des Hetzner-Stacks). Details und curl-Beispiele:
+**Contabo** und **Cloudflare** (z. B. für den Dekommissionierungs-Plan des
+Hetzner-Stacks). Details und curl-Beispiele:
 [docs/infra-access.md](docs/infra-access.md).
 
 Die Secrets (`HETZNER_API_TOKEN_MITTELERDE`, `HETZNER_API_TOKEN_STORAGEBOXES`,
 `CONTABO_CLIENT_ID`, `CONTABO_CLIENT_SECRET`, `CONTABO_API_USER`,
-`CONTABO_API_PASSWORD`, `CLOUDFLARE_API_TOKEN`, `INWX_API_USER`,
-`INWX_API_PASSWORD`) liegen in `config/.env` auf `.149` (gitignored, nie committen —
-siehe [Secrets](#secrets)). Schnell-Check aller APIs:
+`CONTABO_API_PASSWORD`, `CLOUDFLARE_API_TOKEN`) liegen in `config/.env` auf `.149`
+(gitignored, nie committen — siehe [Secrets](#secrets)). Schnell-Check aller APIs:
 
 ```sh
 ./scripts/infra-status.sh
@@ -285,7 +284,6 @@ Never committed to this repo. Copy `.env.example` → `config/.env` on the deplo
 - `CONTABO_CLIENT_ID` / `CONTABO_CLIENT_SECRET` — Contabo Cloud API v2 (OAuth2-Client)
 - `CONTABO_API_USER` / `CONTABO_API_PASSWORD` — Contabo API User (= CCP-Email) und API Password (separates Passwort aus my.contabo.com/api/details, password grant)
 - `CLOUDFLARE_API_TOKEN` — Cloudflare API
-- `INWX_API_USER` / `INWX_API_PASSWORD` — INWX DomRobot (Domain-Registrar, User + Passwort)
 
 ### GitHub repo secrets (Actions)
 

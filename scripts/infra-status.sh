@@ -1,5 +1,5 @@
 #!/bin/bash
-# infra-status.sh — compact status overview of Hetzner (Cloud) / Contabo / Cloudflare / INWX.
+# infra-status.sh — compact status overview of Hetzner (Cloud) / Contabo / Cloudflare.
 # Usage: ./scripts/infra-status.sh   (run on .149 or anywhere with the tokens exported)
 #
 # Tokens are read from the environment only (config/.env on .149, gitignored).
@@ -296,43 +296,6 @@ cloudflare_status() {
   fi
 }
 
-# --- INWX (Domain-Registrar, DomRobot) ------------------------------------------
-inwx_status() {
-  local user="${INWX_API_USER:-}" pass="${INWX_API_PASSWORD:-}"
-  if [ -z "$user" ] || [ -z "$pass" ]; then
-    warn "INWX_API_USER / INWX_API_PASSWORD nicht gesetzt - INWX-Sektion uebersprungen (optional)"
-    return 0
-  fi
-  echo "=== INWX: Domains ==="
-  local json domains n domain
-  json=$(curl -sS --max-time 15 -u "$user:$pass" -H "Accept: application/json" \
-    https://api.inwx.com/rest/domain.list || true)
-  if [ -z "$json" ]; then
-    warn "INWX: leere Antwort / curl-Fehler"
-    return 0
-  fi
-  if ! printf '%s' "$json" | grep -q '"code":1000'; then
-    warn "INWX: API-Fehler (Code != 1000 - Login/Passwort oder Berechtigung pruefen)"
-    return 0
-  fi
-  # Extract every domain name from the resData.domain array.
-  domains=$(printf '%s' "$json" | grep -oE '"domain":"[^"]*"' | sed 's/"domain":"//; s/"$//' || true)
-  if [ -z "$domains" ]; then
-    echo "  (keine Domains)"
-    return 0
-  fi
-  n=0
-  while IFS= read -r domain; do
-    printf '  %s\n' "$domain"
-    n=$((n + 1))
-  done <<< "$domains"
-  if [ "$n" -eq 1 ]; then
-    echo "  (1 Domain)"
-  else
-    echo "  ($n Domains)"
-  fi
-}
-
 if ! command -v curl >/dev/null 2>&1; then
   warn "curl ist nicht installiert - Statusabfrage nicht moeglich"
   exit 0
@@ -345,5 +308,3 @@ echo
 contabo_status
 echo
 cloudflare_status
-echo
-inwx_status

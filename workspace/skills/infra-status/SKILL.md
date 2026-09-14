@@ -1,19 +1,13 @@
 ---
 name: infra-status
-description: "Infra-Status (Hetzner/Contabo/Cloudflare/INWX) via scripts/infra-status.sh abfragen: Tokens nur aus config/.env, nie committen."
-metadata:
-  {
-    "openclaw":
-      {
-        "requires": { "bins": ["curl"] },
-      },
-  }
+description: "Infra-Status (Hetzner/Contabo/Cloudflare) via scripts/infra-status.sh abfragen: Tokens nur aus config/.env, nie committen."
+metadata: { "openclaw": { "requires": { "bins": ["curl"] } } }
 ---
 
-# Infra-Status (Hetzner / Contabo / Cloudflare / INWX)
+# Infra-Status (Hetzner / Contabo / Cloudflare)
 
 Use für den Schnell-Check aller Cloud-APIs (Server, StorageBoxes, Contabo-Instances,
-Cloudflare-Zonen, INWX-Domains) über ein einzelnes, idempotentes Script.
+Cloudflare-Zonen) über ein einzelnes, idempotentes Script.
 
 ## Zugriff / Aufruf
 
@@ -43,11 +37,8 @@ set -a; source config/.env; set +a
    mit `unauthorized_client`). Felder: `client_id` + `client_secret` + `username`
    (= CCP-Email) + `password` (= separates API-Passwort aus `my.contabo.com/api/details`,
    NICHT das CCP-Login-Passwort).
-4. **INWX = HTTP Basic Auth** mit User + Passwort (`-u "$INWX_API_USER:$INWX_API_PASSWORD"`),
-   **kein** Token. API-Passwort ist das separate INWX-API-Passwort, nicht das
-   Account-Passwort. Erfolgscode ist `1000`.
-5. **Cloudflare = Bearer-Token** (`Authorization: Bearer $CLOUDFLARE_API_TOKEN`).
-6. **Das Script skippt fehlende/leere Tokens mit Warnung und Exit-Code 0** — es ist
+4. **Cloudflare = Bearer-Token** (`Authorization: Bearer $CLOUDFLARE_API_TOKEN`).
+5. **Das Script skippt fehlende/leere Tokens mit Warnung und Exit-Code 0** — es ist
    gefahrlos idempotent, eine fehlende Sektion ist kein Fehler. Secrets werden nie
    ausgegeben.
 

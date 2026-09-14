@@ -1,10 +1,10 @@
-# Infra-Zugriff — Hetzner (Cloud) / Contabo / Cloudflare / INWX
+# Infra-Zugriff — Hetzner (Cloud) / Contabo / Cloudflare
 
 Stand: 2026-08-27. Zugriff auf die Cloud-APIs von Hetzner (Cloud-API),
-Contabo, Cloudflare sowie den Domain-Registrar INWX, u.a. für den
-Dekommissionierungs-Plan des Hetzner-Stacks. Die Tokens/Zugangsdaten werden
-**ausschließlich** über Umgebungsvariablen genutzt (`config/.env` auf `.149`,
-gitignored) und **nie** committet.
+Contabo und Cloudflare, u.a. für den Dekommissionierungs-Plan des
+Hetzner-Stacks. Die Tokens/Zugangsdaten werden **ausschließlich** über
+Umgebungsvariablen genutzt (`config/.env` auf `.149`, gitignored) und **nie**
+committet.
 
 Schnell-Check aller APIs:
 
@@ -22,17 +22,15 @@ in die Shell laden:
 set -a; source config/.env; set +a
 ```
 
-| Variable                          | Zweck                                                      |
-| --------------------------------- | ---------------------------------------------------------- |
-| `HETZNER_API_TOKEN_MITTELERDE`    | Hetzner Cloud API v1, Projekt **mittelerde** (Server)      |
-| `HETZNER_API_TOKEN_STORAGEBOXES`  | Hetzner Cloud API v1, Projekt **StorageBoxes** (StorageBoxes) |
-| `CONTABO_CLIENT_ID`               | Contabo Cloud API v2 (OAuth2-Client)                       |
-| `CONTABO_CLIENT_SECRET`           | Contabo Cloud API v2 (OAuth2-Secret)                       |
-| `CONTABO_API_USER`                | Contabo API User = CCP-Email (password grant)              |
-| `CONTABO_API_PASSWORD`            | Contabo API Password (separates Passwort aus my.contabo.com/api/details) |
-| `CLOUDFLARE_API_TOKEN`            | Cloudflare API v4 (Bearer)                                 |
-| `INWX_API_USER`                   | INWX DomRobot – Benutzername (Login)                       |
-| `INWX_API_PASSWORD`               | INWX DomRobot – API-Passwort                               |
+| Variable                         | Zweck                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| `HETZNER_API_TOKEN_MITTELERDE`   | Hetzner Cloud API v1, Projekt **mittelerde** (Server)                    |
+| `HETZNER_API_TOKEN_STORAGEBOXES` | Hetzner Cloud API v1, Projekt **StorageBoxes** (StorageBoxes)            |
+| `CONTABO_CLIENT_ID`              | Contabo Cloud API v2 (OAuth2-Client)                                     |
+| `CONTABO_CLIENT_SECRET`          | Contabo Cloud API v2 (OAuth2-Secret)                                     |
+| `CONTABO_API_USER`               | Contabo API User = CCP-Email (password grant)                            |
+| `CONTABO_API_PASSWORD`           | Contabo API Password (separates Passwort aus my.contabo.com/api/details) |
+| `CLOUDFLARE_API_TOKEN`           | Cloudflare API v4 (Bearer)                                               |
 
 ## Hetzner Cloud
 
@@ -139,7 +137,7 @@ Bedarf einfach neu holen.
 Antwort enthält dann einen Fehlertext, z. B.
 
 ```json
-{"error":"invalid_grant","error_description":"Invalid user credentials"}
+{ "error": "invalid_grant", "error_description": "Invalid user credentials" }
 ```
 
 Das bedeutet: API User / API Password sind falsch oder der OAuth2-Client ist im
@@ -163,50 +161,6 @@ curl -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   "https://api.cloudflare.com/client/v4/zones/<ZONE_ID>/dns_records"
 ```
 
-## INWX (Domain-Registrar, DomRobot)
-
-INWX ist der Domain-Registrar. Die **DomRobot**-API authentifiziert mit **Benutzer +
-Passwort** (kein klassisches API-Token) — HTTP Basic Auth mit dem INWX-Login
-(`INWX_API_USER`) und dem API-Passwort (`INWX_API_PASSWORD`). Zwei Endpunkte:
-
-- **REST:** `https://api.inwx.com/rest/` (empfohlen, einfach mit curl)
-- **XML-RPC:** `https://api.inwx.com/xmlrpc/` (klassisches DomRobot-Protokoll)
-
-Die REST-Endpunkte entsprechen den DomRobot-Methodennamen (`domain.list`,
-`nameserver.info`, …). Die Antwort ist standardmäßig XML — mit dem Header
-`Accept: application/json` kommt JSON.
-
-Domains-Liste abrufen:
-
-```sh
-curl -s -u "$INWX_API_USER:$INWX_API_PASSWORD" \
-  -H "Accept: application/json" \
-  "https://api.inwx.com/rest/domain.list"
-```
-
-Nameserver eines Domains prüfen:
-
-```sh
-curl -s -u "$INWX_API_USER:$INWX_API_PASSWORD" \
-  -H "Accept: application/json" \
-  "https://api.inwx.com/rest/nameserver.info?domain=example.de"
-```
-
-XML-RPC-Alternative (gleiche Methode, XML-Payload):
-
-```sh
-curl -s -u "$INWX_API_USER:$INWX_API_PASSWORD" \
-  https://api.inwx.com/xmlrpc/ \
-  -d '<?xml version="1.0"?><methodCall><methodName>domain.list</methodName><params></params></methodCall>'
-```
-
-Hinweise:
-
-- Erfolgreiche Antworten liefern den Code `1000`; Fehler einen eigenen Fehlercode
-  (z. B. `2001` = Login fehlgeschlagen) plus `msg`-Beschreibung.
-- Das API-Passwort ist **nicht** das Account-Passwort — es wird im INWX-Panel
-  separat für den API-Zugriff gesetzt/verwaltet.
-
 ## Best Practices
 
 - **Tokens nur via Env nutzen, nie committen.** Die echten Werte gehören ausschließlich
@@ -214,7 +168,7 @@ Hinweise:
   (`env_file`) + `entrypoint.sh` injiziert.
 - Keine Tokens/Passwörter in Shell-History, Logs oder Screenshots ausgeben.
 - Bei API-Fehlern zuerst prüfen, ob der Token noch gültig bzw. die IP erlaubt ist
-  (Hetzner/Cloudflare unterstützen IP-Allowlists; INWX: Login/API-Passwort prüfen).
+  (Hetzner/Cloudflare unterstützen IP-Allowlists).
 - Hetzner StorageBoxes gehören zum Cloud-Projekt **StorageBoxes** (ID 11031986) und
   laufen über die **Cloud-API** (`https://api.hetzner.com/v1/storage_boxes`,
   Bearer-Token `HETZNER_API_TOKEN_STORAGEBOXES`) — die alte Robot-API wird nicht mehr

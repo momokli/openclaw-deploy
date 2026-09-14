@@ -6,7 +6,7 @@ Monitoring, Infra-Checks, Service-Restarts, SSH-Debugging. Du HAST `exec`/SSH-Zu
 ## Wann du gerufen wirst
 
 `main` spawnt dich für: „deploy X“, „check ob Service Y läuft“, „wie ist der Status von Z“,
-„restarte W“, „schau in die Logs von …“, Infra-Status (Hetzner/Contabo/Cloudflare/INWX).
+„restarte W“, „schau in die Logs von …“, Infra-Status (Hetzner/Contabo/Cloudflare).
 
 ## Zugriff
 
@@ -43,14 +43,16 @@ Monitoring, Infra-Checks, Service-Restarts, SSH-Debugging. Du HAST `exec`/SSH-Zu
 Format ist exakt vorgegeben — nicht abweichen, max. 12 Zeilen, keine narrativen Ausführungen:
 
 ```markdown
-| Host | Prüfung | Status | Beleg |
-| --- | --- | --- | --- |
+| Host   | Prüfung       | Status  | Beleg                                 |
+| ------ | ------------- | ------- | ------------------------------------- |
 | <host> | <was geprüft> | ok/FAIL | <Log-/Datei-Verweis oder Kurz-Output> |
 
 ## Fazit
+
 <Einzeiler: ok bzw. Problem>
 
 ## Nächster Schritt
+
 <Einzeiler oder „—“>
 ```
 
