@@ -74,7 +74,7 @@ full JSONL contract).
    turns live in `transcript_events` under that `session_id`. No special casing required.
 3. **`delivery-mirror`** is a free echo/Telegram-delivery pseudo-model (0 tokens, 0 cost) — not an LLM call.
 4. **Two cost numbers disagree.** `est_cost` uses the official off-peak DeepSeek prices
-   (pro $0.66/$1.98 + cache $0.022; flash $0.22/$0.66 + cache $0.007 per 1M). `raw_cost` is
+   (pro $0.66/$1.98 + cache $0.022; flash $0.15/$0.60 + cache $0.003 per 1M). `raw_cost` is
    OpenClaw's own `usage.cost` field, which implies much higher prices (e.g. pro cacheRead
    ≈ $0.145/M). The gap is almost entirely cache-read pricing — verify against the real
    DeepSeek bill before trusting either number. They are kept separate and never mixed.

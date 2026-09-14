@@ -21,7 +21,7 @@
 #
 # Cost estimate uses official DeepSeek off-peak $/1M (workspace/AGENTS.md). Override via env:
 #   PRO_IN PRO_CR PRO_OUT        (default 0.66 / 0.022 / 1.98)
-#   FLASH_IN FLASH_CR FLASH_OUT  (default 0.22 / 0.007 / 0.66)
+#   FLASH_IN FLASH_CR FLASH_OUT  (default 0.15 / 0.003 / 0.60)
 #   (peak hours are 2× off-peak: 01:00–04:00 and 06:00–10:00 UTC)
 #
 # NOTE: "reasoning" is a SUBSET of "output" (DeepSeek completion_tokens includes reasoning),
@@ -38,7 +38,7 @@ START="${1:-$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)}"
 
 # official DeepSeek off-peak $/1M (overridable via env)
 PRO_IN="${PRO_IN:-0.66}";   PRO_CR="${PRO_CR:-0.022}";   PRO_OUT="${PRO_OUT:-1.98}"
-FLASH_IN="${FLASH_IN:-0.22}"; FLASH_CR="${FLASH_CR:-0.007}"; FLASH_OUT="${FLASH_OUT:-0.66}"
+FLASH_IN="${FLASH_IN:-0.15}"; FLASH_CR="${FLASH_CR:-0.003}"; FLASH_OUT="${FLASH_OUT:-0.60}"
 
 echo "== OpenClaw analytics — $START → $END (UTC) =="
 
