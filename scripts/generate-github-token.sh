@@ -6,10 +6,9 @@
 #   2. exchanges it for an installation access token via the REST API.
 #
 # Prerequisites (env): GH_APP_ID, GH_APP_INSTALLATION_ID, GH_APP_PRIVATE_KEY_FILE
-#   GH_APP_PRIVATE_KEY_FILE — path to the app's private key (PEM) INSIDE the
-#   container (host dir ~/.secrets is mounted read-only to /home/node/.secrets).
-#   If the configured path is not readable, the newest readable *.pem in the
-#   same directory is used instead (GitHub names downloads
+#   GH_APP_PRIVATE_KEY_FILE — path to the app's private key (PEM) on the gateway host
+#   (~/.secrets, chmod 600). If the configured path is not readable, the newest
+#   readable *.pem in the same directory is used instead (GitHub names downloads
 #   "<app-slug>.<date>.private-key.pem", so the filename can change).
 #
 # Usage:
@@ -28,9 +27,8 @@ set -eu
 : "${GH_APP_PRIVATE_KEY_FILE:?GH_APP_PRIVATE_KEY_FILE not set (path to app private key .pem)}"
 
 # ── Private key resolution ─────────────────────────────────────────
-# GH_APP_PRIVATE_KEY_FILE zeigt IN den Container. Das Host-Verzeichnis
-# ~/.secrets wird read-only nach /home/node/.secrets gemountet
-# (docker-compose.yml). GitHub lädt App-Keys als
+# GH_APP_PRIVATE_KEY_FILE zeigt auf einen Pfad auf dem Gateway-Host
+# (~/.secrets). GitHub lädt App-Keys als
 # "<app-slug>.<datum>.private-key.pem" herunter — der Dateiname ändert sich
 # also bei jeder Key-Regenerierung. Ist der konfigurierte Pfad nicht lesbar,
 # fällt das Skript auf die neueste lesbare *.pem im selben Verzeichnis zurück

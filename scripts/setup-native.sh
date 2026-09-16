@@ -1,5 +1,5 @@
 #!/bin/bash
-# Native OpenClaw-Setup (Ersatz für den Docker-entrypoint.sh).
+# Native OpenClaw-Setup.
 # Idempotent: kann mehrfach laufen. Richtet ein: OpenClaw-Install, Config-Sync,
 # Secrets (.env), Provider-Plugins, git-Identity, Gateway-Service.
 #
@@ -57,7 +57,6 @@ fi
 
 # ── 4. Provider-Plugins (gepinnt auf Version) ──────────────────────────────
 log "Installiere Provider-Plugins (gepinnt $OPENCLAW_VERSION)..."
-sudo -u "$RUN_USER" -H openclaw plugins install "@openclaw/deepseek-provider@$OPENCLAW_VERSION" --pin
 sudo -u "$RUN_USER" -H openclaw plugins install "@openclaw/groq-provider@$OPENCLAW_VERSION" --pin
 
 # ── 5. git-Identity für den Runtime-User (ersetzt gh auth setup-git) ───────

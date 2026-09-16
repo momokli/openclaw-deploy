@@ -6,7 +6,7 @@
 # Missing/empty tokens or API errors only warn on stderr and skip that section
 # (exit code stays 0). Secrets are NEVER printed.
 #
-# JSON parsing via python3 (im Container via Dockerfile vorhanden); jq wird
+# JSON parsing via python3 (auf dem Gateway vorhanden); jq wird
 # bevorzugt, falls installiert. Kein fragiles grep/sed-Feld-Parsing mehr — die
 # Hetzner Cloud API liefert z. B. hübsch formatiertes (mehrzeiliges) JSON, an dem
 # Einzeilen-Regexe scheitern.

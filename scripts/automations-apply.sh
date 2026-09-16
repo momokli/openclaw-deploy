@@ -22,7 +22,7 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODEL="deepseek/deepseek-flash"
+MODEL="openrouter/deepseek/deepseek-v4.1-flash"
 # Ziel-Milestone der rift-*-Runner (Name im GitHub-Milestone).
 RIFT_MILESTONE="${RIFT_MILESTONE:-1.0}"
 

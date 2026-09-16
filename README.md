@@ -1,54 +1,39 @@
 # OpenClaw Deployment 🦞
 
-Self-hosted AI agent gateway with DeepSeek V4, multi-agent coding pipeline, and automated Docker builds.
+Self-hosted AI agent gateway (OpenRouter), multi-agent coding pipeline, nativ deployed.
 
 ## Architecture
 
 ```
-push to GitHub (main)
-  └─ GitHub Actions (self-hosted runner on projectmellon.de, Hetzner 20 cores)
-       ├─ docker build (openclaw + obsidian-sync)
-       ├─ push both images to GHCR (ghcr.io/momokli/*)
-       └─ POST https://deploy.openclaw.simonklimke.de/deploy   # deploy webhook
+.149 — natives Gateway (systemd-User-Service openclaw-gateway.service)
+  └─ openclaw gateway --port 18789  (Caddy → 127.0.0.1:18789)
 
-.149 (systemd timer every 30min, or immediately via webhook)
-  └─ scripts/build-and-deploy.sh
-       ├─ git pull origin main                        # config sync
-       ├─ docker pull both images from GHCR           # image sync
-       ├─ docker compose up -d openclaw obsidian-sync
-       └─ hash comparison → skip if nothing new
+planet — Session-Host-Node (nativ gepaart, tools.exec.node = "planet")
+  └─ schwere Worker-Turns (cargo/test/Playwright)
 ```
 
-The **build runs in GitHub Actions**, not on projectmellon.de.
-`build-and-deploy.sh` on `.149` only pulls from GHCR.
+Kein Docker, kein GHCR, kein Auto-Deploy. Konfiguration wird **manuell oder per Code**
+auf die Instanz gespielt; die **laufende Installation auf `.149` ist Source-of-Truth**.
+Dieses Repo liefert den deklarativen Seed (Config, Agent-Personas, Workspace-Docs).
 
-## Quick Start
-
-### Deploy (Ansible)
+## Quick Start (Bootstrap / Converge)
 
 ```sh
-set -a; source .env; set +a    # or export each key from .env.example
+# Bootstrap / Re-Seed (einmalig, idempotent) — Node + OpenClaw + Plugins + Gateway-Service:
+sudo bash scripts/setup-native.sh momo
 
-cd ansible && ansible-playbook -i inventory.ini deploy.yml
+# Deklarative Config aus git → Runtime (erhält Runtime-Felder wie auth/plugins/identity):
+sudo bash scripts/converge-openclaw-config.sh momo
+
+# Agent-Personas aus git → per-agent workspaces/<id>/AGENTS.md:
+sudo bash scripts/sync-agent-personas.sh momo
 ```
 
-The playbook provisions secrets into `config/.env` (non-destructive) and sets up
-the repo, systemd timer, Docker Compose, Caddy and DNS. File/config sync after the
-initial bootstrap is handled by the systemd timer pulling from git.
-
-### Test a feature branch (without disturbing main)
+Gateway-Service (nach Bootstrap):
 
 ```sh
-ssh lan
-cd /opt/apps/openclaw
-./scripts/test-branch.sh feat/my-feature
-```
-
-### Manual build trigger
-
-```sh
-ssh lan "sudo systemctl start openclaw-build.service"
-ssh lan "sudo journalctl -u openclaw-build.service -f"
+sudo -u momo -H openclaw gateway status
+journalctl --user -u openclaw-gateway.service -f
 ```
 
 ## Admin-SSH: Mesh-first (Tailscale)
@@ -68,132 +53,6 @@ ssh planet    # Hetzner → 100.77.143.105 (Tailscale)
 Details, Host-Tabelle und Diagnose-Reihenfolge (ufw vor fail2ban):
 **[`docs/mesh-first-access.md`](docs/mesh-first-access.md)**.
 
-## Obsidian Sync (Headless)
-
-`openclaw` mounts the shared `quill_data` volume at `/quill` (read-write). The
-`obsidian-sync` sidecar keeps that volume in sync with an Obsidian Sync remote
-vault, using the official
-[`obsidian-headless`](https://github.com/obsidianmd/obsidian-headless) client
-(Node.js 22+). It replaces the old Syncthing sidecar.
-
-### One-time setup
-
-1. Start the sidecar and log in interactively. Credentials are stored in the
-   persistent `obsidian_config` named volume, so image rebuilds keep you logged
-   in — nothing is committed to this repo:
-
-   ```sh
-   docker compose up -d obsidian-sync
-   docker compose exec obsidian-sync ob login
-   ```
-
-2. Pick the remote vault to sync with:
-
-   ```sh
-   docker compose exec obsidian-sync ob sync-list-remote
-   docker compose exec obsidian-sync ob sync-setup --vault "<Vault Name>" --path /data/quill
-   ```
-
-   For an **end-to-end encrypted** vault, pass the password:
-
-   ```sh
-   docker compose exec obsidian-sync ob sync-setup --vault "<Vault Name>" --path /data/quill --password "<pwd>"
-   ```
-
-3. Restart to start continuous sync (bidirectional, watches for changes):
-
-   ```sh
-   docker compose restart obsidian-sync
-   ```
-
-The sidecar runs `ob sync --continuous`, watching `/data/quill` and pushing/
-pulling changes to/from the remote vault. Credentials live only in the
-`obsidian_config` volume; the `--password` for E2E encryption is passed
-interactively at setup time and is never written to disk in this repo.
-
-## Yogglez Dev-Stage (Minecraft / NeoForge, headless)
-
-Zum Entwickeln von `create:yogglez` (Minecraft-Mod, MC 1.21.1 / NeoForge
-21.1.217, harte Java-21-Toolchain, Gradle 9.2.1 via Wrapper) gibt es eine
-**Dev-Stage** des Images — das Prod-Image bleibt davon unberührt:
-
-- **Multi-Stage im `Dockerfile`:** `FROM prod AS dev` ergänzt **JDK 21 (Temurin)**
-  - `GRADLE_USER_HOME`-Setup. `docker build .` ohne `--target` liefert weiterhin
-    das schlanke Prod-Image (kein JDK drin).
-- **CI (`build.yml`):** eigener `dev`-Job baut `--target dev` (BuildKit-Cache
-  `type=gha`), pusht auf `main` nach `ghcr.io/momokli/openclaw-deploy:dev` und
-  blockiert nie den Prod-Build/Deploy.
-- **`docker-compose.dev.yml`:** eigenes Compose-Projekt (`openclaw-dev`), mountet
-  das bestehende `openclaw_repos`-Volume (`/home/node/repos`, yogglez-Clone ist
-  schon da) + persistentes Gradle-Cache-Volume (`openclaw_gradle_home` →
-  `/home/node/.gradle`, NeoForge-Deps 2–4 GB) + SSH-Key. RAM-Limit `mem_limit: 8g`
-  (NeoForge-Devserver braucht 4–8 GB).
-
-### Nutzung
-
-```sh
-# Image: lokal bauen ODER aus GHCR ziehen (auf main gepusht)
-docker build --target dev -t openclaw-dev .
-# bzw. docker pull ghcr.io/momokli/openclaw-deploy:dev
-
-# Einmaliger Task (z. B. Kompilieren):
-docker compose -f docker-compose.dev.yml run --rm yogglez-dev bash -lc \
-  'cd /home/node/repos/create-yogglez && ./gradlew compileJava'
-
-# Interaktiv (Gradle-Daemon bleibt warm für Folgetasks):
-docker compose -f docker-compose.dev.yml run --rm yogglez-dev bash
-#   node@…:~$ cd /home/node/repos/create-yogglez
-#   node@…:~$ ./gradlew runData          # Data-Generation
-#   node@…:~$ ./gradlew gameTestServer   # Gametests auf Dedicated Server
-#   node@…:~$ ./gradlew runServer        # Dedicated Server (EULA: echo "eula=true" > runs/server/eula.txt)
-
-# Langlaufender Devserver + exec:
-docker compose -f docker-compose.dev.yml up -d
-docker compose -f docker-compose.dev.yml exec yogglez-dev bash
-```
-
-**Headless-Regel:** Nur Tasks ohne Display sind sinnvoll — `compileJava`, `test`,
-`runData`, `gameTestServer`, `runServer`. `runClient` braucht ein Display → im
-Devcontainer NICHT nutzbar (kein X-Server).
-
-Der erste `./gradlew`-Aufruf lädt noch die Gradle-9.2.1-Distribution + NeoForge-Deps
-(2–4 GB) in den persistenten Cache — danach ist alles gecacht. Das vorinstallierte
-Temurin-21 wird über `JAVA_HOME` gefunden (foojay-Toolchain-Resolver lädt nichts nach).
-
-RAM: `mem_limit: 8g` im Compose-File; auf Hosts mit weniger RAM `--memory 4g` beim
-`run` oder `mem_limit` anpassen (Gradle-Daemon `-Xmx3G` + Devserver-JVM).
-
-## Make Changes
-
-1. Edit files in this repo
-2. `git commit && git push`
-3. Auto-deploy triggers within 30 min via systemd timer
-4. Or trigger immediately: `ssh lan "sudo systemctl start openclaw-build.service"`
-
-## Image Build
-
-Both images are built in **GitHub Actions** (self-hosted runner on projectmellon.de)
-and pushed to **GHCR**:
-
-- `ghcr.io/momokli/openclaw-deploy` — gateway (`Dockerfile`, Default-Target = Prod).
-- `ghcr.io/momokli/openclaw-deploy:dev` — Dev-Stage (`docker build --target dev`,
-  JDK 21 Temurin für headless NeoForge-Mod-Entwicklung, siehe oben).
-- `ghcr.io/momokli/openclaw-obsidian-sync` — Obsidian Sync sidecar (`Dockerfile.obsidian-sync`).
-
-To add new tools: edit the relevant Dockerfile, push, and the workflow rebuilds on `main`.
-
-## Deploy Webhook
-
-Instead of waiting for the 30-minute systemd timer, a push to `main` also triggers
-a deploy immediately via an HTTPS webhook:
-
-- Receiver: `scripts/webhook.py` (runs as `openclaw-deploy-webhook.service` on `.149:18791`).
-- Caddy proxies `deploy.openclaw.simonklimke.de` → `127.0.0.1:18791`.
-- Shared secret: `/opt/apps/openclaw/webhook-token` on `.149` == GitHub repo secret `DEPLOY_TOKEN`.
-
-The workflow (`build.yml`) POSTs to `/deploy` with `Authorization: Bearer $DEPLOY_TOKEN`.
-The receiver validates the token and starts `openclaw-build.service`.
-
 ## Infra-Zugriff
 
 Die Agent-Umgebung hat Zugriff auf die Cloud-APIs von **Hetzner** (zwei Projekte),
@@ -203,7 +62,7 @@ Hetzner-Stacks). Details und curl-Beispiele:
 
 Die Secrets (`HETZNER_API_TOKEN_MITTELERDE`, `HETZNER_API_TOKEN_STORAGEBOXES`,
 `CONTABO_CLIENT_ID`, `CONTABO_CLIENT_SECRET`, `CONTABO_API_USER`,
-`CONTABO_API_PASSWORD`, `CLOUDFLARE_API_TOKEN`) liegen in `config/.env` auf `.149`
+`CONTABO_API_PASSWORD`, `CLOUDFLARE_API_TOKEN`) liegen in `~/.openclaw/.env` auf `.149`
 (gitignored, nie committen — siehe [Secrets](#secrets)). Schnell-Check aller APIs:
 
 ```sh
@@ -212,107 +71,93 @@ Die Secrets (`HETZNER_API_TOKEN_MITTELERDE`, `HETZNER_API_TOKEN_STORAGEBOXES`,
 
 ## Agents
 
-| Agent                 | Model    | Purpose                 |
-| --------------------- | -------- | ----------------------- |
-| main                  | V4 Flash | Default assistant       |
-| coding-orchestrator   | V4 Pro   | 7-stage coding pipeline |
-| feature-dev-planner   | V4 Flash | Spec → user stories     |
-| feature-dev-setup     | V4 Flash | Branch + build baseline |
-| feature-dev-developer | V4 Flash | Code + tests            |
-| feature-dev-verifier  | V4 Flash | Quality gate            |
-| feature-dev-tester    | V4 Flash | Integration tests       |
-| feature-dev-reviewer  | V4 Flash | Final PR review         |
+| Agent                 | Model          | Purpose                 |
+| --------------------- | -------------- | ----------------------- |
+| main                  | V4.1 Flash     | Default assistant       |
+| coding-orchestrator   | V4.1 Flash     | 7-stage coding pipeline |
+| feature-dev-planner   | V4.1 Flash     | Spec → user stories     |
+| feature-dev-setup     | V4.1 Flash     | Branch + build baseline |
+| feature-dev-developer | V4.1 Flash     | Code + tests            |
+| feature-dev-verifier  | V4.1 Flash     | Quality gate            |
+| feature-dev-tester    | V4.1 Flash     | Integration tests       |
+| feature-dev-reviewer  | V4.1 Flash     | Final PR review         |
+
+Modell-Routing: alle Agents laufen auf `openrouter/deepseek/deepseek-v4.1-flash`;
+Fallback + heavy coding = `openrouter/deepseek/deepseek-v4-pro` (siehe
+`config/openclaw.json` → `agents.defaults.model`).
 
 ## Files
 
 ```
-├── Dockerfile              # Prod: Rust, git, jq, gh, himalaya, ansible; Dev-Stage (--target dev): + JDK 21 Temurin
-├── Dockerfile.obsidian-sync # obsidian-headless sidecar
-├── docker-compose.yml      # OpenClaw + Obsidian Sync sidecar
-├── docker-compose.dev.yml  # Yogglez Dev-Stage (headless NeoForge, Gradle-Cache-Volume, 8 GB RAM)
-├── entrypoint.sh           # Syncs git config into runtime home on start
-├── SETUP.md                # GitHub App „momo-bot" Setup (PAT → App Migration)
-├── ssh_config              # Git host keys (copied into image)
+├── .env.example           # Secret-Template → ~/.openclaw/.env auf .149
+├── AGENTS.md              # Repo-Kontext & Handoff
+├── SETUP.md               # GitHub App „momo-bot" Setup (PAT → App Migration)
+├── ssh_config             # Tailscale SSH-Aliase (lan / planet) + git hosts
 ├── config/
-│   ├── openclaw.json       # Gateway config, agents, channels, media tools
-│   └── agents/             # Pipeline agent personas
-├── workspace/              # SOUL.md, AGENTS.md, USER.md, MEMORY.md
+│   ├── openclaw.json      # Gateway config, agents, channels, media tools
+│   ├── agents/            # Pipeline agent personas
+│   └── automations/       # A/B-Runner-Prompts (triage/pr-gate)
+├── workspace/             # SOUL.md, AGENTS.md, USER.md, MEMORY.md, skills/
 ├── scripts/
-│   ├── build-and-deploy.sh # GHCR pull + atomic swap
-│   ├── generate-github-token.sh  # GitHub-App JWT (RS256) → ~1h Installation-Token
-│   ├── gh-app-auth.sh      # hosts.yml + credential helper mit frischem App-Token
-│   ├── obsidian-sync.sh    # Idempotent headless-sync entrypoint
-│   ├── webhook.py          # Deploy webhook receiver (port 18791)
-│   ├── openclaw-deploy-webhook.service  # systemd unit for webhook.py
-│   ├── test-branch.sh      # Test feature branch image in isolation
-│   └── openclaw-build.{service,timer}  # systemd units
-└── ansible/
-    ├── deploy.yml          # Secrets provisioning + bootstrap
-    ├── inventory.ini       # .149 host
-    └── ansible.cfg
+│   ├── setup-native.sh            # Native Bootstrap (Node + OpenClaw + Plugins + Gateway-Service)
+│   ├── converge-openclaw-config.sh# Deklarative Config → Runtime (Merge, erhält Runtime-Felder)
+│   ├── sync-agent-personas.sh     # config/agents/*.md → workspaces/<id>/AGENTS.md
+│   ├── analytics.sh               # Event-Level-Report (Chats/Tools/Errors/Usage/Kosten)
+│   ├── automations-apply.sh       # Automation-Prompts as-code → Runtime
+│   ├── gh-bot-auth.sh             # GitHub-App Token-Mint + hosts.yml je Bot
+│   ├── {clanker,claw}-{gh,git}    # Bot-Identity-Wrapper
+│   └── ...
+└── docs/                  # Runbooks, Analysen, Skills-Referenzen
 ```
 
 ## Secrets
 
-### Runtime (`config/.env` on `.149`)
+### Runtime (`~/.openclaw/.env` auf `.149`)
 
-Never committed to this repo. Copy `.env.example` → `config/.env` on the deploy host
-(the real secret file lives at `/opt/apps/openclaw/config/.env` on `.149`):
+Nie committen. Copy `.env.example` → `~/.openclaw/.env` auf dem Gateway-Host
+(die echte Secret-Datei liegt unter `/home/momo/.openclaw/.env` auf `.149`):
 
-- `DEEPSEEK_API_KEY` — LLM provider
+- `OPENROUTER_API_KEY` — LLM-Provider (primary + fallback laufen über OpenRouter)
 - `KAGI_API` — Web search
 - `TELEGRAM_BOT_TOKEN` — Telegram channel
 - `OPENCLAW_GATEWAY_TOKEN` — Gateway auth token
 - `GH_TOKEN` — GitHub CLI auth (**aktuell**: persönliches PAT, Scopes `repo, workflow`)
-  — wird durch GitHub App „momo-bot" abgelöst (Migration: [SETUP.md](SETUP.md));
-  bis dahin aktiv als git HTTPS credential helper (seeded via `entrypoint.sh` Schritt 5c).
-  Erreicht `exec`/Sub-Agent-Shells über die Gateway-Prozess-Env (ab Image
-  `2026.8.1`, siehe [docs/gh-token-exec-env.md](docs/gh-token-exec-env.md))
+  — wird durch GitHub App „momo-bot" abgelöst (Migration: [SETUP.md](SETUP.md)).
 - `GH_APP_ID` / `GH_APP_INSTALLATION_ID` — GitHub App „momo-bot“ (optional, migriert
-  die Auth vom PAT weg; Installation-Tokens ~1h → frisches Token bei Containerstart
-  via `gh-app-auth.sh`, on-demand bei 401)
-- `GH_APP_PRIVATE_KEY_FILE` — Pfad zum App-Private-Key **im Container**
-  (Host: `~/.secrets/` read-only nach `/home/node/.secrets` gemountet, chmod 600;
-  generate-github-token.sh nutzt den konfigurierten Pfad und fällt auf die
-  neueste `*.pem` im Verzeichnis zurück — GitHub-Download-Namen wie
-  `<app-slug>.<datum>.private-key.pem` funktionieren ohne Umbenennen)
+  die Auth vom PAT weg; Installation-Tokens ~1h, Mint-per-Call via `gh-bot-auth.sh`)
+- `GH_APP_PRIVATE_KEY_FILE` — Pfad zum App-Private-Key auf `.149`
+  (`~/.secrets/`, chmod 600; `gh-bot-auth.sh` fällt auf die neueste `*.pem` zurück)
 - `GROQ_API_KEY` — Speech-to-text (primary)
 - `DEEPGRAM_API_KEY` — Speech-to-text (fallback)
 - `GEMINI_API_KEY` — Image/Vision
 - `HETZNER_API_TOKEN_MITTELERDE` — Hetzner Cloud API, Projekt **mittelerde** (Server)
-- `HETZNER_API_TOKEN_STORAGEBOXES` — Hetzner Cloud API, Projekt **StorageBoxes** (StorageBoxes, migriert von der Robot-API)
+- `HETZNER_API_TOKEN_STORAGEBOXES` — Hetzner Cloud API, Projekt **StorageBoxes**
 - `CONTABO_CLIENT_ID` / `CONTABO_CLIENT_SECRET` — Contabo Cloud API v2 (OAuth2-Client)
-- `CONTABO_API_USER` / `CONTABO_API_PASSWORD` — Contabo API User (= CCP-Email) und API Password (separates Passwort aus my.contabo.com/api/details, password grant)
+- `CONTABO_API_USER` / `CONTABO_API_PASSWORD` — Contabo API User + API Password
 - `CLOUDFLARE_API_TOKEN` — Cloudflare API
-
-### GitHub repo secrets (Actions)
-
-- `DEPLOY_TOKEN` — deploy webhook bearer (matches `/opt/apps/openclaw/webhook-token`).
-- `GHCR_TOKEN` — classic PAT (scope `write:packages`) used for the GHCR `docker login` in `build.yml`.
 
 ## Config vs Runtime State (Trennung)
 
-Das Deployment trennt sauber **Git-Config** (versioniert) von **Runtime-State** (nicht versioniert):
+Das Deployment trennt sauber **Git-Config** (versioniert, Seed) von **Runtime-State**
+(nicht versioniert, nur auf `.149`):
 
 ```
-Git (openclaw-deploy Repo)          Runtime (Docker Named Volumes)
+Git (openclaw-deploy Repo)          Runtime (~/.openclaw auf .149)
 ─────────────────────────────       ─────────────────────────────────
-config/openclaw.json  ──(ro)──►    openclaw_home:/home/node/.openclaw
-config/agents/*.md    ──(copy)─►     ├── state/       (SQLite: Sessions, Pairing)
-workspace/*.md        ──(copy)─►     ├── credentials/ (Channel-Creds)
-config/.env           ──(copy)─►     ├── devices/     (Device-Pairing)
-                                     ├── npm/         (Plugins: deepseek)
+config/openclaw.json  ──(converge)► openclaw.json
+config/agents/*.md    ──(copy)──►   workspaces/<id>/AGENTS.md
+workspace/*.md        ──(copy)──►   workspace/
+.env.example          ──(seed)──►   .env
+                                     ├── state/       (SQLite: Sessions, Pairing)
+                                     ├── credentials/ (Channel-Creds)
+                                     ├── devices/     (Device-Pairing)
+                                     ├── npm/         (Provider-Plugins)
                                      └── agents/      (Per-Agent Sessions)
-                                    openclaw_workspace:/home/node/.openclaw/workspace
 ```
 
-- `config/` und `workspace/` werden **read-only** als `/openclaw-config` gemountet (Source of Truth)
-- Der `entrypoint.sh` synct Config/Personas beim Start in den Runtime-Home
-- Runtime-State (Sessions, Pairing, Plugins) lebt in **Named Volumes** — überlebt Deploys, verschmutzt kein `git status`
-- Secrets (`.env`) werden aus `config/.env` gelesen und in den Container injiziert
-
-### Migration (einmalig, schon erledigt)
-
-```sh
-ssh lan "cd /opt/apps/openclaw && ./scripts/migrate-state.sh"
-```
+- `config/` + `workspace/` sind der deklarative Seed (Source-of-Truth für Config)
+- `converge-openclaw-config.sh` merged die git-Config mit den Runtime-Feldern
+  (auth/plugins/migrations/identity), statt blind zu überschreiben
+- Runtime-State (Sessions, Pairing, Plugins) lebt **nur** in `~/.openclaw` — überlebt
+  kein `git status`-Verschmutzen, wird nie committed
+- Secrets (`.env`) werden vom nativen Gateway-Daemon aus `~/.openclaw/.env` gelesen

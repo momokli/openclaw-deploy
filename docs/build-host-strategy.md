@@ -1,5 +1,12 @@
 # Build-Host-Strategie — Agent-Builds/-Tests auf Planet, `.149` nur Orchestrierung
 
+> ⚠️ **Überholt (Stand 2026-09-16).** Die unten getroffene Entscheidung
+> („Container-per-Job Build-Farm“ via Docker/GHCR) wurde **nicht** so umgesetzt. Ist-Stand:
+> Planet ist als **nativer OpenClaw-Node** gepaart (`tools.exec.node: "planet"`, Routing-Option
+> (a) „OpenClaw-Node-Pairing“) — kein Build-Image, kein `docker run --rm`-Farm, kein GHCR.
+> Problem-Analyse, Cache-Überlegungen und offene Fragen bleiben als Kontext gültig; die
+> Abschnitte „Entscheidung“ und „Container-Isolationsanforderungen“ sind überholt.
+
 Stand: 2026-09-10. Entscheidungs-Doku zu Issue [#46](https://github.com/momokli/openclaw-deploy/issues/46)
 (Build-Host-Strategie evaluieren) und Meta-Issue [#49](https://github.com/momokli/openclaw-deploy/issues/49)
 (Build-/Test-Environment der Coding-Pipeline auf Planet).

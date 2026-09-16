@@ -1,5 +1,14 @@
 # Deployment Review — SOTA-Abgleich (2026-08-19)
 
+> ⚠️ **HISTORISCH — Docker-Ära (vor 2026-09-16).** Diese SOTA-Review beschreibt den
+> damaligen Docker/GHCR-Deploy. Docker ist vollständig entfernt; das Gateway läuft heute
+> **nativ** als systemd-User-Service `openclaw-gateway.service` auf `.149` (State
+> `/home/momo/.openclaw/`), Model-Provider ist **nur noch OpenRouter**
+> (`openrouter/deepseek/deepseek-v4.1-flash` / `-pro`). Die Findings zu trustedProxies-Subnetz,
+> Image-Pinning, SSH-Key-Mount, Webhook-Cleartext, `build-and-deploy.sh`, GHCR und
+> Dockerfile-Base-Image sind damit gegenstandslos. Originaltext unverändert als
+> historisches Protokoll erhalten.
+
 Methode: Kagi Search (`docs/kagi.md`, korrekte v1-Nutzung) + `docs.openclaw.ai` + 3 Sub-Agents +
 Live-Verifikation auf `.149` (laufende Version `2026.7.1`).
 

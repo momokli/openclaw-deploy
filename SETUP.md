@@ -22,11 +22,10 @@ GitHub App hat **minimale, pro-Repo-Permissions**, eine eigene Commit-Identität
 ```
 momo-clanker (GitHub App, Web-UI erstellt)
   ├─ Private Key  → ~/.secrets/<app-slug>.<datum>.private-key.pem (Host .149, chmod 600)
-  │                  └─ per docker-compose gemountet (→ /home/node/.secrets, read-only;
-  │                     generate-github-token.sh wählt die neueste *.pem automatisch)
-  ├─ App-ID + Installation-ID  → config/.env (GH_APP_ID, GH_APP_INSTALLATION_ID)
+  │                  └─ generate-github-token.sh wählt die neueste *.pem automatisch
+  ├─ App-ID + Installation-ID  → ~/.openclaw/.env (GH_APP_ID, GH_APP_INSTALLATION_ID)
   │
-  └─ Container-Start (entrypoint.sh Schritt 5c)
+  └─ Gateway-Host (nativ)
        └─ gh-app-auth.sh
             ├─ generate-github-token.sh: JWT (RS256, openssl) → POST
             │    /app/installations/{id}/access_tokens → frisches ~1h-Token
@@ -39,9 +38,8 @@ Agent-Session: bei 401 (Token abgelaufen) → `gh-app-auth.sh` erneut ausführen
 
 **Token-Lebensdauer:** Installation-Tokens laufen nach **~1h** ab. Deshalb gibt
 es keinen persistierten Dauer-Token mehr (das alte hosts.yml-Modell mit dem PAT
-entfällt). Stattdessen: frisches Token bei jedem Containerstart + On-Demand-
-Refresh per `gh-app-auth.sh`. Ob zusätzlich ein **systemd-Timer** (alle 30 min)
-das hosts.yml aktualisieren soll → **Offene Frage F1**.
+entfällt). Stattdessen: frisches Token on-demand per `gh-app-auth.sh` (Mint-per-Call).
+Ob zusätzlich ein **systemd-Timer** (alle 30 min) das hosts.yml aktualisieren soll → **Offene Frage F1**.
 
 ---
 
@@ -88,11 +86,7 @@ chmod 600 ~/.secrets/*.pem
 openssl rsa -in ~/.secrets/momo-clanker.2026-08-30.private-key.pem -check -noout
 ```
 
-Dann in `docker-compose.yml` den Mount aktivieren (Verzeichnis-Mount, read-only):
-
-```yaml
-      - ${HOME}/.secrets:/home/node/.secrets:ro
-```
+Dann den Key-Pfad in `~/.openclaw/.env` setzen (`GH_APP_PRIVATE_KEY_FILE`).
 
 > ❗ Key wird nur einmal angezeigt. Verloren → neuen Key generieren (App-Seite)
 > und alte PEM-Datei löschen. Bei Regenerierung entsteht eine neue Datei mit
@@ -136,22 +130,19 @@ in `config/.env` als `GH_APP_INSTALLATION_ID`.
 
 ## Schritt 5 — Umstellung aktivieren
 
-1. `config/.env` auf .149 ergänzen (via `ansible/deploy.yml` — Vars werden beim
-   nächsten Playbook-Lauf aus der Umgebung übernommen):
+1. `~/.openclaw/.env` auf .149 ergänzen (manuell oder per Code):
 
    ```sh
-   set -a; source .env; set +a   # GH_APP_ID, GH_APP_INSTALLATION_ID exportiert
-   cd ansible && ansible-playbook -i inventory.ini deploy.yml
+   # GH_APP_ID, GH_APP_INSTALLATION_ID, GH_APP_PRIVATE_KEY_FILE setzen
    ```
 
-2. `docker compose up -d` (bzw. Deploy-Webhook/Timer) — entrypoint.sh Schritt 5c
-   erkennt die App-Vars und seedet gh auth mit frischem Token.
+2. `gh-app-auth.sh` ausführen (mintet frisches Token + seedet gh auth + openclaw.json-API-Key).
 
 3. Verifizieren:
 
    ```sh
-   docker compose exec openclaw gh auth status          # momo-bot[bot]
-   docker compose exec openclaw gh-app-auth.sh --print-token
+   gh auth status          # momo-bot[bot]
+   gh-app-auth.sh --print-token
    ```
 
 4. `GH_TOKEN` (PAT) **erst entfernen, wenn alles grün ist** — Fallback bleibt
@@ -172,7 +163,7 @@ PRs (`feat: GitHub-App momo-bot Auth statt PAT`) — dort direkt kommentieren:
 - **F6** Private-Key-Handling: Bind-Mount (`~/.secrets`) OK, oder Base64 in .env?
 - **F7** `read:org` nötig? (PAT zeigte Warnung; App-Tokens haben keine Org-Scopes)
 - **F8** Commit-Identität global auf `momo-bot[bot]` umstellen oder nur openclaw-deploy?
-- **F9** GHCR-Login (`GHCR_TOKEN` in Actions) ebenfalls auf App umstellen?
+- **F9** entfällt (kein GHCR mehr).
 
 Nicht betroffen: `/lab` (sr.ht) liegt außerhalb des GitHub-Scopes. Historische
 Commits bleiben unter der alten Identität (kein Rewrite).
@@ -187,4 +178,4 @@ Commits bleiben unter der alten Identität (kein Rewrite).
 | `git push` → 403/404 | App nicht auf Repo installiert | Schritt 3, Repo hinzufügen |
 | JWT-Fehler „Your token has expired" | iat/exp zu eng | Script nutzt iat−60s / exp 9min |
 | `gh api user` → leere Login | Installations-Token | ok: hosts.yml nutzt `momo-bot[bot]` |
-| Ansible-Assert schlägt fehl | weder PAT noch App-Vars | `GH_TOKEN` oder `GH_APP_ID`+`GH_APP_INSTALLATION_ID` setzen |
+| App-Auth greift nicht | weder PAT noch App-Vars | `GH_TOKEN` oder `GH_APP_ID`+`GH_APP_INSTALLATION_ID` setzen |

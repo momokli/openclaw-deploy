@@ -1,22 +1,21 @@
 #!/bin/bash
 # Cost report for OpenClaw — run on the .149 host.
-# Shows DeepSeek balance, per-day token usage, and the flash/pro split.
+# Shows OpenRouter balance, per-day token usage, and the pro/flash split.
 # Usage: ssh momo@lan 'cd /opt/apps/openclaw && ./scripts/cost-report.sh'
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd /opt/apps/openclaw
 
-echo "=== DeepSeek Balance ==="
-docker compose exec -T -u node openclaw openclaw status --usage 2>&1 \
-  | grep -iE 'deepseek|balance' | head -6
+echo "=== OpenRouter / Usage ==="
+openclaw status --usage 2>&1 \
+  | grep -iE 'openrouter|balance' | head -6
 
 # Per-call usage from the per-agent SQLite DBs (all history).
 END="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 START="1970-01-01T00:00:00Z"
-docker exec -i -u node \
-  -e "OC_START_UTC=$START" -e "OC_END_UTC=$END" \
-  openclaw node --input-type=module - < "$SCRIPT_DIR/oc-sqlite.mjs" \
+OC_START_UTC="$START" OC_END_UTC="$END" \
+  /opt/node/bin/node "$SCRIPT_DIR/oc-sqlite.mjs" \
   > /tmp/oc_sqlite.jsonl
 
 jq -c 'select(.kind == "usage")' /tmp/oc_sqlite.jsonl > /tmp/oc_calls.jsonl || true

@@ -19,13 +19,47 @@ Erst Kategorie 1 leer → 2 → dann 3. Ein CI/CD-Blocker schlägt jedes Milesto
 ## Labels (Dedup, wie openclaw-deploy)
 
 - `triage:implement` / `triage:research` / `triage:review` / `orchestrator:dispatched`
+- `triage:redispatch` = ein **stale** Dispatch wurde automatisch freigegeben (Audit/Sichtbarkeit,
+  wird vom Guard gesetzt). NUR ein Marker — NIEMALS ein Skip-Grund beim Klassifizieren.
+
+## Stale-Dispatch-Reconciliation (PFLICHT, vor Schritt 1)
+
+Ein fehlgeschlagener Dispatch darf ein Issue nicht dauerhaft sperren: stirbt der Worker nach dem
+`orchestrator:dispatched`-Label (z. B. Model-Fehler / `non_deliverable_terminal_turn` → der
+Worker-Run endet auf einem Tool-Call ohne Deliverable, Session-Status `failed`), dann sieht der
+Dedup (Schritt 2) das Issue nie wieder → kein PR, kein Retry. Das Issue ist gelockt.
+
+Deshalb VOR dem Klassifizieren **genau einmal** aufrufen:
+
+    rift-stale-dispatch.sh -m __RIFT_MILESTONE__
+
+Was das Script macht (deterministisch, bash+jq, Details: `rift-stale-dispatch.sh --help`):
+
+- findet offene Milestone-Issues mit `orchestrator:dispatched`, die **stale** sind — Dispatch
+  älter als 20 min UND kein verlinkter offener PR UND keine Aktivität auf dem Issue seit dem
+  Dispatch UND kein gesunder Worker-Run (`openclaw sessions list`; `done` seit dem Dispatch,
+  `running` nur wenn frisch);
+- gibt sie frei: `orchestrator:dispatched` entfernen + `triage:redispatch` setzen + Marker-Kommentar
+  mit Versuchszähler posten;
+- eigene Loop-Bremse: max. **3** Freigaben je Issue (danach nur noch `NOTE <n> escalate` → Mensch
+  nötig), **30 min** Cooldown, max. **2** Freigaben pro Lauf;
+- Ausgabe pro Zeile: `REDISPATCH <n> …` / `SKIP <n> <grund>` / `NOTE <n> escalate …` + `summary …`.
+
+Die freigegebenen Issues tragen danach kein `orchestrator:dispatched` mehr und laufen im SELBEN
+Lauf durch den normalen Pfad (Schritte 2–4, inkl. der bestehenden Loop-Protection).
+Die `REDISPATCH`-Zeilen im Status-Log als „redispatch #<n>" führen und die `summary`-Zeile des
+Guards **immer** mitloggen (Beweis, dass der Guard lief). Scheitert der Script-Aufruf (Exit ≠ 0),
+den Fehler im Status-Log vermerken und mit Schritt 1 normal weitermachen (der Guard ist eine
+Zusatzsicherung, kein Blocker).
 
 ## Vorgehen (pro Lauf)
 
 1. Holen:
    - Issues: `clanker-gh issue list --repo momokli/riftbreaker-battle-mod --state open --milestone <n> --json number,title,labels,body,url`
    - PRs: `clanker-gh pr list --repo momokli/riftbreaker-battle-mod --state open --json number,title,labels,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,url,headRefName,body` (für Rework-Erkennung: PR → Issue über `Fixes #m`/`Closes #m`/`Relates #m`)
-2. Items mit `orchestrator:dispatched` skippen (kein Doppel-Dispatch).
+2. Items mit `orchestrator:dispatched` skippen (kein Doppel-Dispatch). Issues, die der
+   Stale-Guard oben gerade freigegeben hat, haben dieses Label hier nicht mehr und werden
+   dadurch normal mitklassifiziert.
 3. Klassifizieren (nur Items OHNE dispatch-Label), in der Reihenfolge der Globalen Prioritäts-Reihenfolge:
 
    a. **ci/cd-stabilität** — CI rot/blockiert, flaky, Workflow kaputt. → `coding-orchestrator`.
@@ -57,15 +91,23 @@ Task an `coding-orchestrator` (oder direkt `feature-dev-developer`), ungefähr:
 - Reihenfolge: ci/cd-stabilität → ci/cd-speed → Milestone (P1/P2) → Rest.
 - Dedup via `orchestrator:dispatched`.
 - Ein Lauf = ein Pass.
+- Zusätzlich (im Stale-Guard, nicht hier): max. 3 Freigaben je Issue, 30 min Cooldown,
+  max. 2 Freigaben pro Lauf.
 
 ## Regeln
 
 - **Modell bei `sessions_spawn` IMMER explizit setzen** (nie vom Parent vererben lassen):
-  - `coding-orchestrator` / `feature-dev-*` → `model: "deepseek-flash"`
-  - `planning-orchestrator` → `model: "deepseek-flash"`
-  - Beispiel: `sessions_spawn({ agentId: "coding-orchestrator", label: "triage-<n>", model: "deepseek-flash", task: "…" })`
+  - `coding-orchestrator` / `feature-dev-*` → `model: "openrouter/deepseek/deepseek-v4.1-flash"`
+  - `planning-orchestrator` → `model: "openrouter/deepseek/deepseek-v4.1-flash"`
+  - Beispiel: `sessions_spawn({ agentId: "coding-orchestrator", label: "triage-<n>", model: "openrouter/deepseek/deepseek-v4.1-flash", task: "…" })`
+- **Label-Schema bei `sessions_spawn` (Pflicht, die Stale-Erkennung liest es):**
+  `triage-<n>` (coding-orchestrator), `research-<n>` (planning-orchestrator), bei Rework
+  `triage-<n>-rework`. Die Issue-Nummer muss als eigener Token im Label stehen (Ziffer mit
+  Nicht-Ziffer davor/danach) — sonst kann `rift-stale-dispatch.sh` einen laufenden/erfolgreichen
+  Worker nicht mehr zuordnen und würde das Issue fälschlich als stale freigeben.
 - Isolated, frischer Start, KEIN Kontext-Aufbau.
-- Status-Log: `$HOME/.openclaw/workspace/rift-triage-status.md`.
+- Status-Log: `$HOME/.openclaw/workspace/rift-triage-status.md` (Zeitstempel, gescannt,
+  redispatch (aus dem Stale-Guard), dispatched, awaiting human).
 - Antwort: `NO_REPLY` — außer es gab einen Dispatch, dann kurze Meldung (max 6 Zeilen, Deutsch).
 - **Bot-Identity `momo-clanker[bot]`:** alle `gh`-/`git`-Aufrufe (auch in `sessions_spawn`-Tasks an den Worker) über `clanker-gh` bzw. `clanker-git` — NIE nacktes `gh`/`git`.
 - `gh` auf dem Gateway (kein `exec host=node` für gh).

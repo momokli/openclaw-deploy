@@ -25,9 +25,8 @@ skills.load.extraDirs
 ## Wie dieses Repo Skills verwaltet
 
 - Skills liegen **in git** unter `workspace/skills/<name>/SKILL.md`.
-- Der Mount `./workspace:/openclaw-config/workspace:ro` liefert sie in den Container.
-- `entrypoint.sh` (Schritt 4b) kopiert sie nach `/home/node/.openclaw/workspace/skills/`
-  (= `<workspace>/skills`, höchste Präzedenz).
+- `scripts/sync-agent-personas.sh` bzw. der Workspace-Sync kopiert sie in den
+  Runtime-Workspace `~/.openclaw/workspace/skills/` (höchste Präzedenz).
 - **Neue Session nötig** (oder `/new`), damit der Agent sie sieht — Skills werden pro Session gesnappt.
 
 ## SKILL.md-Muster (copy-paste)
