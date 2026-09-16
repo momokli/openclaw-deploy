@@ -30,9 +30,9 @@ cat > /tmp/cost_template.html <<'HTML'
 </head>
 <body>
 <h1>🦞 OpenClaw Cost</h1>
-<p class="sub">Balance = realer DeepSeek-Stand · est. cost = Token × Pro-off-peak-Preise (konservativ)</p>
+<p class="sub">Balance = realer OpenRouter-Stand · est. cost = Token × Pro-off-peak-Preise (konservativ)</p>
 <div class="grid">
-  <div class="card"><h2>DeepSeek Balance ($)</h2><canvas id="balance"></canvas></div>
+  <div class="card"><h2>OpenRouter Balance ($)</h2><canvas id="balance"></canvas></div>
   <div class="card"><h2>Est. cost / day ($)</h2><canvas id="cost"></canvas></div>
   <div class="card"><h2>Output + Reasoning tokens</h2><canvas id="output"></canvas></div>
   <div class="card"><h2>Input tokens (miss vs cache-read)</h2><canvas id="input"></canvas></div>

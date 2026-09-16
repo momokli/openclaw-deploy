@@ -25,8 +25,8 @@ dieser Infrastruktur. Eingewoben nach dem SSH-Incident vom 2026-09-01 (siehe unt
 | `c0`, Contabo | weitere Hosts | via Tailscale (Adresse: `tailscale status`) | — | — |
 
 Die Aliase `lan` / `lan-local` / `planet` sind in [`ssh_config`](../ssh_config)
-definiert und werden in das Gateway-Image kopiert (`Dockerfile` → `/home/node/.ssh/config`),
-stehen also auch dem Operator-Agent im Container zur Verfügung.
+definiert und liegen auf dem Gateway-Host unter `~/.ssh/config` (natives Deployment),
+stehen also auch dem Operator-Agent zur Verfügung.
 
 ## Warum diese Regel existiert — Incident 2026-09-01
 

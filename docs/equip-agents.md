@@ -25,8 +25,8 @@ nur um den `est`-Doppelzähl-Bug (`output + reasoning`) bereinigt. Public-API
 unverändert, gegen die echte DB mit nicht-leerer Ausgabe getestet (vgl. `docs/analytics.md`).
 
 Seit der SQLite-Migration (2026-08-31) liegen Sessions + Usage **nicht mehr** in
-`/home/node/.openclaw/agents/*/sessions/*.jsonl`, sondern in **per-Agent-SQLite**:
-`/home/node/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite`.
+`~/.openclaw/agents/*/sessions/*.jsonl`, sondern in **per-Agent-SQLite**:
+`~/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite`.
 
 Geprüfte Tabellen:
 
@@ -132,8 +132,7 @@ Session-History statt blocked); Completion-Timeout an erwartete Laufzeit koppeln
 ### A7 Repo-Hygiene `.149`: Drift committen/gitignoren/aufräumen (Issue #29)
 
 `/opt/apps/openclaw` (Prod-Checkout, Ausgang fürs Deploy) driftet: ungetrackte
-`scripts/verify-app-auth.sh`, `scripts/webhook.py.bak-*`, `docker-compose.yml.bak-app-auth`,
-`.doctor-fix.log`, `webhook-token`, `syncthing-config/`, `__pycache__/`.
+`scripts/verify-app-auth.sh`, `.doctor-fix.log`, `__pycache__/`.
 
 Regeln:
 
@@ -287,7 +286,7 @@ wegen fehlendem `read:org` gesperrt — REST ist der verbindliche Standard.
   dokumentieren (Builds auf planet/c0 auslagern ODER dedizierter Build-Container mit
   persistenten Caches auf .149); (3) Laufzeiten als Baseline notieren.
 - **Strategie dokumentiert:** [docs/build-host-strategy.md](build-host-strategy.md)
-  (Entscheidung: Container-per-Job Build-Farm auf Planet, .149 nur Orchestrierung).
+  (Ist-Stand: Planet als nativer OpenClaw-Node gepaart, `tools.exec.node: "planet"`).
 - **Baseline:** noch zu messen via `scripts/build-benchmark.sh [host] [--run]`
   (dry-run per Default; echte Build-Phasen separat, nie automatisch).
 - DoD: dokumentierte Build-Host-Strategie ✅ + bekannte Build-Laufzeiten als Baseline (offen).

@@ -1,5 +1,12 @@
 # GH_TOKEN in exec- & Sub-Agent-Umgebung
 
+> ⚠️ **Docker-Ära (2026-08-26) — teils überholt.** Root-Cause + Upstream-Fix unten
+> (OpenClaw `host-env-security-policy` → `GH_TOKEN`-Ausnahme ab `2026.8.1-beta.3`) sind
+> weiterhin korrekt und relevant. Die Umsetzungs-/Verifikations-Schritte sind dagegen
+> Docker-spezifisch (Dockerfile-Pin, `build-and-deploy.sh`, `test-branch.sh`, `docker run`,
+> `/home/node/...`, `config/.env`) und seit dem **nativen** Deploy (systemd-User-Service
+> `openclaw-gateway.service`, State `/home/momo/.openclaw/`) obsolet.
+
 > Problem: `gh`-Kommandos aus dem `exec`-Tool (und damit aus Sub-Agents wie
 > `feature-dev-*`) fanden `GH_TOKEN` nicht — `gh auth status` meldete
 > "not logged in", obwohl der Gateway-Prozess das Token hatte.
