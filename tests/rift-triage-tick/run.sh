@@ -55,6 +55,7 @@ cat > "$TMP/gh" <<'SHIM'
 case "$1 $2" in
   "issue list")
     case "$*" in
+      *"--state closed"*)        cat "$FX/issues-closed.json" ;;
       *orchestrator:dispatched*) cat "$FX/dispatched.json" ;;
       *)                         cat "$FX/issues.json" ;;
     esac ;;
@@ -85,8 +86,9 @@ focus_ok()  { focus '{"title":"1.0.1","number":12,"open_issues":7}'; }
 nofocus()   { rm -f "$FX/focus"; }
 dispatched(){ printf '%s' "$1" > "$FX/dispatched.json"; }
 issues()    { printf '%s' "$1" > "$FX/issues.json"; }
+milestone_closed() { printf '%s' "$1" > "$FX/issues-closed.json"; }
 prs()       { printf '%s' "$1" > "$FX/prs.json"; }
-reset()     { : > "$ACTIONS"; focus_ok; dispatched '[]'; issues '[{"number":896,"title":"ci: build parallel","labels":[],"body":""}]'; prs '[]'; rm -f "$OPENCLAW_STATE_DIR/workspace/rift-release-requested.stamp"; }
+reset()     { : > "$ACTIONS"; focus_ok; dispatched '[]'; issues '[{"number":896,"title":"ci: build parallel","labels":[],"body":""}]'; prs '[]'; milestone_closed '[]'; rm -f "$OPENCLAW_STATE_DIR/workspace/rift-release-requested.stamp"; }
 
 run() { out="$("$SCRIPT" 2>&1)"; rc=$?; }
 
@@ -140,6 +142,17 @@ issues '[{"number":913,"title":"[Release] 1.0.1 — Solid & schnell","labels":[{
 run
 check "[Release] wird nicht dispatcht" "0" "$(grep -c 'trigger JOB-1' "$ACTIONS")"
 check "Milestone gilt trotzdem als code-complete (Gate)" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
+
+# Release ausgeliefert: der Release-PR schliesst das [Release]-Issue. Ist es ZU, darf kein
+# zweiter Release anlaufen, solange der Milestone formal noch offen ist (real: #912 gemergt,
+# 1.0.1 noch nicht geschlossen).
+reset
+issues '[{"number":900,"title":"irgendein Alt-Issue","labels":[{"name":"question"}],"body":""}]'
+milestone_closed '[{"number":913,"title":"[Release] 1.0.1 — Solid & schnell"}]'
+: > "$ACTIONS"
+run
+check "kein zweiter Release-Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Log nennt den ausgelieferten Release" "1" "$(printf '%s' "$out" | grep -c 'Release ausgeliefert')"
 
 echo
 echo "== Slot belegt: KEIN Trigger — aber Guard+Cleanup MUESSEN laufen (Schritt-1-Fix) =="

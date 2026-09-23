@@ -114,6 +114,14 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
        'any(.[]; any(.labels[]?; .name == $l))' >/dev/null 2>&1; then
     skip "code-complete, Release-PR laeuft (wartet auf den Menschen)"
   fi
+  # Release bereits ausgeliefert? Der Release-PR schliesst das `[Release]`-Tracking-Issue.
+  # Ist dieses ZU, ist der Release durch — dann darf hier nichts erneut anlaufen, solange
+  # der Mensch den Milestone noch nicht geschlossen hat (sonst entstuende ein zweiter
+  # Release-PR fuer denselben Release). Das Tracking-Issue lebt nicht in $ISSUES (nur offene).
+  if "$GH" issue list --repo "$REPO" --milestone "$N" --state closed --limit 100 \
+       --json title 2>/dev/null | jq -e 'any(.[]; .title | test("^\\[Release\\]"; "i"))' >/dev/null 2>&1; then
+    skip "Release ausgeliefert ([Release]-Issue geschlossen) — Milestone schliessen"
+  fi
   # Idempotenz-Sperre: der Gate-Turn braucht Minuten (Branch + CHANGELOG + PR). Ohne
   # Sperre triggert JEDER 5-Min-Tick erneut — jeder Trigger ist ein voller Modell-Turn.
   # (Real passiert: 22:21 und 22:26 beide getriggert, weil der PR noch nicht existierte.)
