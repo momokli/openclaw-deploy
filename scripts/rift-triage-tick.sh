@@ -92,7 +92,7 @@ PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson issues "$ISSUES" '
 # 6) ≥1 dispatchbarer Leaf-Kandidat? (Spiegel des Leaf-Gates im Prompt)
 LEAF="$(printf '%s' "$ISSUES" | jq -c '
   [ .[]
-    | select((.title | test("^\\[(Epic|Umbrella|Milestone)\\]"; "i")) | not)
+    | select((.title | test("^\\[(Epic|Umbrella|Milestone|Release)\\]"; "i")) | not)
     | select(([.labels[].name] | any(. == "claimed" or . == "needs:player-test"
         or . == "follow-up" or . == "hold" or . == "question"
         or . == "triage:no-action")) | not)
@@ -135,6 +135,8 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
     printf -- '- Zeit: %s\n' "$(date -Is)"
     printf -- '- Milestone: %s (#%s)\n' "$TITLE" "$N"
     printf -- '- Tag-Vorschlag: v%s\n' "$TITLE"
+    printf -- '- PR-Titel: chore(release): v%s — <Milestone-Titel> (erlaubter Conventional-Type)\n' "$TITLE"
+    printf -- '- Release-Issue: offenes `[Release]`-Issue im Milestone (anlegen, falls es fehlt) — der PR-Body MUSS es per `Closes #<n>` schliessen (Required-Check).\n'
     printf -- '- PR-Ziel: main · Marker-Label: %s\n' "release:human-merge"
     printf '\nDer Fokus-Milestone hat KEINE offenen Leaf-Kandidaten mehr (code-complete).\n'
     printf 'Aufgabe: Release-PR bauen bzw. aktualisieren — `CHANGELOG.md` schreiben (Factorio-Stil,\n'
@@ -142,6 +144,9 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
     printf 'nichts erfinden) und im PR-Body zusaetzlich **Abnahme** (DoD-Kriterien mit Beleg + ehrlichem\n'
     printf 'Status) und **Testplan** (Ziel: staging, aus den `needs:player-test`-Issues) abbilden.\n'
     printf 'Diesen PR NIE mergen — er ist die menschliche Freigabe (Label `release:human-merge`).\n'
+    printf 'Abnahme GLOBAL und praezise belegen: Boot-Test = Wall-Time des ganzen boot-test-Jobs\n'
+    printf '(uebersprungen durch den Path-Filter = "nicht messbar", nicht "gruen"), high-prio-Bugs\n'
+    printf 'repo-weit auflisten. Nicht schoenreden — der Mensch entscheidet damit.\n'
   } > "$REL_FILE" 2>/dev/null || log "WARNUNG: Release-File ($REL_FILE) nicht schreibbar"
   if [ "${RIFT_TICK_DRY:-0}" = "1" ]; then
     log "DRY-RUN: code-complete ($TITLE) — Release-PR faellig, würde rift-pr-gate:main triggern"

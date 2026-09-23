@@ -132,6 +132,15 @@ reset
 run
 check "ohne Beschreibung: aufsteigend" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev/null || echo 0)"
 
+# Ein `[Release]`-Tracking-Issue ist KEIN Arbeits-Issue: es darf nie dispatcht werden und
+# der Milestone gilt weiter als code-complete (sonst wuerde der Release-PR sich selbst blockieren).
+reset
+issues '[{"number":913,"title":"[Release] 1.0.1 — Solid & schnell","labels":[{"name":"enhancement"}],"body":"Release-Tracking"}]'
+: > "$ACTIONS"
+run
+check "[Release] wird nicht dispatcht" "0" "$(grep -c 'trigger JOB-1' "$ACTIONS")"
+check "Milestone gilt trotzdem als code-complete (Gate)" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
+
 echo
 echo "== Slot belegt: KEIN Trigger — aber Guard+Cleanup MUESSEN laufen (Schritt-1-Fix) =="
 reset

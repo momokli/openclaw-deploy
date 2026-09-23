@@ -58,7 +58,7 @@ Slot belegt → **nichts dispatchen**, im Status-Log „awaiting slot: #<n>/PR #
 5. **Slot prüfen** (oben). Belegt → Stop.
 6. **Leaf-Gate** — dispatcht wird NUR ein Leaf-Issue. **Kein** Dispatch, wenn eines zutrifft (dann nur ins Status-Log):
    - Sub-Issues vorhanden (`sub_issues_summary.total > 0`), oder
-   - Titel beginnt mit `[Epic]`/`[Umbrella]`/`[Milestone]`, oder
+   - Titel beginnt mit `[Epic]`/`[Umbrella]`/`[Milestone]`/`[Release]`, oder
    - Body ist eine Tracking-Checkliste (≥ 2 Zeilen `- [ ]` mit `#<nr>`), oder
    - Labels: `claimed`, `needs:player-test`, `follow-up`, `hold`, `question`,
      `triage:no-action` (Worker hat geprüft: kein Deliverable nötig), oder
