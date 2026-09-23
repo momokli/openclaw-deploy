@@ -106,7 +106,8 @@ Template-Text rendern.
     Cross-Reference entsteht schon durch bloße Erwähnung (PR #660 → #623 irrtümlich closed).
     Solche Heuristiken gehören nicht in einen Prozess, der Issues schließt.
 - **Schritt 3 — erledigt (23.09.), in der Shell-Variante.** Der `rift-triage-tick` wählt das
-  Issue **deterministisch** (Epic-Reihenfolge, dann aufsteigende Nummer, Leaf-Filter) und schreibt
+  Issue **deterministisch** (Checkliste aus der Milestone-Beschreibung, Fallback Epic-Reihenfolge,
+  sonst aufsteigende Nummer, Leaf-Filter) und schreibt
   die Auswahl verbindlich nach `<state>/workspace/rift-triage-decision.md`; der Agent-Turn liest
   sie (Schritt 0 des Prompts) und **wählt nicht mehr** — er führt nur aus. Grund für den
   Datei-Kanal statt Trigger-Parameter: `openclaw automations run <id>` nimmt **keine** Argumente,
@@ -125,7 +126,7 @@ Template-Text rendern.
   Review/Rebase geht noch an den Agent-Turn.
 
 Schritte 2–4 ändern Kontrollfluss, nicht die Methodik — `docs/milestone-methodology.md`
-bleibt inhaltlich gültig (Fokus-Regel, Leaf-Gate, Epic-Reihenfolge, WIP=1, Stacktiefe ≤ 3).
+bleibt inhaltlich gültig (Fokus-Regel, Leaf-Gate, Milestone-Reihenfolge, WIP=1, Stacktiefe ≤ 3).
 
 ## 5. Teststrategie
 

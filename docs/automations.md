@@ -84,8 +84,8 @@ alle 5 min  rift-pr-gate-tick  (Shell)  → aktionabler Fokus-PR?    → sonst E
   `--command`-Payloads erben PATH und `OPENCLAW_STATE_DIR`/`OPENCLAW_CONFIG_PATH`
   vom Gateway-Service).
 - **`rift-triage-tick` entscheidet verbindlich.** Er läuft Guard + Schritt-4-Cleanup, prüft Slot
-  und Leaf-Gate und wählt das Issue **deterministisch** (Epic-Checkliste von oben, sonst
-  aufsteigende Nummer). Die Auswahl schreibt er nach
+  und Leaf-Gate und wählt das Issue **deterministisch** (Checkliste aus der Milestone-Beschreibung
+  von oben, Fallback: Epic-Checkliste, sonst aufsteigende Nummer). Die Auswahl schreibt er nach
   `<OPENCLAW_STATE_DIR>/workspace/rift-triage-decision.md`; der Agent-Turn liest sie (Schritt 0 des
   Prompts, gültig < 15 min) und **wählt nicht mehr selbst**. Grund: `openclaw automations run
 <id>` nimmt keine Parameter — die Datei ist der Kanal.

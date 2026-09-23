@@ -65,7 +65,7 @@ Slot belegt → **nichts dispatchen**, im Status-Log „awaiting slot: #<n>/PR #
    - Interview/Design (`[Design]` im Titel, „Interview", „offene Entscheidungen"), oder
    - Spike (`[Spike]` im Titel oder Label `research`) **ohne** `triage:research`.
      Log-Zeilen: „epic: #<n>" / „awaiting human: #<n>".
-7. **Reihenfolge**: die Sub-Issue-Checkliste des Epics von oben nach unten — das erste Item, das offen, Leaf und ohne `orchestrator:dispatched` ist, wird dispatcht. Ohne Epic: aufsteigende Issue-Nummer. Gleichwertige Kandidaten: CI/CD und Bugs vor Features.
+7. **Reihenfolge**: die Checkliste `- [ ] #NNN` aus der **Milestone-Beschreibung** von oben nach unten — das erste Item, das offen, Leaf und ohne `orchestrator:dispatched` ist, wird dispatcht. Fallback (Altbestand): Checkliste im `[Epic]`-Issue. Ohne beides: aufsteigende Issue-Nummer. Gleichwertige Kandidaten: CI/CD und Bugs vor Features.
 8. **Dispatch** (genau einer). Der Task-Text an den Worker MUSS enthalten:
    - „Bearbeite Issue #<n> in momokli/riftbreaker-battle-mod gemäß deiner Pipeline."
    - „Fokus-Milestone: <titel>."
@@ -80,7 +80,7 @@ Slot belegt → **nichts dispatchen**, im Status-Log „awaiting slot: #<n>/PR #
 
 ## Basis-Branch (Stack)
 
-- Das Issue sagt `Depends on #n`, ODER es steht in der Epic-Checkliste direkt hinter einem noch **nicht gemergten** Item → **Basis = Branch des zugehörigen offenen PRs**. Der neue PR zielt auf DIESEN Branch, nicht auf `main`.
+- Das Issue sagt `Depends on #n`, ODER es steht in der Milestone-Checkliste direkt hinter einem noch **nicht gemergten** Item → **Basis = Branch des zugehörigen offenen PRs**. Der neue PR zielt auf DIESEN Branch, nicht auf `main`.
 - Sonst Basis `main` (unabhängig, frei mergebar).
 - Der Task-Text an den Worker nennt ausdrücklich: Basis-Branch, PR-Ziel, und dass nach dem Merge des unteren PRs `git rebase --onto main <alter-base-head> <branch>` + `--force-with-lease` nötig ist.
 

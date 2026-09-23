@@ -33,6 +33,8 @@ FOCUS="$(rift-focus-milestone.sh --json 2>/dev/null)" || skip "kein Fokus-Milest
 N="$(printf '%s' "$FOCUS" | jq -r '.number // empty')"
 TITLE="$(printf '%s' "$FOCUS" | jq -r '.title // empty')"
 OPEN="$(printf '%s' "$FOCUS" | jq -r '.open_issues // 0')"
+# Dispatch-Reihenfolge: Checkliste `- [ ] #NNN` aus der Milestone-Beschreibung.
+DESC="$(printf '%s' "$FOCUS" | jq -r '.description // ""')"
 [ -n "$N" ] || die "Fokus-Milestone nicht parsebar: $FOCUS"
 [ "${OPEN:-0}" -gt 0 ] || skip "Fokus $TITLE erschöpft"
 
@@ -98,19 +100,32 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
   skip "kein Leaf-Kandidat im Fokus (nur Epics/Spikes/geblockt)"
 fi
 
-# 6b) Auswahl deterministisch treffen (wie im Prompt: Epic-Checkliste von oben, sonst
-#     aufsteigende Nummer). Das Ergebnis wird verbindlich in eine Datei geschrieben —
-#     `openclaw automations run` nimmt keine Parameter, also ist die Datei der Kanal.
+# 6b) Auswahl deterministisch treffen. Die Reihenfolge kommt aus der
+#     FOKUS-MILESTONE-BESCHREIBUNG: die Checkliste `- [ ] #NNN` von oben nach unten.
+#     Fallback: Checkliste im `[Epic]`-Issue (Altbestand). Sonst: aufsteigende Nummer.
+#     Das Ergebnis wird verbindlich in eine Datei geschrieben — `openclaw automations
+#     run` nimmt keine Parameter, also ist die Datei der Kanal.
+#
+#     Nur Checklisten-Zeilen zaehlen (nicht jedes `#NNN` im Prosatext): ein Milestone-Text
+#     nennt Issues auch in Prosa (z. B. „erledigt: #337, #393 …"), und das darf die
+#     Reihenfolge nicht veraendern. Von einer Zeile zaehlt nur die ERSTE Nummer — ein
+#     Klammer-Hinweis wie „- [ ] #877 — Relay (PR #878 offen)" darf #878 nicht mitbringen.
+order_from() {
+  printf '%s' "$1" \
+    | sed -E -n 's/^[[:space:]]*[-*][[:space:]]*\[[ xX]\][[:space:]]*#([0-9]+).*/\1/p'
+}
 EPIC_BODY="$(printf '%s' "$ISSUES" | jq -r '[.[] | select(.title | test("^\\[Epic\\]"; "i"))][0].body // ""')"
 CHOSEN=""
-if [ -n "$EPIC_BODY" ]; then
+for order_src in "$DESC" "$EPIC_BODY"; do
+  [ -n "$order_src" ] || continue
   while IFS= read -r cand; do
     [ -n "$cand" ] || continue
     if printf '%s' "$LEAF" | jq -e --argjson c "$cand" 'index($c) != null' >/dev/null 2>&1; then
       CHOSEN="$cand"; break
     fi
-  done <<< "$(printf '%s' "$EPIC_BODY" | grep -oE '#[0-9]+' | tr -d '#')"
-fi
+  done <<< "$(order_from "$order_src")"
+  [ -n "$CHOSEN" ] && break
+done
 [ -n "$CHOSEN" ] || CHOSEN="$(printf '%s' "$LEAF" | jq -r 'sort | .[0]')"
 [ -n "$CHOSEN" ] && [ "$CHOSEN" != "null" ] || die "keine Issue auswählbar"
 

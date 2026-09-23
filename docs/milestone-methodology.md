@@ -30,12 +30,17 @@ daneben und sind automatisch inaktiv.
 
 ## 2 · Struktur je Iteration
 
-- **Ein Epic-Issue** (`[Epic] …`) trägt das Zielbild und die geordnete Sub-Issue-Liste.
+- **Der Milestone-Text trägt Zielbild, Abnahme und die geordnete Sub-Issue-Liste** als
+  Checkliste (`- [ ] #NNN`) — genau diese Checkliste liest der Runner als
+  **Dispatch-Reihenfolge** (oben → unten).
 - **Sub-Issues sind klein:** ein abgegrenztes Stück, Akzeptanzkriterien, ein PR.
 - Nur **Leaf-Issues** werden dispatcht. Wer Sub-Issues hat, ist ein Epic → nie Dispatch.
+- Ein `[Epic]`-Issue ist **optional** (Altbestand): ist eines da, dient seine Checkliste als
+  Fallback-Reihenfolge. Ohne beides gilt die aufsteigende Issue-Nummer.
 
-Die Reihenfolge ist die Checkliste im Epic (oben → unten). Das ist die Kurations-Hand
-des Menschen.
+Die Reihenfolge ist die Checkliste im Milestone. Das ist die Kurations-Hand des Menschen.
+Wichtig: nur Checklisten-Zeilen zählen — `#NNN` in Prosa (z. B. „erledigt: #337, #393“)
+verändert die Reihenfolge nicht.
 
 ## 3 · Gate der Triage (was dispatcht wird)
 
@@ -110,7 +115,9 @@ dann automatisch auf `main`.
 
 Vor jeder Iteration, per Hand:
 
-1. Fokus-Milestone anlegen (Versions-Titel) und Epic + Sub-Issues schreiben.
+1. Fokus-Milestone anlegen (Versions-Titel): Zielbild, Abnahme und die geordnete
+   Sub-Issue-Checkliste (`- [ ] #NNN`) in die **Milestone-Beschreibung**; Sub-Issues schreiben.
+   Ein Epic-Issue ist dafür nicht mehr nötig.
 2. Nur **verifizierte** Issues hinein. Nichts importieren, ohne den aktuellen Stand zu
    prüfen — der Ist-Zustand driftet (Beispiel **#372**: als Bug in 1.0 geführt, war längst
    erledigt).

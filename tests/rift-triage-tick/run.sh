@@ -101,6 +101,38 @@ check "Decision-File nennt #896" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev
 check "Decision-File schliesst per Closes" "1" "$(grep -c 'Closes #896' "$DECISION" 2>/dev/null || echo 0)"
 
 echo
+echo "== Auswahl-Reihenfolge: Checkliste aus der MILESTONE-Beschreibung =="
+# Ab jetzt zaehlt die Milestone-Beschreibung (nicht mehr der Epic-Body) — der Runner
+# nimmt die Checkliste oben -> unten. Die Nummern-Reihenfolge darf NICHT gewinnen.
+focus '{"title":"1.0.1","number":12,"open_issues":7,"description":"- [ ] #900\n- [ ] #896"}'
+issues '[{"number":896,"title":"kleinere Nummer","labels":[],"body":""},{"number":900,"title":"groessere Nummer","labels":[],"body":""}]'
+run
+check "Checkliste schlaegt Nummern-Reihenfolge" "1" "$(grep -c 'Issue: #900' "$DECISION" 2>/dev/null || echo 0)"
+
+# Nicht-Leaf (Epic) an erster Stelle: der naechste Leaf gewinnt.
+focus '{"title":"1.0.1","number":12,"open_issues":7,"description":"- [ ] #724\n- [ ] #896"}'
+issues '[{"number":724,"title":"[Epic] 1.0.1","labels":[],"body":""},{"number":896,"title":"leaf","labels":[],"body":""}]'
+run
+check "Epic-Eintrag wird uebersprungen" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev/null || echo 0)"
+
+# Prosa im Milestone-Text darf die Reihenfolge NICHT veraendern: nur Checklisten-Zeilen zaehlen.
+focus '{"title":"1.0.1","number":12,"open_issues":7,"description":"Erledigt: #900, #910 - nur Prosa, keine Checkliste."}'
+issues '[{"number":896,"title":"leaf","labels":[],"body":""},{"number":900,"title":"nur in Prosa genannt","labels":[],"body":""}]'
+run
+check "Prosa-#NNN aendert die Reihenfolge nicht (aufsteigend)" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev/null || echo 0)"
+
+# Von einer Checklisten-Zeile zaehlt nur die ERSTE Nummer: ein Klammer-Hinweis darf nicht ziehen.
+focus '{"title":"1.0.1","number":12,"open_issues":7,"description":"- [ ] #724 (Epic, siehe #900)\n- [ ] #896"}'
+issues '[{"number":724,"title":"[Epic] 1.0.1","labels":[],"body":""},{"number":896,"title":"leaf","labels":[],"body":""},{"number":900,"title":"nur Klammer-Hinweis","labels":[],"body":""}]'
+run
+check "Klammer-#NNN auf einer Zeile zieht nicht" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev/null || echo 0)"
+
+# Leere Beschreibung -> unveraendert aufsteigende Nummer (Altverhalten).
+reset
+run
+check "ohne Beschreibung: aufsteigend" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev/null || echo 0)"
+
+echo
 echo "== Slot belegt: KEIN Trigger — aber Guard+Cleanup MUESSEN laufen (Schritt-1-Fix) =="
 reset
 dispatched '[{"number":777}]'

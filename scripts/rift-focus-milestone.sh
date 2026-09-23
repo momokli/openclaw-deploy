@@ -16,7 +16,9 @@
 #
 # ── Ausgabe ─────────────────────────────────────────────────────────────────
 #   (default)  <title>                                    z. B. 1.0.1
-#   --json     {"title":"1.0.1","number":12,"open_issues":11}
+#   --json     {"title":"1.0.1","number":12,"open_issues":11,"description":"…"}
+#              (description = Milestone-Text; der Runner liest daraus die
+#               Dispatch-Reihenfolge als Checkliste `- [ ] #NNN`)
 #   --list     alle Kandidaten aufsteigend, je Zeile:
 #              <title> number=<n> open_issues=<n>
 #   --dry-run  wie default (das Script mutiert nie — es liest nur)
@@ -67,7 +69,7 @@ raw="$("$GH" api "repos/$REPO/milestones?state=open&per_page=100" 2>/dev/null)" 
   exit 3
 }
 
-json="$(printf '%s' "$raw" | jq -c '[.[] | {title, number, open_issues}]' 2>/dev/null)" || {
+json="$(printf '%s' "$raw" | jq -c '[.[] | {title, number, open_issues, description}]' 2>/dev/null)" || {
   echo "rift-focus-milestone: unerwartete API-Antwort (kein JSON-Array)" >&2
   exit 3
 }
@@ -90,11 +92,9 @@ if [ "$LIST" = 1 ]; then
 fi
 
 focus="$(printf '%s' "$ordered" | head -1)"
-meta="$(printf '%s' "$json" | jq -r --arg t "$focus" '.[] | select(.title == $t) | "\(.number) \(.open_issues)"')"
-number="${meta%% *}"
-open_issues="${meta##* }"
 
 case "$MODE" in
-  json) printf '{"title":"%s","number":%s,"open_issues":%s}\n' "$focus" "$number" "$open_issues" ;;
+  json) printf '%s' "$json" | jq -c --arg t "$focus" \
+          '.[] | select(.title == $t) | {title, number, open_issues, description: (.description // "")}' ;;
   *)    printf '%s\n' "$focus" ;;
 esac
