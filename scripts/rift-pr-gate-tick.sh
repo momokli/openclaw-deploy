@@ -10,6 +10,19 @@
 #   3. Alles andere (Review fällig, Rebase, Konflikt, offene Checks) ⇒ Agent-Turn
 #      anstossen (der reviewt/releast). Nur wenn es so etwas gibt — sonst 0 Tokens.
 #
+# BLOCKED ist ein aktionabler Zustand: ein roter Required-Check friert den PR ein
+# (kein Auto-Merge, aber auch kein Fortkommen) — ohne Agent-Turn hängt er stumm.
+# Damit ein dauerhaft roter PR nicht jede 5-Min-Runde Tokens verbrennt, greift für
+# BLOCKED ein Cooldown: solange das jüngste `[VERDICT:`-Kommentar frisch ist, wird
+# kein Agent-Turn angestossen (der Fall ist ja schon bewertet). Nur ein fehlendes
+# oder abgelaufenes Verdict lässt den Agenten wieder ran. Die anderen Zustände
+# (CLEAN|BEHIND|UNSTABLE) bleiben unverändert (immer Agent-Turn).
+#
+# Optionen:
+#   -h, --help          Diese Hilfe.
+#   --cooldown-min N    Cooldown-Frist in Minuten für BLOCKED (Default 60).
+#                       Env: RIFT_GATE_COOLDOWN_MIN (Alias GATE_COOLDOWN_MIN).
+#
 # Exit 0  = OK (Aktion ausgeführt ODER nichts zu tun; welches steht im Log).
 #           WICHTIG: auch der Skip muss 0 sein — der Scheduler wertet einen Command-Payload
 #           mit Exit ≠ 0 als Job-Fehler (und stdout geht hier in die Logdatei, also leer).
@@ -19,14 +32,38 @@ set -uo pipefail
 REPO="momokli/riftbreaker-battle-mod"
 GH="${RIFT_GH:-claw-gh}"                # Runner B = momo-claw[bot]
 SELF_KEY="rift-pr-gate:main"
-# mergeStateStatus-Werte, die eine Aktion brauchen.
-ACTIONABLE_STATES='CLEAN|BEHIND|UNSTABLE'
+# mergeStateStatus-Werte, die eine Aktion brauchen. BLOCKED = roter Required-Check
+# (o. ä.) → der Agent-Turn muss reviewen/releast, sonst hängt der PR stumm.
+ACTIONABLE_STATES='CLEAN|BEHIND|UNSTABLE|BLOCKED'
+# Cooldown-Frist (Minuten) für BLOCKED-PRs (Token-Schutz gegen 5-Min-Runden).
+COOLDOWN_MIN="${RIFT_GATE_COOLDOWN_MIN:-${GATE_COOLDOWN_MIN:-60}}"
 
 log()  { printf '%s rift-pr-gate-tick: %s\n' "$(date -Is)" "$*"; }
 skip() { log "SKIP $*"; exit 0; }
 die()  { log "FEHLER $*"; exit 2; }
 
+usage() { awk 'NR >= 2 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"; }
+
+# iso_to_epoch <ISO-8601-UTC> → Epoch-Sekunden (GNU date, sonst BSD/macOS-Fallback).
+iso_to_epoch() {
+  date -u -d "$1" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s
+}
+
+# ── Argumente ──────────────────────────────────────────────────────────────
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --cooldown-min) opt="$1"; shift; [ $# -gt 0 ] || die "fehlender Wert nach $opt"; COOLDOWN_MIN="$1" ;;
+    -h|--help)      usage; exit 0 ;;
+    *)              die "unbekannte Option: $1" ;;
+  esac
+  shift
+done
+case "$COOLDOWN_MIN" in ''|*[!0-9]*) die "numerischer Wert erwartet: --cooldown-min $COOLDOWN_MIN" ;; esac
+
 command -v "$GH" >/dev/null 2>&1 || die "$GH nicht im PATH"
+command -v jq >/dev/null 2>&1 || die "jq nicht im PATH"
+
+NOW="$(date -u +%s)"
 
 # 1) Fokus-Milestone.
 FOCUS="$(rift-focus-milestone.sh --json 2>/dev/null)" || skip "kein Fokus-Milestone"
@@ -68,6 +105,9 @@ while read -r num state; do
   verdict="$(printf '%s' "$detail" | jq -r '
     [ .comments[]? | select((.body // "") | startswith("[VERDICT:")) | .body ] | last // ""' \
     | head -1)"
+  # Zeitstempel des jüngsten Verdict-Kommentars (für den BLOCKED-Cooldown).
+  verdict_at="$(printf '%s' "$detail" | jq -r '
+    [ .comments[]? | select((.body // "") | startswith("[VERDICT:")) | (.createdAt // "") ] | last // ""')"
   checks_ok="$(printf '%s' "$detail" | jq -r '
     [ .statusCheckRollup[]? | select(.__typename == "CheckRun")
       | (.conclusion // "PENDING") ]
@@ -84,6 +124,11 @@ while read -r num state; do
       needs_agent=$((needs_agent+1)); continue
     fi
     actions=$((actions+1))
+  elif [ "$state" = "BLOCKED" ] && [ -n "$verdict_at" ] \
+       && vep="$(iso_to_epoch "$verdict_at")" && [ -n "$vep" ] \
+       && [ $(( (NOW - vep) / 60 )) -lt "$COOLDOWN_MIN" ]; then
+    # Roter Required-Check, aber bereits bewertet → Cooldown, 0 Tokens.
+    log "SKIP #$num cooldown (rot, letztes Verdict vor $(( (NOW - vep) / 60 ))min)"
   else
     needs_agent=$((needs_agent+1))
   fi

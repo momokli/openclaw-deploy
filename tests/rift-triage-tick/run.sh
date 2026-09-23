@@ -119,6 +119,20 @@ check "Exit 0 (Skip)" "0" "$rc"
 check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
 echo
+echo "== Guard-Retry (triage:redispatch): offener PR friert den Milestone NICHT ein =="
+# Real: PR #905 (roter boot-test) blockierte den kompletten 1.0.1-Fokus. Hat der Stale-Guard
+# das Issue für den Retry freigegeben, darf Schritt 5 nicht mehr greifen — und das
+# Decision-File muss den bestehenden PR als Arbeitsgrundlage nennen.
+reset
+issues '[{"number":896,"title":"ci: build parallel","labels":[{"name":"triage:redispatch"}],"body":""}]'
+prs '[{"number":900,"title":"fix","body":"Refs #896","headRefName":"fix/x"}]'
+run
+check "Exit 0" "0" "$rc"
+check "Agent-Turn getriggert" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+check "Decision-File nennt #896" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev/null || echo 0)"
+check "Decision-File nennt bestehenden PR #900" "1" "$(grep -c 'Bestehender offener PR: #900' "$DECISION" 2>/dev/null || echo 0)"
+
+echo
 echo "== Nur Epics/Spikes im Fokus: kein Trigger =="
 reset
 issues '[{"number":724,"title":"[Epic] 1.0.1","labels":[],"body":""},{"number":486,"title":"[Spike] X","labels":[{"name":"research"}],"body":""}]'

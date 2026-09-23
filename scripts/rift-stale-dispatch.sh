@@ -27,6 +27,13 @@
 #
 #   stale ⇔ S1 ∧ S2 ∧ ¬S3 ∧ ¬S4 ∧ ¬S5  → Dispatch-Label wird entfernt (Retry)
 #
+#   Ausnahme zu ¬S3 („verlinkter offener PR"): ist der verlinkte PR **rot gelaufen**
+#   (`mergeStateStatus=BLOCKED` — ein Required-Check ist fehlgeschlagen) und läuft dort kein
+#   Worker mehr, dann hat der Dispatch nichts hervorgebracht, das weiterläuft. Der Kandidat
+#   geht dann in den normalen Stale-Pfad (Retry mit Marker/Cap statt Parken). Ohne diese
+#   Ausnahme bleibt der WIP=1-Slot für immer belegt — real hat PR #905 mit rotem `boot-test`
+#   den kompletten 1.0.1-Fokus eingefroren.
+#
 # ── Loop-Bremse (Hard Cap gegen Retry-Schleifen) ─────────────────────────────
 #   G1  je Freigabe ein Marker-Kommentar `rift-triage:redispatch attempt=k` (Audit + Zähler)
 #   G2  attempts ≥ --max-attempts ⇒ KEINE Freigabe mehr, nur `NOTE <n> escalate` (Mensch nötig)
@@ -37,6 +44,7 @@
 #   REDISPATCH <n> attempts=<k> dispatch_age=<min>min   Label entfernt → neu dispatchbar
 #   SKIP <n> <dispatch-fresh|linked-pr-open|activity-since-dispatch|worker-done|
 #             worker-running|cooldown|cap-per-run|no-dispatch-event>
+#   RED-BLOCKED <n> …                                   PR offen, aber Required-Check rot → Retry-Pfad
 #   NOTE <n> escalate attempts=<k>                      Cap erreicht → Mensch
 #   summary issues=<n> stale=<n> redispatched=<n> capped=<n> skipped=<n> scope=all|milestone:<m>
 # `--dry-run` fällt nur die Entscheidungen, ändert NICHTS am Repo.
@@ -140,19 +148,30 @@ CANDIDATES="$(printf '%s' "$ISSUES_JSON" \
 # ── Verlinkte OFFENE PRs (S3, einmal für alle Kandidaten) ───────────────────
 # Konvention wie in den Runner-Prompts: Branch-Name enthält die Issue-Nummer
 # (`feature/401-…`) und/oder der Body nennt sie schließend (`Fixes #401`).
-PRS_JSON="$("$GH" pr list --repo "$REPO" --state open --limit 200 --json number,headRefName,body)" \
+# `mergeStateStatus` wird mitgeholt: nur damit lässt sich ein rot gelaufener PR
+# (Required-Check `BLOCKED`) von einem „arbeitet noch daran" unterscheiden.
+PRS_JSON="$("$GH" pr list --repo "$REPO" --state open --limit 200 \
+  --json number,headRefName,body,mergeStateStatus)" \
   || api_die "PR-Liste lesen fehlgeschlagen"
 
-# `headRefName`/`body` werden zu je einer Liste von Issue-Nummern gescannt und
-# geflattet: Branch-Konvention `feature/401-…` bzw. schließende Keywords `Fixes #401`.
-LINKED_PRS="$(printf '%s' "$PRS_JSON" | jq -c '
-  [ .[] | ((.headRefName // "") | [scan("(?:^|[/_-])([0-9]+)(?=[/_-]|$)")] | map(.[0] | tonumber))
-          + ((.body // "")
-             | [scan("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|relate[sd]?|part of|addresses)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]
-             | map(.[0] | tonumber)) ]
-  | flatten | unique')" || api_die "PR-Links parsen fehlgeschlagen"
+# Eine Liste {num,state,refs}: `headRefName`/`body` werden zu je einer Liste von
+# Issue-Nummern gescannt — Branch-Konvention `feature/401-…` bzw. schließende Keywords
+# `Fixes #401`. Der Scan lebt genau EINMAL hier, damit `has_linked_pr` und
+# `red_blocked_pr` nicht auseinanderdriften können.
+PR_INFO="$(printf '%s' "$PRS_JSON" | jq -c '
+  [ .[] | { num: .number, state: (.mergeStateStatus // ""),
+            refs: ( ((.headRefName // "") | [scan("(?:^|[/_-])([0-9]+)(?=[/_-]|$)")] | map(.[0] | tonumber))
+                  + ((.body // "")
+                     | [scan("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|relate[sd]?|part of|addresses)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]
+                     | map(.[0] | tonumber)) ) } ]')" \
+  || api_die "PR-Links parsen fehlgeschlagen"
 
-has_linked_pr() { printf '%s' "$LINKED_PRS" | jq -e --argjson n "$1" 'index($n) != null' >/dev/null 2>&1; }
+has_linked_pr() { printf '%s' "$PR_INFO" | jq -e --argjson n "$1" \
+  'any(.[]; (.refs | index($n)) != null)' >/dev/null 2>&1; }
+
+# Rot gelaufener Required-Check: der PR ist offen, aber das Ergebnis ist unbrauchbar.
+red_blocked_pr() { printf '%s' "$PR_INFO" | jq -e --argjson n "$1" \
+  'any(.[]; ((.refs | index($n)) != null) and (.state == "BLOCKED"))' >/dev/null 2>&1; }
 
 # ── Worker-Runs (Sessions beider Orchestratoren) ────────────────────────────
 # `status` ist OpenClaws Lauf-Bewertung: `done` = deliverable, `failed` = u. a.
@@ -266,7 +285,12 @@ for n in $CANDIDATES; do
           | select(.source.issue.state == "open")
           | .source.issue.number ] | length')"
   if has_linked_pr "$n" || [ "$xref_open" -gt 0 ]; then
-    note "SKIP $n linked-pr-open"; skipped=$((skipped + 1)); continue
+    # Ausnahme (siehe Header): rot gelaufener PR ohne laufenden Worker ⇒ Retry-Pfad.
+    if red_blocked_pr "$n" && [ "$(worker_state "$n" "$dispatch_ep")" != "running" ]; then
+      note "RED-BLOCKED $n (PR offen, Required-Check rot) → Retry-Pfad"
+    else
+      note "SKIP $n linked-pr-open"; skipped=$((skipped + 1)); continue
+    fi
   fi
 
   # S3b: Outcome vorhanden → nicht mehr unsere Baustelle (das Cleanup schließt).
@@ -310,15 +334,21 @@ for n in $CANDIDATES; do
   case "$(worker_state "$n" "$dispatch_ep")" in
     running) note "SKIP $n worker-running"; skipped=$((skipped + 1)); continue ;;
     success)
+      # Rot gelaufener PR: die Session ist zwar fertig, aber das Ergebnis ist unbrauchbar —
+      # das ist ein Retry-Fall (der Worker kann den PR reparieren), kein Park-Fall.
       # Kein Sonderweg fuer Research/Spikes: auch dort ist "fertig ohne Outcome" ein
       # Zustand ohne Ausgang (die Spike-Issue bleibt offen, das Plan-Issue ist woanders).
       # Der Worker signalisiert den Abschluss per `triage:no-action` (dann greift S3b).
-      if [ "$DRY_RUN" = 1 ]; then
-        note "BLOCKED $n worker-done-ohne-outcome (dry-run: Label weg + $BLOCKED_LABEL)"
+      if red_blocked_pr "$n"; then
+        note "RED-BLOCKED $n (Session done, PR rot) → Retry statt parken"
       else
-        park_issue "$n" "worker-done-ohne-outcome"
-      fi
-      capped=$((capped + 1)); continue ;;
+        if [ "$DRY_RUN" = 1 ]; then
+          note "BLOCKED $n worker-done-ohne-outcome (dry-run: Label weg + $BLOCKED_LABEL)"
+        else
+          park_issue "$n" "worker-done-ohne-outcome"
+        fi
+        capped=$((capped + 1)); continue
+      fi ;;
   esac
 
   stale=$((stale + 1))

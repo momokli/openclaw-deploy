@@ -218,6 +218,34 @@ TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)")
 setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/363-x","body":"analog zu carbonium (#363)"}]' "$LABELS_NO_RD"
 run
 want "REDISPATCH 401" "fremder PR (nur #363 erwähnt) schützt #401 nicht"
+
+# ── 4b. S3-Ausnahme: rot gelaufener PR → Retry (Deadlock-Fix) ───────────────
+echo "== 4b. S3-Ausnahme: Required-Check rot (BLOCKED) → Retry statt Slot-Stillstand =="
+# Real: PR #905 hatte roten `boot-test` (BLOCKED), der Worker war fertig — und weil der PR
+# offen war, blieb der WIP=1-Slot belegt und der ganze 1.0.1-Fokus eingefroren.
+TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)")
+SESSIONS=("$(sess triage-401 done "$(ago_ms 45)")")
+setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"Closes #401","mergeStateStatus":"BLOCKED"}]' "$LABELS_NO_RD"
+run
+want "RED-BLOCKED 401" "roter PR wird als Retry-Fall erkannt"
+want "REDISPATCH 401 attempts=1" "roter PR + fertigem Worker → Retry statt Stillstand"
+want "summary issues=1 stale=1 redispatched=1" "Retry wird gezählt"
+mut "DELETE-LABEL repos/momokli/riftbreaker-battle-mod/issues/401/labels/" "Dispatch-Label wird für den Retry entfernt"
+[ "$(grep -c 'question' "$MUTLOG")" = 0 ] && ok "nicht geparkt (kein Frage-Label)" || notok "nicht geparkt (kein Frage-Label)"
+# Gegenprobe 1: nicht-roter PR → altes Verhalten (Finger weg).
+TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)")
+SESSIONS=("$(sess triage-401 done "$(ago_ms 45)")")
+setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"Closes #401","mergeStateStatus":"CLEAN"}]' "$LABELS_NO_RD"
+run
+want "SKIP 401 linked-pr-open" "nicht-roter PR bleibt unangetastet"
+nomut "keine Mutationen bei nicht-rotem PR"
+# Gegenprobe 2: rot, aber der Worker läuft noch → Finger weg.
+TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)")
+SESSIONS=("$(sess triage-401 running "$(ago_ms 5)")")
+setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"Closes #401","mergeStateStatus":"BLOCKED"}]' "$LABELS_NO_RD"
+run
+want "SKIP 401 linked-pr-open" "laufender Worker schützt auch bei rotem PR"
+nomut "keine Mutationen solange der PR bearbeitet wird"
 TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)"
           "$(ev_xref "$(ago_iso 80)" 355 closed 1)")
 setup "$ISSUE_DISPATCHED" "$PRS_NONE" "$LABELS_NO_RD"

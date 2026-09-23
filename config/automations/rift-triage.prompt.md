@@ -31,6 +31,9 @@ Slot belegt → **nichts dispatchen**, im Status-Log „awaiting slot: #<n>/PR #
    genannten Basis-Branch/PR-Ziel. **Keine** Neuauswahl, kein erneutes Slot-/Leaf-Re-Check,
    kein Stale-Guard-Lauf — die Entscheidung ist bereits getroffen (Schritt 1–7 entfallen).
    Ist die Datei älter oder fehlend (z. B. manueller Anstoß), mach die Auswahl wie unten selbst.
+   Nennt die Datei einen **bestehenden offenen PR**, arbeite auf DESSEN Branch weiter und öffne
+   **keinen** zweiten PR — ein zweiter offener PR zum selben Issue würde den WIP=1-Slot erneut
+   belegen (der Retry wäre wirkungslos).
 
 1. **Fokus ermitteln** (oben). Bei Exit ≠ 0 → Stop.
 2. **Stale-Guard** (Pflicht, genau einmal): `rift-stale-dispatch.sh -m <fokus-title>`. Gibt hängende Dispatches frei (Details: `--help`). `REDISPATCH`- und `summary`-Zeilen ins Status-Log. Scheitert der Aufruf (Exit ≠ 0), Fehler vermerken und normal weitermachen — der Guard ist Zusatzsicherung, kein Blocker.

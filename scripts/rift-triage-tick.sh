@@ -68,12 +68,19 @@ PRS="$("$GH" pr list --repo "$REPO" --state open --limit 100 \
   --json number,title,body,headRefName 2>/dev/null)" || die "pr list fehlgeschlagen"
 
 # 5) Offener PR mit Bezug auf ein Fokus-Issue? (Slot belegt)
-PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson focus "$(printf '%s' "$ISSUES" | jq -c '[.[].number]')" '
-  [ $prs[]
-    | select(( ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
-               | [scan("#([0-9]+)")] | flatten | map(tonumber)
-               | any(. as $n | $focus | index($n)) ))
-    | .number ] | join(",")')"
+#    AUSNAHME: hat der Stale-Guard das Issue gerade für einen Retry freigegeben
+#    (`triage:redispatch`), darf ein offener PR den Milestone NICHT einfrieren — sonst
+#    blockiert genau der rot gelaufene PR den Retry, der ihn reparieren soll (real: PR #905
+#    fror den ganzen 1.0.1-Fokus ein). Der Retry arbeitet dann auf dem bestehenden PR weiter.
+PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson issues "$ISSUES" '
+  def refs: ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
+            | [scan("#([0-9]+)")] | flatten | map(tonumber);
+  [ $issues[] | .number ] as $focus
+  | [ $issues[] | select((([.labels[].name] | index("triage:redispatch")) != null)) | .number ] as $retry
+  | [ $prs[]
+      | select(refs | any(. as $n | $focus | index($n)))
+      | select((refs | any(. as $n | $retry | index($n))) | not)
+      | .number ] | join(",")')"
 [ -z "$PR_HIT" ] || skip "offener Fokus-PR: #$PR_HIT"
 
 # 6) ≥1 dispatchbarer Leaf-Kandidat? (Spiegel des Leaf-Gates im Prompt)
@@ -109,6 +116,13 @@ fi
 
 DECISION_FILE="${OPENCLAW_STATE_DIR:-/srv/openclaw}/workspace/rift-triage-decision.md"
 CHOSEN_TITLE="$(printf '%s' "$ISSUES" | jq -r --argjson c "$CHOSEN" '.[]|select(.number==$c)|.title')"
+# Existiert zum gewählten Issue schon ein offener PR (z. B. nach einem Guard-Retry wegen
+# rotem Required-Check)? Dann ist der Branch die Arbeitsgrundlage — einen zweiten PR
+# aufzumachen würde den Slot erneut blockieren (Schritt 5 kennt nur „PR offen").
+EXIST_PR="$(jq -nr --argjson prs "$PRS" --argjson c "$CHOSEN" '
+  def refs: ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
+            | [scan("#([0-9]+)")] | flatten | map(tonumber);
+  [ $prs[] | select(refs | index($c)) | .number ] | .[0] // ""')"
 {
   printf '# Triage-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
   printf -- '- Zeit: %s\n' "$(date -Is)"
@@ -116,6 +130,9 @@ CHOSEN_TITLE="$(printf '%s' "$ISSUES" | jq -r --argjson c "$CHOSEN" '.[]|select(
   printf -- '- Issue: #%s — %s\n' "$CHOSEN" "$CHOSEN_TITLE"
   printf -- '- Basis-Branch: main · PR-Ziel: main\n'
   printf -- '- Deliverable: gepushter Branch + offener PR; PR-Body mit `Closes #%s`.\n' "$CHOSEN"
+  if [ -n "$EXIST_PR" ]; then
+    printf -- '- Bestehender offener PR: #%s — auf DESSEN Branch weiterarbeiten (keinen zweiten PR öffnen).\n' "$EXIST_PR"
+  fi
   printf '\n**Diese Auswahl ist verbindlich** — keine Neuauswahl, kein Slot-/Leaf-Re-Check im Agent-Turn.\n'
   printf 'Ist das Issue bereits erledigt: kein PR, sondern Kommentar + Label `triage:no-action`.\n'
 } > "$DECISION_FILE" 2>/dev/null || log "WARNUNG: Decision-File ($DECISION_FILE) nicht schreibbar"

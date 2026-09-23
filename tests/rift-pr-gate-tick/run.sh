@@ -66,10 +66,19 @@ prs()    { printf '%s' "$1" > "$FX/prs.json"; }
 prview() { printf '%s' "$2" > "$FX/pr-$1.json"; }
 reset()  { : > "$ACTIONS"; focus; issues '[{"number":896}]'; prs '[]'; }
 
+# iso_ago <minuten> → ISO-8601-UTC vor N Minuten (portabel GNU/BSD).
+iso_ago() {
+  local ep
+  ep=$(( $(date -u +%s) - $1 * 60 ))
+  date -u -d "@$ep" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+    || date -u -r "$ep" +%Y-%m-%dT%H:%M:%SZ
+}
+
 run() { out="$("$SCRIPT" 2>&1)"; rc=$?; }
 
 # Fokus-PR #901 mit Variablen State/Checks/Verdict.
-focuspr() {  # $1 mergeStateStatus  $2 checks(all|pending|failing)  $3 verdict(approve|none)
+# $4 (optional) = Alter des Verdict-Kommentars in Minuten (Default: jetzt).
+focuspr() {  # $1 mergeStateStatus  $2 checks(all|pending|failing)  $3 verdict(approve|changes|none)  $4 verdict_age_min
   prs '[{"number":901,"title":"ci(#896): build","body":"Closes #896","headRefName":"ci/896-x","isDraft":false,"mergeStateStatus":"'"$1"'"}]'
   local checks
   case "$2" in
@@ -77,10 +86,12 @@ focuspr() {  # $1 mergeStateStatus  $2 checks(all|pending|failing)  $3 verdict(a
     pending) checks='[{"__typename":"CheckRun","conclusion":"SUCCESS"},{"__typename":"CheckRun","conclusion":null}]' ;;
     failing) checks='[{"__typename":"CheckRun","conclusion":"FAILURE"}]' ;;
   esac
+  local created
+  if [ -n "${4:-}" ]; then created="$(iso_ago "$4")"; else created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; fi
   local comments
   case "$3" in
-    approve) comments='[{"body":"[VERDICT: APPROVE]\nok"}]' ;;
-    changes) comments='[{"body":"[VERDICT: REQUEST_CHANGES]\nno"}]' ;;
+    approve) comments='[{"body":"[VERDICT: APPROVE]\nok","createdAt":"'"$created"'"}]' ;;
+    changes) comments='[{"body":"[VERDICT: REQUEST_CHANGES]\nno","createdAt":"'"$created"'"}]' ;;
     none)    comments='[]' ;;
   esac
   prview 901 '{"mergeStateStatus":"'"$1"'","statusCheckRollup":'"$checks"',"comments":'"$comments"'}'
@@ -124,6 +135,30 @@ check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
 echo
 echo "== APPROVE, aber BEHIND (Rebase fällig) -> KEIN Merge, Agent-Turn =="
 reset; focuspr BEHIND all approve
+run
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
+
+echo
+echo "== BLOCKED (roter Required-Check), kein Verdict -> Agent-Turn =="
+reset; focuspr BLOCKED failing none
+run
+check "Exit 0" "0" "$rc"
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
+
+echo
+echo "== BLOCKED, frisches REQUEST_CHANGES -> Cooldown, KEIN Trigger =="
+reset; focuspr BLOCKED failing changes 5
+run
+check "Exit 0" "0" "$rc"
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Cooldown geloggt" "1" "$(printf '%s' "$out" | grep -c 'SKIP #901 cooldown')"
+
+echo
+echo "== BLOCKED, altes Verdict (120min > 60min Cooldown) -> Agent-Turn =="
+reset; focuspr BLOCKED failing changes 120
 run
 check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
 check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
