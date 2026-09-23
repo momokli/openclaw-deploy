@@ -1,0 +1,134 @@
+#!/bin/bash
+# Leichtgewichtiger Precheck für `rift-triage` (0 Tokens).
+#
+# Läuft oft (z. B. alle 5 min) als `--command`-Automation auf dem Gateway und
+# entscheidet nur per `gh`, ob es JETZT überhaupt etwas zu dispatchen gäbe. Nur
+# dann wird der teure Agent-Turn (`rift-triage:main`) angestoßen — sonst Exit 10.
+#
+# Grund: die Slot-Prüfung im Prompt kostet sonst bei jedem Tick einen vollen
+# Model-Turn (~50k Input-Tokens), auch wenn nichts zu tun ist. Der Durchsatz ist
+# ohnehin durch WIP=1 gedeckelt, nicht durch den Takt.
+#
+# Exit 0  = OK (entweder Agent-Turn angestoßen ODER nichts zu tun; welches steht im Log).
+#           WICHTIG: auch der Skip muss 0 sein — der Scheduler wertet einen Command-Payload
+#           mit Exit ≠ 0 als Job-Fehler (und stdout geht hier in die Logdatei, ist also leer).
+# Exit 2  = Fehler (gh/CLI) → Job-Status wird `error` (gewollt sichtbar).
+#
+# Genau dieselben Kriterien wie im Prompt (Slot frei + ≥1 Leaf-Kandidat), nur
+# billig vorgezogen. Der Agent-Turn prüft danach noch einmal verbindlich.
+set -uo pipefail
+
+REPO="momokli/riftbreaker-battle-mod"
+GH="${RIFT_GH:-clanker-gh}"
+SELF_KEY="rift-triage:main"
+
+log()  { printf '%s rift-triage-tick: %s\n' "$(date -Is)" "$*"; }
+skip() { log "SKIP $*"; exit 0; }
+die()  { log "FEHLER $*"; exit 2; }
+
+command -v "$GH" >/dev/null 2>&1 || die "$GH nicht im PATH"
+
+# 1) Fokus-Milestone (kleinster offener Versions-Titel).
+FOCUS="$(rift-focus-milestone.sh --json 2>/dev/null)" || skip "kein Fokus-Milestone"
+N="$(printf '%s' "$FOCUS" | jq -r '.number // empty')"
+TITLE="$(printf '%s' "$FOCUS" | jq -r '.title // empty')"
+OPEN="$(printf '%s' "$FOCUS" | jq -r '.open_issues // 0')"
+[ -n "$N" ] || die "Fokus-Milestone nicht parsebar: $FOCUS"
+[ "${OPEN:-0}" -gt 0 ] || skip "Fokus $TITLE erschöpft"
+
+# 2) Buchhaltung (0 Tokens): Stale-Dispatch-Guard + Schritt-4-Cleanup.
+#    Beides MUSS laufen, AUCH wenn der Slot belegt ist — sonst klemmt ein
+#    hängender Dispatch für immer (real passiert: #393, #895). Genau das war der
+#    Bug der ersten Tick-Version: sie gated auf das Label und verhinderte damit
+#    den Aufräum-Turn.
+if command -v rift-stale-dispatch.sh >/dev/null 2>&1; then
+  GUARD="$(rift-stale-dispatch.sh -m "$TITLE" 2>&1 | grep -E '^(REDISPATCH|BLOCKED|NOTE|summary)' | tr '\n' ' ')"
+  log "Guard: ${GUARD:-nichts freizugeben}"
+else
+  log "WARNUNG: rift-stale-dispatch.sh fehlt — Guard übersprungen"
+fi
+if command -v rift-triage-cleanup.sh >/dev/null 2>&1; then
+  rift-triage-cleanup.sh -m "$TITLE" 2>&1 | sed 's/^/    /'
+else
+  log "WARNUNG: rift-triage-cleanup.sh fehlt — Cleanup übersprungen"
+fi
+
+# 3) Slot frei? Kein `orchestrator:dispatched` im Fokus (nach dem Aufräumen).
+DISPATCHED="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" \
+  --label orchestrator:dispatched --limit 100 --json number 2>/dev/null)" \
+  || die "issue list (dispatched) fehlgeschlagen"
+if [ "$(printf '%s' "$DISPATCHED" | jq 'length' 2>/dev/null)" != "0" ]; then
+  skip "Slot belegt (orchestrator:dispatched: $(printf '%s' "$DISPATCHED" | jq -r '[.[].number]|join(",")'))"
+fi
+
+# 4) Issues + offene PRs des Fokus holen.
+ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
+  --json number,title,labels,body 2>/dev/null)" || die "issue list fehlgeschlagen"
+PRS="$("$GH" pr list --repo "$REPO" --state open --limit 100 \
+  --json number,title,body,headRefName 2>/dev/null)" || die "pr list fehlgeschlagen"
+
+# 5) Offener PR mit Bezug auf ein Fokus-Issue? (Slot belegt)
+PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson focus "$(printf '%s' "$ISSUES" | jq -c '[.[].number]')" '
+  [ $prs[]
+    | select(( ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
+               | [scan("#([0-9]+)")] | flatten | map(tonumber)
+               | any(. as $n | $focus | index($n)) ))
+    | .number ] | join(",")')"
+[ -z "$PR_HIT" ] || skip "offener Fokus-PR: #$PR_HIT"
+
+# 6) ≥1 dispatchbarer Leaf-Kandidat? (Spiegel des Leaf-Gates im Prompt)
+LEAF="$(printf '%s' "$ISSUES" | jq -c '
+  [ .[]
+    | select((.title | test("^\\[(Epic|Umbrella|Milestone)\\]"; "i")) | not)
+    | select(([.labels[].name] | any(. == "claimed" or . == "needs:player-test"
+        or . == "follow-up" or . == "hold" or . == "question"
+        or . == "triage:no-action")) | not)
+    | select(( (([.labels[].name] | index("research")) != null)
+               and (([.labels[].name] | index("triage:research")) == null) ) | not)
+    | select((.body // "" | [scan("(?m)^[ \t]*- \\[ \\][ \t]*#[0-9]+")] | length) < 2)
+    | .number ]')"
+if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
+  skip "kein Leaf-Kandidat im Fokus (nur Epics/Spikes/geblockt)"
+fi
+
+# 6b) Auswahl deterministisch treffen (wie im Prompt: Epic-Checkliste von oben, sonst
+#     aufsteigende Nummer). Das Ergebnis wird verbindlich in eine Datei geschrieben —
+#     `openclaw automations run` nimmt keine Parameter, also ist die Datei der Kanal.
+EPIC_BODY="$(printf '%s' "$ISSUES" | jq -r '[.[] | select(.title | test("^\\[Epic\\]"; "i"))][0].body // ""')"
+CHOSEN=""
+if [ -n "$EPIC_BODY" ]; then
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    if printf '%s' "$LEAF" | jq -e --argjson c "$cand" 'index($c) != null' >/dev/null 2>&1; then
+      CHOSEN="$cand"; break
+    fi
+  done <<< "$(printf '%s' "$EPIC_BODY" | grep -oE '#[0-9]+' | tr -d '#')"
+fi
+[ -n "$CHOSEN" ] || CHOSEN="$(printf '%s' "$LEAF" | jq -r 'sort | .[0]')"
+[ -n "$CHOSEN" ] && [ "$CHOSEN" != "null" ] || die "keine Issue auswählbar"
+
+DECISION_FILE="${OPENCLAW_STATE_DIR:-/srv/openclaw}/workspace/rift-triage-decision.md"
+CHOSEN_TITLE="$(printf '%s' "$ISSUES" | jq -r --argjson c "$CHOSEN" '.[]|select(.number==$c)|.title')"
+{
+  printf '# Triage-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
+  printf -- '- Zeit: %s\n' "$(date -Is)"
+  printf -- '- Fokus-Milestone: %s (#%s)\n' "$TITLE" "$N"
+  printf -- '- Issue: #%s — %s\n' "$CHOSEN" "$CHOSEN_TITLE"
+  printf -- '- Basis-Branch: main · PR-Ziel: main\n'
+  printf -- '- Deliverable: gepushter Branch + offener PR; PR-Body mit `Closes #%s`.\n' "$CHOSEN"
+  printf '\n**Diese Auswahl ist verbindlich** — keine Neuauswahl, kein Slot-/Leaf-Re-Check im Agent-Turn.\n'
+  printf 'Ist das Issue bereits erledigt: kein PR, sondern Kommentar + Label `triage:no-action`.\n'
+} > "$DECISION_FILE" 2>/dev/null || log "WARNUNG: Decision-File ($DECISION_FILE) nicht schreibbar"
+
+# 7) Agent-Turn anstoßen (über declaration-key, damit ein Re-Create egal ist).
+if [ "${RIFT_TICK_DRY:-0}" = "1" ]; then
+  log "DRY-RUN: dispatchbar ($TITLE), Issue #$CHOSEN gewählt (Decision-File geschrieben), würde $SELF_KEY triggern"
+  exit 0
+fi
+ID="$(openclaw automations list --all --json 2>/dev/null \
+      | jq -r --arg k "$SELF_KEY" '.jobs[] | select(.declarationKey == $k) | .id' | head -1)"
+[ -n "$ID" ] && [ "$ID" != "null" ] || die "Agent-Job $SELF_KEY nicht gefunden"
+
+log "DISPATCHBAR ($TITLE) → Issue #$CHOSEN ($CHOSEN_TITLE); triggere $SELF_KEY ($ID)"
+openclaw automations run "$ID" 2>&1 | tail -3
+exit 0

@@ -20,6 +20,10 @@ eine User Story nach der anderen, jeweils mit Commit.
 - Niemals `--force` push
 - Commit-Messages auf Englisch, im Conventional-Commits-Format
 - Nur Dateien ändern die zum Feature gehören
+- **PR-Body:** den Issue mit `Closes #<n>` schließen (bzw. `Fixes #<n>`) — **nicht** „Refs #<n>"
+  und nicht nur „Issue #<n>" im Fließtext. Nur ein Closing-Keyword lässt GitHub das Issue
+  beim Merge automatisch schließen; sonst bleibt `orchestrator:dispatched` kleben und der
+  Triage-Slot blockiert den ganzen Fokus-Milestone.
 - **Bot-Identity `momo-clanker[bot]`:** `gh`→`clanker-gh`, `git`→`clanker-git` (nie nacktes `gh`/`git`).
 
 ## Bei Blocker → Issue (Pflicht)
