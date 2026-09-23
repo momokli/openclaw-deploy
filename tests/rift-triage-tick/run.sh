@@ -66,7 +66,7 @@ SHIM
 cat > "$TMP/openclaw" <<'SHIM'
 #!/bin/bash
 if [ "$1 $2 $3" = "automations list --all" ]; then
-  echo '{"jobs":[{"declarationKey":"rift-triage:main","id":"JOB-1"}]}'
+  echo '{"jobs":[{"declarationKey":"rift-triage:main","id":"JOB-1"},{"declarationKey":"rift-pr-gate:main","id":"JOB-2"}]}'
 elif [ "$1 $2" = "automations run" ]; then
   printf 'trigger %s\n' "$3" >> "$ACTIONS"
 fi
@@ -165,19 +165,42 @@ check "Decision-File nennt #896" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev
 check "Decision-File nennt bestehenden PR #900" "1" "$(grep -c 'Bestehender offener PR: #900' "$DECISION" 2>/dev/null || echo 0)"
 
 echo
-echo "== Nur Epics/Spikes im Fokus: kein Trigger =="
+echo "== Code-complete (nur Epics/Spikes): Release-PR faellig -> Gate-Turn =="
+# Kein Leaf mehr heisst: der Milestone ist CODE-COMPLETE. Die letzte Aufgabe ist der
+# Release-PR (Changelog + Abnahme + Testplan) — den baut der GATE, nicht die Triage.
+REL="$OPENCLAW_STATE_DIR/workspace/rift-release-decision.md"
 reset
 issues '[{"number":724,"title":"[Epic] 1.0.1","labels":[],"body":""},{"number":486,"title":"[Spike] X","labels":[{"name":"research"}],"body":""}]'
 run
-check "Exit 0 (Skip)" "0" "$rc"
-check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Exit 0" "0" "$rc"
+check "Gate-Turn getriggert (nicht Triage)" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
+check "kein Triage-Trigger" "0" "$(grep -c 'trigger JOB-1' "$ACTIONS")"
+check "Release-Decision nennt den Milestone" "1" "$(grep -c 'Milestone: 1.0.1' "$REL" 2>/dev/null || echo 0)"
+check "Release-Decision nennt das Tag" "1" "$(grep -c 'Tag-Vorschlag: v1.0.1' "$REL" 2>/dev/null || echo 0)"
+
+# Ein laufender Release-PR darf nicht jeden Tick erneut triggern.
+reset
+issues '[{"number":724,"title":"[Epic]","labels":[],"body":""}]'
+prs '[{"number":950,"title":"chore(release): 1.0.1","body":"","headRefName":"release/1.0.1","labels":[{"name":"release:human-merge"}]}]'
+run
+check "Exit 0 (Release laeuft)" "0" "$rc"
+check "kein Trigger, solange der Release-PR laeuft" "0" "$(grep -c '^trigger' "$ACTIONS")"
+
+# R4: der Release-PR blockiert die Arbeit an einem offenen Issue NICHT (sonst friert die
+# Endabnahme genau dann alles ein, wenn ein Player-Test einen Retry braucht).
+reset
+issues '[{"number":896,"title":"leaf","labels":[],"body":""}]'
+prs '[{"number":950,"title":"chore(release): 1.0.1","body":"Closes #896","headRefName":"release/1.0.1","labels":[{"name":"release:human-merge"}]}]'
+run
+check "Release-PR blockiert den Slot nicht" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
 
 echo
-echo "== triage:no-action zaehlt als kein Leaf-Kandidat =="
+echo "== triage:no-action zaehlt als kein Leaf-Kandidat (kein Release-Trigger) =="
 reset
 issues '[{"number":896,"title":"ci: build parallel","labels":[{"name":"triage:no-action"}],"body":""}]'
 run
 check "Exit 0 (Skip)" "0" "$rc"
+check "kein Release-Trigger (Cleanup laeuft noch)" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
 echo
 echo "== Fokus erschoepft: kein Trigger =="

@@ -34,6 +34,10 @@
 #   Ausnahme bleibt der WIP=1-Slot für immer belegt — real hat PR #905 mit rotem `boot-test`
 #   den kompletten 1.0.1-Fokus eingefroren.
 #
+#   Ein **Release-PR** (`release:human-merge`: Changelog + Abnahme + Testplan) ist dagegen
+#   überhaupt kein Worker-PR und wird hier gar nicht betrachtet — er wartet auf den Menschen
+#   und darf einen Retry (z. B. nach fehlgeschlagenem Player-Test) nicht blockieren.
+#
 # ── Loop-Bremse (Hard Cap gegen Retry-Schleifen) ─────────────────────────────
 #   G1  je Freigabe ein Marker-Kommentar `rift-triage:redispatch attempt=k` (Audit + Zähler)
 #   G2  attempts ≥ --max-attempts ⇒ KEINE Freigabe mehr, nur `NOTE <n> escalate` (Mensch nötig)
@@ -149,9 +153,10 @@ CANDIDATES="$(printf '%s' "$ISSUES_JSON" \
 # Konvention wie in den Runner-Prompts: Branch-Name enthält die Issue-Nummer
 # (`feature/401-…`) und/oder der Body nennt sie schließend (`Fixes #401`).
 # `mergeStateStatus` wird mitgeholt: nur damit lässt sich ein rot gelaufener PR
-# (Required-Check `BLOCKED`) von einem „arbeitet noch daran" unterscheiden.
+# (Required-Check `BLOCKED`) von einem „arbeitet noch daran" unterscheiden. `labels`
+# brauchen wir, um den Release-PR (`release:human-merge`) auszusortieren.
 PRS_JSON="$("$GH" pr list --repo "$REPO" --state open --limit 200 \
-  --json number,headRefName,body,mergeStateStatus)" \
+  --json number,headRefName,body,mergeStateStatus,labels)" \
   || api_die "PR-Liste lesen fehlgeschlagen"
 
 # Eine Liste {num,state,refs}: `headRefName`/`body` werden zu je einer Liste von
@@ -159,7 +164,8 @@ PRS_JSON="$("$GH" pr list --repo "$REPO" --state open --limit 200 \
 # `Fixes #401`. Der Scan lebt genau EINMAL hier, damit `has_linked_pr` und
 # `red_blocked_pr` nicht auseinanderdriften können.
 PR_INFO="$(printf '%s' "$PRS_JSON" | jq -c '
-  [ .[] | { num: .number, state: (.mergeStateStatus // ""),
+  [ .[] | select((([.labels[]?.name] | index("release:human-merge")) == null))
+        | { num: .number, state: (.mergeStateStatus // ""),
             refs: ( ((.headRefName // "") | [scan("(?:^|[/_-])([0-9]+)(?=[/_-]|$)")] | map(.[0] | tonumber))
                   + ((.body // "")
                      | [scan("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|relate[sd]?|part of|addresses)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]

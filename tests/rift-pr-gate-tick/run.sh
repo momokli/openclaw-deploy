@@ -105,6 +105,17 @@ check "Merged" "MERGE 901" "$(grep '^MERGE' "$ACTIONS")"
 check "kein Agent-Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
 echo
+echo "== Release-PR (release:human-merge): NIE automergen, wartet auf den Menschen =="
+# Genau dasselbe PR-Bild (CLEAN + APPROVE + alles grün) — nur der Marker entscheidet.
+reset; focuspr CLEAN all approve
+prs '[{"number":901,"title":"chore(release): 1.0.1 — Changelog + Abnahme","body":"Closes #896","headRefName":"release/1.0.1","isDraft":false,"mergeStateStatus":"CLEAN","labels":[{"name":"release:human-merge"}]}]'
+run
+check "Exit 0" "0" "$rc"
+check "nicht gemergt" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "kein Agent-Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Log nennt den wartenden Release-PR" "1" "$(printf '%s' "$out" | grep -c 'wartet auf den Menschen: Release-PR #901')"
+
+echo
 echo "== APPROVE, aber ein Check läuft noch -> KEIN Merge, Agent-Turn =="
 reset; focuspr CLEAN pending approve
 run

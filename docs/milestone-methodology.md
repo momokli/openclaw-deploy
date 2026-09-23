@@ -122,7 +122,12 @@ Vor jeder Iteration, per Hand:
    prüfen — der Ist-Zustand driftet (Beispiel **#372**: als Bug in 1.0 geführt, war längst
    erledigt).
 3. Was nicht in die Iteration gehört: in den nächsten Milestone oder zurück in den Parkplatz.
-4. Iteration beenden = **Milestone schließen** → der nächste wird automatisch Fokus.
+4. **Code-complete ⇒ Release-PR.** Sobald kein offener Leaf-Kandidat mehr im Milestone ist,
+   baut der Gate den Release-PR (`CHANGELOG.md` + Abnahme + Testplan, Label `release:human-merge`).
+   Der gehört **nie** automergt: Merge, Milestone-Schließen und `git tag v<x.y.z>` (→ Prod-Deploy,
+   wartet am `prod`-Environment auf Freigabe) sind Menschenschritte. Fällt ein Player-Test durch,
+   kommt das Issue zurück in den Milestone; der nächste Release-Lauf aktualisiert denselben PR.
+5. Iteration beenden = **Milestone schließen** → der nächste wird automatisch Fokus.
 
 ## 7 · Aufräumen, Stand 2026-09-23
 

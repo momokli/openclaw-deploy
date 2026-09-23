@@ -67,19 +67,23 @@ fi
 ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
   --json number,title,labels,body 2>/dev/null)" || die "issue list fehlgeschlagen"
 PRS="$("$GH" pr list --repo "$REPO" --state open --limit 100 \
-  --json number,title,body,headRefName 2>/dev/null)" || die "pr list fehlgeschlagen"
+  --json number,title,body,headRefName,labels 2>/dev/null)" || die "pr list fehlgeschlagen"
 
 # 5) Offener PR mit Bezug auf ein Fokus-Issue? (Slot belegt)
-#    AUSNAHME: hat der Stale-Guard das Issue gerade für einen Retry freigegeben
-#    (`triage:redispatch`), darf ein offener PR den Milestone NICHT einfrieren — sonst
-#    blockiert genau der rot gelaufene PR den Retry, der ihn reparieren soll (real: PR #905
-#    fror den ganzen 1.0.1-Fokus ein). Der Retry arbeitet dann auf dem bestehenden PR weiter.
+#    AUSNAHMEN, in denen ein offener PR NICHT blockiert:
+#    a) hat der Stale-Guard das Issue gerade für einen Retry freigegeben
+#       (`triage:redispatch`), darf der PR den Milestone nicht einfrieren — sonst
+#       blockiert genau der rot gelaufene PR den Retry, der ihn reparieren soll (real: #905).
+#    b) ein Release-PR (`release:human-merge`) ist die *Endabnahme* des Milestones, nicht
+#       Arbeit an einem Issue: er wartet auf den Menschen und darf den Slot nicht halten
+#       (sonst friert er genau dann alles ein, wenn ein Player-Test einen Retry braucht).
 PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson issues "$ISSUES" '
   def refs: ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
             | [scan("#([0-9]+)")] | flatten | map(tonumber);
   [ $issues[] | .number ] as $focus
   | [ $issues[] | select((([.labels[].name] | index("triage:redispatch")) != null)) | .number ] as $retry
   | [ $prs[]
+      | select((([.labels[]?.name] | index("release:human-merge")) == null))
       | select(refs | any(. as $n | $focus | index($n)))
       | select((refs | any(. as $n | $retry | index($n))) | not)
       | .number ] | join(",")')"
@@ -97,7 +101,43 @@ LEAF="$(printf '%s' "$ISSUES" | jq -c '
     | select((.body // "" | [scan("(?m)^[ \t]*- \\[ \\][ \t]*#[0-9]+")] | length) < 2)
     | .number ]')"
 if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
-  skip "kein Leaf-Kandidat im Fokus (nur Epics/Spikes/geblockt)"
+  # Noch offene `triage:no-action`-Issues sind Buchhaltung, nicht Fertigstellung: die raeumt
+  # Schritt 2 (Cleanup) im selben Lauf weg. Erst danach ist der Milestone code-complete.
+  if printf '%s' "$ISSUES" | jq -e 'any(.[]; any(.labels[]?; .name == "triage:no-action"))' >/dev/null 2>&1; then
+    skip "kein Leaf-Kandidat, aber offene triage:no-action (Cleanup laeuft)"
+  fi
+  # Kein Leaf mehr ⇒ der Milestone ist CODE-COMPLETE. Die letzte Aufgabe ist der
+  # RELEASE-PR (Changelog + Abnahme + Testplan), den der GATE baut und den der Mensch
+  # merged. Wir schreiben die Entscheidung und triggern den Gate-Turn — der Agent-Turn
+  # hier waere der falsche (er baut Issues ab, nicht Releases).
+  if printf '%s' "$PRS" | jq -e --arg l "release:human-merge" \
+       'any(.[]; any(.labels[]?; .name == $l))' >/dev/null 2>&1; then
+    skip "code-complete, Release-PR laeuft (wartet auf den Menschen)"
+  fi
+  REL_FILE="${OPENCLAW_STATE_DIR:-/srv/openclaw}/workspace/rift-release-decision.md"
+  {
+    printf '# Release-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
+    printf -- '- Zeit: %s\n' "$(date -Is)"
+    printf -- '- Milestone: %s (#%s)\n' "$TITLE" "$N"
+    printf -- '- Tag-Vorschlag: v%s\n' "$TITLE"
+    printf -- '- PR-Ziel: main · Marker-Label: %s\n' "release:human-merge"
+    printf '\nDer Fokus-Milestone hat KEINE offenen Leaf-Kandidaten mehr (code-complete).\n'
+    printf 'Aufgabe: Release-PR bauen bzw. aktualisieren — `CHANGELOG.md` schreiben (Factorio-Stil,\n'
+    printf 'Kategorien + je eine knappe Zeile, AUS DATEN: geschlossene Milestone-Issues + gemergte PRs;\n'
+    printf 'nichts erfinden) und im PR-Body zusaetzlich **Abnahme** (DoD-Kriterien mit Beleg + ehrlichem\n'
+    printf 'Status) und **Testplan** (Ziel: staging, aus den `needs:player-test`-Issues) abbilden.\n'
+    printf 'Diesen PR NIE mergen — er ist die menschliche Freigabe (Label `release:human-merge`).\n'
+  } > "$REL_FILE" 2>/dev/null || log "WARNUNG: Release-File ($REL_FILE) nicht schreibbar"
+  if [ "${RIFT_TICK_DRY:-0}" = "1" ]; then
+    log "DRY-RUN: code-complete ($TITLE) — Release-PR faellig, würde rift-pr-gate:main triggern"
+    exit 0
+  fi
+  GATE_ID="$(openclaw automations list --all --json 2>/dev/null \
+        | jq -r '.jobs[] | select(.declarationKey == "rift-pr-gate:main") | .id' | head -1)"
+  [ -n "$GATE_ID" ] && [ "$GATE_ID" != "null" ] || die "Agent-Job rift-pr-gate:main nicht gefunden"
+  log "CODE-COMPLETE ($TITLE #$N) → Release-PR faellig; triggere rift-pr-gate:main ($GATE_ID)"
+  openclaw automations run "$GATE_ID" 2>&1 | tail -3
+  exit 0
 fi
 
 # 6b) Auswahl deterministisch treffen. Die Reihenfolge kommt aus der

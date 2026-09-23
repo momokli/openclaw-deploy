@@ -9,6 +9,8 @@
 #      --delete-branch`. Das ist reine Buchhaltung, dafür braucht es kein Modell.
 #   3. Alles andere (Review fällig, Rebase, Konflikt, offene Checks) ⇒ Agent-Turn
 #      anstossen (der reviewt/releast). Nur wenn es so etwas gibt — sonst 0 Tokens.
+#   4. Sonderfall Release-PR (`release:human-merge`, Changelog + Abnahme + Testplan):
+#      nie aktionabel — der wird nur geloggt („wartet auf den Menschen").
 #
 # BLOCKED ist ein aktionabler Zustand: ein roter Required-Check friert den PR ein
 # (kein Auto-Merge, aber auch kein Fortkommen) — ohne Agent-Turn hängt er stumm.
@@ -37,6 +39,10 @@ SELF_KEY="rift-pr-gate:main"
 ACTIONABLE_STATES='CLEAN|BEHIND|UNSTABLE|BLOCKED'
 # Cooldown-Frist (Minuten) für BLOCKED-PRs (Token-Schutz gegen 5-Min-Runden).
 COOLDOWN_MIN="${RIFT_GATE_COOLDOWN_MIN:-${GATE_COOLDOWN_MIN:-60}}"
+# Marker des Release-PRs (Changelog + Abnahme + Testplan, siehe rift-triage-tick):
+# er wird gebaut/aktualisiert, aber NIE von der Automation gemergt — die Freigabe
+# ist der Mensch. Deshalb ist ein so markierter PR hier grundsaetzlich NICHT aktionabel.
+RELEASE_LABEL='release:human-merge'
 
 log()  { printf '%s rift-pr-gate-tick: %s\n' "$(date -Is)" "$*"; }
 skip() { log "SKIP $*"; exit 0; }
@@ -75,14 +81,16 @@ TITLE="$(printf '%s' "$FOCUS" | jq -r '.title // empty')"
 ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
   --json number 2>/dev/null)" || die "issue list fehlgeschlagen"
 PRS="$("$GH" pr list --repo "$REPO" --state open --limit 100 \
-  --json number,title,body,headRefName,isDraft,mergeStateStatus 2>/dev/null)" \
+  --json number,title,body,headRefName,isDraft,mergeStateStatus,labels 2>/dev/null)" \
   || die "pr list fehlgeschlagen"
 
 FOCUS_NUMS="$(printf '%s' "$ISSUES" | jq -c '[.[].number]')"
 hits() { # aktionable Fokus-PRs, aufsteigend (FIFO = unterster Stack-PR zuerst)
-  jq -nr --argjson prs "$PRS" --argjson focus "$FOCUS_NUMS" --arg re "$ACTIONABLE_STATES" '
+  jq -nr --argjson prs "$PRS" --argjson focus "$FOCUS_NUMS" --arg re "$ACTIONABLE_STATES" \
+         --arg rel "$RELEASE_LABEL" '
     [ $prs[]
       | select(.isDraft | not)
+      | select((([.labels[]?.name] | index($rel)) == null))   # Release-PR = Mensch
       | select(( ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
                  | [scan("#([0-9]+)")] | flatten | map(tonumber)
                  | any(. as $n | $focus | index($n)) ))
@@ -91,7 +99,13 @@ hits() { # aktionable Fokus-PRs, aufsteigend (FIFO = unterster Stack-PR zuerst)
 }
 
 HIT="$(hits)"
-[ -n "$HIT" ] || skip "kein aktionabler Fokus-PR (nichts zu mergen/rebasen/reviewen)"
+if [ -z "$HIT" ]; then
+  # Sichtbarkeit: ein Release-PR wartet bewusst auf den Menschen (kein Automerge).
+  REL_OPEN="$(printf '%s' "$PRS" | jq -r --arg rel "$RELEASE_LABEL" \
+    '[ .[] | select(any(.labels[]?; .name == $rel)) | .number ] | join(",")')"
+  [ -z "$REL_OPEN" ] || log "wartet auf den Menschen: Release-PR #$REL_OPEN ($RELEASE_LABEL)"
+  skip "kein aktionabler Fokus-PR (nichts zu mergen/rebasen/reviewen)"
+fi
 
 # 3) Deterministischer Merge, wo alles passt; Rest an den Agenten.
 actions=0; needs_agent=0

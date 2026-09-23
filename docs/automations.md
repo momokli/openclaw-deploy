@@ -92,6 +92,29 @@ alle 5 min  rift-pr-gate-tick  (Shell)  → aktionabler Fokus-PR?    → sonst E
 - **`rift-pr-gate-tick` mergt deterministisch:** bei `[VERDICT: APPROVE]` + `CLEAN` +
   ausschliesslich grünen Checks `gh pr merge --squash --delete-branch` (0 Tokens). Nur wenn
   Review/Rebase nötig ist, geht es an den Agent-Turn.
+
+### Release-PR (`release:human-merge`, 23.09.)
+
+Ist der Fokus-Milestone **code-complete** (kein offener Leaf-Kandidat mehr), schreibt der Triage-Tick
+`<state>/workspace/rift-release-decision.md` und triggert **den Gate** (`rift-pr-gate:main`) — nicht
+den Triage-Turn. Der Gate baut/aktualisiert dann den Release-PR:
+
+| Teil           | Inhalt                                                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHANGELOG.md` | Factorio-Stil: `Version:`/`Date:` + eingerückte Kategorien, je eine Zeile + Issue-Nr. — **nur aus Daten** (geschlossene Milestone-Issues + gemergte PRs) |
+| PR-Body        | derselbe Changelog **+ Abnahme** (DoD mit Beleg, ehrlicher Status) **+ Testplan** (Ziel: Staging, aus `needs:player-test`-Issues)                        |
+| Marker         | Label `release:human-merge`                                                                                                                              |
+
+**Der Release-PR wird nie automergt.** Er ist die menschliche Freigabe: Merge = die drei kritischen
+Schritte werden von Hand ausgelöst (Merge → Milestone schließen → `git tag v<x.y.z>` → Prod-Deploy,
+der zusätzlich am `prod`-Environment auf Approval wartet). Alle drei Runner-Stellen kennen den Marker:
+Gate (nicht aktionabel, nur Log „wartet auf den Menschen"), Triage-Tick (blockiert den Slot **nicht**)
+und Stale-Guard (kein Worker-PR, fließt nicht in die Retry-Entscheidung ein).
+
+Fällt ein Player-Test durch, kommt das Issue **zurück in den Milestone** (neu/reopen) — damit ist der
+Milestone wieder nicht code-complete, die Triage dispatcht normal weiter, und der nächste
+Release-Lauf **aktualisiert denselben** PR.
+
 - Exit-Codes der Ticks: `0` = OK (Aktion **oder** nichts zu tun — welches steht im Log; ein
   Command-Payload mit Exit ≠ 0 gilt als Job-Fehler), `2` = Fehler. `RIFT_TICK_DRY=1` = Trockenlauf.
 - Gate-Trigger-Regel: nur `mergeStateStatus` **CLEAN**/**BEHIND**/**UNSTABLE**. `BLOCKED`/`UNKNOWN`
