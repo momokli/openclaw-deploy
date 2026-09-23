@@ -14,16 +14,17 @@
 #
 # BLOCKED ist ein aktionabler Zustand: ein roter Required-Check friert den PR ein
 # (kein Auto-Merge, aber auch kein Fortkommen) — ohne Agent-Turn hängt er stumm.
-# Damit ein dauerhaft roter PR nicht jede 5-Min-Runde Tokens verbrennt, greift für
-# BLOCKED ein Cooldown: solange das jüngste `[VERDICT:`-Kommentar frisch ist, wird
-# kein Agent-Turn angestossen (der Fall ist ja schon bewertet). Nur ein fehlendes
-# oder abgelaufenes Verdict lässt den Agenten wieder ran. Die anderen Zustände
-# (CLEAN|BEHIND|UNSTABLE) bleiben unverändert (immer Agent-Turn).
+# Verdict-Cooldown (Token-Schutz): liegt zu einem PR bereits ein `[VERDICT:`-Kommentar
+# vor, der NICHT freigibt (REQUEST_CHANGES), und ist er jünger als der Cooldown, wird
+# kein Agent-Turn angestossen — der Ball liegt beim Worker, ein neuer Review wäre nur
+# eine Wiederholung (real: 11 Turns für denselben PR #915). Ein APPROVE-Verdict fällt
+# bewusst nicht hierher (dann können Checks noch laufen). Die Zustände BEHIND/UNSTABLE
+# ohne Verdict bleiben unverändert (immer Agent-Turn).
 #
 # Optionen:
 #   -h, --help          Diese Hilfe.
-#   --cooldown-min N    Cooldown-Frist in Minuten für BLOCKED (Default 60).
-#                       Env: RIFT_GATE_COOLDOWN_MIN (Alias GATE_COOLDOWN_MIN).
+#   --cooldown-min N    Cooldown-Frist in Minuten für „reviewt, aber nicht freigegeben"
+#                       (Default 60). Env: RIFT_GATE_COOLDOWN_MIN (Alias GATE_COOLDOWN_MIN).
 #
 # Exit 0  = OK (Aktion ausgeführt ODER nichts zu tun; welches steht im Log).
 #           WICHTIG: auch der Skip muss 0 sein — der Scheduler wertet einen Command-Payload
@@ -138,11 +139,15 @@ while read -r num state; do
       needs_agent=$((needs_agent+1)); continue
     fi
     actions=$((actions+1))
-  elif [ "$state" = "BLOCKED" ] && [ -n "$verdict_at" ] \
+  elif [ -n "$verdict_at" ] \
+       && ! printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
        && vep="$(iso_to_epoch "$verdict_at")" && [ -n "$vep" ] \
        && [ $(( (NOW - vep) / 60 )) -lt "$COOLDOWN_MIN" ]; then
-    # Roter Required-Check, aber bereits bewertet → Cooldown, 0 Tokens.
-    log "SKIP #$num cooldown (rot, letztes Verdict vor $(( (NOW - vep) / 60 ))min)"
+    # Schon bewertet und NICHT freigegeben (REQUEST_CHANGES): der Ball liegt beim Worker,
+    # nicht beim Gate. Erneut zu triggern wuerde nur denselben Review wiederholen — real
+    # 11x fuer denselben PR (#915) in Folge, weil der Worker noch nicht nachgeliefert hat.
+    # Ein APPROVE-Verdict faellt bewusst NICHT hierher (Checks koennen noch laufen).
+    log "SKIP #$num cooldown ($state, letztes Verdict vor $(( (NOW - vep) / 60 ))min)"
   else
     needs_agent=$((needs_agent+1))
   fi

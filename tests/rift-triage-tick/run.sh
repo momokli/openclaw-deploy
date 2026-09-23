@@ -187,6 +187,19 @@ check "Decision-File nennt #896" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev
 check "Decision-File nennt bestehenden PR #900" "1" "$(grep -c 'Bestehender offener PR: #900' "$DECISION" 2>/dev/null || echo 0)"
 
 echo
+echo "== Gate-Uebergabe (triage:implement): offener PR blockiert den Retry NICHT =="
+# Der Gate gibt nach REQUEST_CHANGES an Runner A zurueck (`orchestrator:dispatched` weg,
+# `triage:implement` drauf). Ohne diese Ausnahme in Schritt 5 waere das eine Sackgasse:
+# A skippt wegen "offener Fokus-PR" und der Fix passiert nie (real: #301/#915).
+reset
+issues '[{"number":301,"title":"Retention","labels":[{"name":"triage:implement"}],"body":""}]'
+prs '[{"number":915,"title":"feat(deploy): Retention","body":"Closes #301","headRefName":"feat/301-x"}]'
+run
+check "Retry wird dispatcht" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+check "Decision-File nennt #301" "1" "$(grep -c 'Issue: #301' "$DECISION" 2>/dev/null || echo 0)"
+check "Decision-File nennt den bestehenden PR #915" "1" "$(grep -c 'Bestehender offener PR: #915' "$DECISION" 2>/dev/null || echo 0)"
+
+echo
 echo "== Code-complete (nur Epics/Spikes): Release-PR faellig -> Gate-Turn =="
 # Kein Leaf mehr heisst: der Milestone ist CODE-COMPLETE. Die letzte Aufgabe ist der
 # Release-PR (Changelog + Abnahme + Testplan) — den baut der GATE, nicht die Triage.

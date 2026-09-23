@@ -82,10 +82,12 @@ PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson issues "$ISSUES" '
             | [scan("#([0-9]+)")] | flatten | map(tonumber);
   [ $issues[] | .number ] as $focus
   | [ $issues[] | select((([.labels[].name] | index("triage:redispatch")) != null)) | .number ] as $retry
+  | [ $issues[] | select((([.labels[].name] | index("triage:implement")) != null)) | .number ] as $handoff
   | [ $prs[]
       | select((([.labels[]?.name] | index("release:human-merge")) == null))
       | select(refs | any(. as $n | $focus | index($n)))
       | select((refs | any(. as $n | $retry | index($n))) | not)
+      | select((refs | any(. as $n | $handoff | index($n))) | not)
       | .number ] | join(",")')"
 [ -z "$PR_HIT" ] || skip "offener Fokus-PR: #$PR_HIT"
 

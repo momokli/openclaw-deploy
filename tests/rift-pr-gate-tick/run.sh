@@ -137,8 +137,16 @@ check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
 check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
 
 echo
-echo "== REQUEST_CHANGES -> KEIN Merge, Agent-Turn =="
-reset; focuspr CLEAN all changes
+echo "== REQUEST_CHANGES (frisch) -> kein Re-Review: der Ball liegt beim Worker =="
+reset; focuspr CLEAN all changes 5
+run
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "kein Trigger (Cooldown)" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Cooldown geloggt" "1" "$(printf '%s' "$out" | grep -c 'SKIP #901 cooldown')"
+
+echo
+echo "== REQUEST_CHANGES (altes Verdict) -> Agent-Turn (nachfassen) =="
+reset; focuspr CLEAN all changes 120
 run
 check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
 check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
