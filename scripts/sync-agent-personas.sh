@@ -15,7 +15,9 @@ set -euo pipefail
 
 RUN_USER="${1:-momo}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE_DIR="$(getent passwd "$RUN_USER" | cut -d: -f6)/.openclaw"
+# State-Root: OPENCLAW_STATE_DIR hat Vorrang (der Gateway kann mit --state-dir/Env
+# ausserhalb von ~/.openclaw laufen, z. B. /srv/openclaw auf planet).
+STATE_DIR="${OPENCLAW_STATE_DIR:-$(getent passwd "$RUN_USER" | cut -d: -f6)/.openclaw}"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "Bitte als root ausfuehren: sudo bash scripts/sync-agent-personas.sh $RUN_USER"
