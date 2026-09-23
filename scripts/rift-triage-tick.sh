@@ -114,6 +114,21 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
        'any(.[]; any(.labels[]?; .name == $l))' >/dev/null 2>&1; then
     skip "code-complete, Release-PR laeuft (wartet auf den Menschen)"
   fi
+  # Idempotenz-Sperre: der Gate-Turn braucht Minuten (Branch + CHANGELOG + PR). Ohne
+  # Sperre triggert JEDER 5-Min-Tick erneut — jeder Trigger ist ein voller Modell-Turn.
+  # (Real passiert: 22:21 und 22:26 beide getriggert, weil der PR noch nicht existierte.)
+  REL_STAMP="${OPENCLAW_STATE_DIR:-/srv/openclaw}/workspace/rift-release-requested.stamp"
+  REL_COOLDOWN="${RIFT_RELEASE_COOLDOWN_MIN:-30}"
+  if [ -f "$REL_STAMP" ]; then
+    stamp_ep="$(cat "$REL_STAMP" 2>/dev/null)"
+    case "$stamp_ep" in ''|*[!0-9]*) stamp_ep=0 ;; esac
+    if [ "$stamp_ep" -gt 0 ]; then
+      rel_age=$(( ( $(date -u +%s) - stamp_ep ) / 60 ))
+      if [ "$rel_age" -lt "$REL_COOLDOWN" ]; then
+        skip "Release bereits angefragt vor ${rel_age}min (< ${REL_COOLDOWN}min Cooldown)"
+      fi
+    fi
+  fi
   REL_FILE="${OPENCLAW_STATE_DIR:-/srv/openclaw}/workspace/rift-release-decision.md"
   {
     printf '# Release-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
@@ -132,6 +147,8 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
     log "DRY-RUN: code-complete ($TITLE) — Release-PR faellig, würde rift-pr-gate:main triggern"
     exit 0
   fi
+  # Fail-closed: erst stempeln, dann triggern. Scheitert der Trigger, wird nicht gehämmert.
+  date -u +%s > "$REL_STAMP" 2>/dev/null || log "WARNUNG: Release-Stamp ($REL_STAMP) nicht schreibbar"
   GATE_ID="$(openclaw automations list --all --json 2>/dev/null \
         | jq -r '.jobs[] | select(.declarationKey == "rift-pr-gate:main") | .id' | head -1)"
   [ -n "$GATE_ID" ] && [ "$GATE_ID" != "null" ] || die "Agent-Job rift-pr-gate:main nicht gefunden"

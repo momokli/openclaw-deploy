@@ -86,7 +86,7 @@ nofocus()   { rm -f "$FX/focus"; }
 dispatched(){ printf '%s' "$1" > "$FX/dispatched.json"; }
 issues()    { printf '%s' "$1" > "$FX/issues.json"; }
 prs()       { printf '%s' "$1" > "$FX/prs.json"; }
-reset()     { : > "$ACTIONS"; focus_ok; dispatched '[]'; issues '[{"number":896,"title":"ci: build parallel","labels":[],"body":""}]'; prs '[]'; }
+reset()     { : > "$ACTIONS"; focus_ok; dispatched '[]'; issues '[{"number":896,"title":"ci: build parallel","labels":[],"body":""}]'; prs '[]'; rm -f "$OPENCLAW_STATE_DIR/workspace/rift-release-requested.stamp"; }
 
 run() { out="$("$SCRIPT" 2>&1)"; rc=$?; }
 
@@ -177,6 +177,17 @@ check "Gate-Turn getriggert (nicht Triage)" "trigger JOB-2" "$(grep '^trigger' "
 check "kein Triage-Trigger" "0" "$(grep -c 'trigger JOB-1' "$ACTIONS")"
 check "Release-Decision nennt den Milestone" "1" "$(grep -c 'Milestone: 1.0.1' "$REL" 2>/dev/null || echo 0)"
 check "Release-Decision nennt das Tag" "1" "$(grep -c 'Tag-Vorschlag: v1.0.1' "$REL" 2>/dev/null || echo 0)"
+
+# Ein zweiter Tick innerhalb der Sperre darf NICHT erneut triggern (Token-Schutz):
+# der Gate-Turn braucht Minuten (Branch + CHANGELOG + PR).
+reset
+issues '[{"number":724,"title":"[Epic]","labels":[],"body":""}]'
+run
+check "erster Lauf triggert den Release" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
+: > "$ACTIONS"
+run
+check "zweiter Lauf triggert nicht (Cooldown)" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Log nennt den Cooldown" "1" "$(printf '%s' "$out" | grep -c 'Release bereits angefragt')"
 
 # Ein laufender Release-PR darf nicht jeden Tick erneut triggern.
 reset
