@@ -234,6 +234,24 @@ check "Decision-File nennt #301" "1" "$(grep -c 'Issue: #301' "$DECISION" 2>/dev
 check "Decision-File nennt den bestehenden PR #915" "1" "$(grep -c 'Bestehender offener PR: #915' "$DECISION" 2>/dev/null || echo 0)"
 
 echo
+echo "== Bestehender PR: Release-PR ignorieren, echten Feature-PR waehlen (real #951 vs #948) =="
+reset
+issues '[{"number":930,"title":"Solo-Button","labels":[{"name":"triage:implement"}],"body":""}]'
+prs '[{"number":951,"title":"chore(release): v1.0.3","body":"Closes #950\nHinweis: #930 ist nicht in main","headRefName":"release/1.0.3","labels":[{"name":"release:human-merge"}]},{"number":948,"title":"feat(#930): Solo-Button","body":"Closes #930","headRefName":"feat/930-proxy-solo-self-send","labels":[]}]'
+run
+check "Exit 0" "0" "$rc"
+check "Agent-Turn getriggert" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+check "Decision-File nennt #948" "1" "$(grep -c 'Bestehender offener PR: #948' "$DECISION" 2>/dev/null || echo 0)"
+check "Release-PR #951 wird NICHT gewaehlt" "0" "$(grep -c 'Bestehender offener PR: #951' "$DECISION" 2>/dev/null || true)"
+
+# Ein Release-PR, der das Issue nur im Prosa nennt, ist kein Arbeits-PR.
+reset
+issues '[{"number":930,"title":"Solo-Button","labels":[{"name":"triage:implement"}],"body":""}]'
+prs '[{"number":951,"title":"chore(release): v1.0.3","body":"siehe #930","headRefName":"release/1.0.3","labels":[{"name":"release:human-merge"}]}]'
+run
+check "kein bestehender PR aus Prosa-Erwaehnung" "0" "$(grep -c 'Bestehender offener PR' "$DECISION" 2>/dev/null || true)"
+
+echo
 echo "== Code-complete (nur Epics/Spikes): Release-PR faellig -> Gate-Turn =="
 # Kein Leaf mehr heisst: der Milestone ist CODE-COMPLETE. Die letzte Aufgabe ist der
 # Release-PR (Changelog + Abnahme + Testplan) — den baut der GATE, nicht die Triage.

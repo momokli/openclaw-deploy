@@ -264,9 +264,19 @@ CHOSEN_TITLE="$(printf '%s' "$ISSUES" | jq -r --argjson c "$CHOSEN" '.[]|select(
 # rotem Required-Check)? Dann ist der Branch die Arbeitsgrundlage — einen zweiten PR
 # aufzumachen würde den Slot erneut blockieren (Schritt 5 kennt nur „PR offen").
 EXIST_PR="$(jq -nr --argjson prs "$PRS" --argjson c "$CHOSEN" '
-  def refs: ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
-            | [scan("#([0-9]+)")] | flatten | map(tonumber);
-  [ $prs[] | select(refs | index($c)) | .number ] | .[0] // ""')"
+  # Release-PRs sind nie Arbeitsgrundlage (real: #951 nannte `#930` im Text und wurde
+  # faelschlich als bestehender PR fuer #930 gewaehlt, statt des echten #948).
+  # Treffer mit Branch-Token/Closing-Keyword sind stark und schlagen blosse Erwaehnungen.
+  [ $prs[]
+    | select((([.labels[]?.name] | index("release:human-merge")) == null))
+    | { n: .number,
+        s: ( if ( ((.headRefName // "") | test("(^|[/_-])" + ($c | tostring) + "([/_-]|$)"))
+                  or ((.body // "") | test("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#" + ($c | tostring) + "\\b")) )
+             then 0 else 1 end ),
+        hit: ( ( ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
+                 | [scan("#([0-9]+)")] | flatten | map(tonumber) | index($c) ) != null ) }
+    | select(.hit)
+  ] | sort_by(.s) | (.[0].n // "") | tostring')"
 # Eindeutiges Worker-Label (Pflicht): `sessions_spawn` verweigert ein bereits benutztes Label
 # ("label already in use") — ein Retry/Rework mit statischem `triage-<n>` fiel real aus (#929).
 # Der Stale-Guard liest nur den Nummern-Token; der Epoch-Suffix stoert ihn nicht.
