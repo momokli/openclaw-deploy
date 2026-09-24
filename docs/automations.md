@@ -95,7 +95,10 @@ alle 5 min  rift-pr-gate-tick  (Shell)  → aktionabler Fokus-PR?    → sonst E
   und dasselbe Issue wurde doppelt dispatcht (real: #929 — der Rework-Worker lief, der Slot sah
   trotzdem frei aus). Er schreibt außerdem ein **eindeutiges Worker-Label** `triage-<n>-<epoch>` ins
   Decision-File: `sessions_spawn` verweigert wiederverwendete Labels (`label already in use`, real:
-  `triage-929`), ein Retry/Rework mit statischem Label fiel deshalb aus.
+  `triage-929`), ein Retry/Rework mit statischem Label fiel deshalb aus. Bei einem bestehenden PR
+  mit letztem `[VERDICT: REQUEST_CHANGES]` zitiert er außerdem die **Review-Blocker** ins Decision-File,
+  damit der Fixer-Auftrag sie nennt (real: #948 wurde nur rebased, während der Review Screenshots
+  verlangte).
 - **`rift-pr-gate-tick` mergt deterministisch:** bei `[VERDICT: APPROVE]` + `CLEAN` +
   ausschliesslich grünen Checks `gh pr merge --squash --delete-branch` (0 Tokens). Nur wenn
   Review/Rebase nötig ist, geht es an den Agent-Turn.
@@ -121,6 +124,12 @@ und Stale-Guard (kein Worker-PR, fließt nicht in die Retry-Entscheidung ein).
 Fällt ein Player-Test durch, kommt das Issue **zurück in den Milestone** (neu/reopen) — damit ist der
 Milestone wieder nicht code-complete, die Triage dispatcht normal weiter, und der nächste
 Release-Lauf **aktualisiert denselben** PR.
+
+Der Tick überspringt einen laufenden Release-PR **nur, wenn er aktuell ist**: er vergleicht den
+**letzten Release-Commit** mit dem **neuesten `closedAt`** der Milestone-Issues. Ist dort Arbeit
+nach dem letzten Release-Commit passiert, triggert der Tick den Gate-Turn erneut (Cooldown bleibt),
+der denselben PR nachzieht. Ohne diese Prüfung blieb der Changelog stehen, wenn der PR entstand,
+während der Milestone fälschlich code-complete aussah (real: #951 vs. #930/#948).
 
 - Exit-Codes der Ticks: `0` = OK (Aktion **oder** nichts zu tun — welches steht im Log; ein
   Command-Payload mit Exit ≠ 0 gilt als Job-Fehler), `2` = Fehler. `RIFT_TICK_DRY=1` = Trockenlauf.
