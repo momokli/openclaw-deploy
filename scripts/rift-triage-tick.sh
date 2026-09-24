@@ -169,17 +169,28 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
   # RELEASE-PR (Changelog + Abnahme + Testplan), den der GATE baut und den der Mensch
   # merged. Wir schreiben die Entscheidung und triggern den Gate-Turn — der Agent-Turn
   # hier waere der falsche (er baut Issues ab, nicht Releases).
-  if printf '%s' "$PRS" | jq -e --arg l "release:human-merge" \
-       'any(.[]; any(.labels[]?; .name == $l))' >/dev/null 2>&1; then
-    skip "code-complete, Release-PR laeuft (wartet auf den Menschen)"
-  fi
   # Release bereits ausgeliefert? Der Release-PR schliesst das `[Release]`-Tracking-Issue.
   # Ist dieses ZU, ist der Release durch — dann darf hier nichts erneut anlaufen, solange
   # der Mensch den Milestone noch nicht geschlossen hat (sonst entstuende ein zweiter
   # Release-PR fuer denselben Release). Das Tracking-Issue lebt nicht in $ISSUES (nur offene).
-  if "$GH" issue list --repo "$REPO" --milestone "$N" --state closed --limit 100 \
-       --json title 2>/dev/null | jq -e 'any(.[]; .title | test("^\\[Release\\]"; "i"))' >/dev/null 2>&1; then
+  CLOSED_JSON="$($GH issue list --repo "$REPO" --milestone "$N" --state closed --limit 200 \
+      --json number,title,closedAt 2>/dev/null)" || CLOSED_JSON='[]'
+  if printf '%s' "$CLOSED_JSON" | jq -e 'any(.[]; .title | test("^\\[Release\\]"; "i"))' >/dev/null 2>&1; then
     skip "Release ausgeliefert ([Release]-Issue geschlossen) — Milestone schliessen"
+  fi
+  # Release-PR offen: NUR skippen, wenn er den aktuellen Milestone-Stand schon abbildet.
+  # Sonst bliebe nach neu gemergter Arbeit der Changelog stehen — real: #951 entstand, als #930
+  # faelschlich zu war; nach dem #948-Merge haette ihn sonst niemand mehr aktualisiert.
+  REL_PR_NUM="$(printf '%s' "$PRS" | jq -r 'map(select(any(.labels[]?; .name == "release:human-merge")))[0].number // ""')"
+  if [ -n "$REL_PR_NUM" ]; then
+    rel_commit="$($GH pr view "$REL_PR_NUM" --repo "$REPO" --json commits 2>/dev/null \
+      | jq -r '[.commits[].committedDate] | max // ""')"
+    newest_closed="$(printf '%s' "$CLOSED_JSON" | jq -r '[.[].closedAt // empty] | max // ""')"
+    if [ -n "$rel_commit" ] && [ -n "$newest_closed" ] && [ "$newest_closed" \> "$rel_commit" ]; then
+      log "Release-PR #$REL_PR_NUM veraltet (Arbeit nach letztem Release-Commit) → wird aktualisiert"
+    else
+      skip "code-complete, Release-PR #$REL_PR_NUM laeuft und ist aktuell (wartet auf den Menschen)"
+    fi
   fi
   # Idempotenz-Sperre: der Gate-Turn braucht Minuten (Branch + CHANGELOG + PR). Ohne
   # Sperre triggert JEDER 5-Min-Tick erneut — jeder Trigger ist ein voller Modell-Turn.

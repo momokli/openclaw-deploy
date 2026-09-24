@@ -60,6 +60,7 @@ case "$1 $2" in
       *)                         cat "$FX/issues.json" ;;
     esac ;;
   "pr list") cat "$FX/prs.json" ;;
+  "pr view") cat "$FX/pr-view.json" 2>/dev/null || echo '{}' ;;
   "issue edit") printf 'issue-edit %s\n' "$*" >> "$ACTIONS" ;;
 esac
 exit 0
@@ -89,7 +90,8 @@ dispatched(){ printf '%s' "$1" > "$FX/dispatched.json"; }
 issues()    { printf '%s' "$1" > "$FX/issues.json"; }
 milestone_closed() { printf '%s' "$1" > "$FX/issues-closed.json"; }
 prs()       { printf '%s' "$1" > "$FX/prs.json"; }
-reset()     { : > "$ACTIONS"; focus_ok; dispatched '[]'; issues '[{"number":896,"title":"ci: build parallel","labels":[],"body":""}]'; prs '[]'; milestone_closed '[]'; rm -f "$OPENCLAW_STATE_DIR/workspace/rift-release-requested.stamp"; }
+pr_view()   { printf '%s' "$1" > "$FX/pr-view.json"; }
+reset()     { : > "$ACTIONS"; focus_ok; dispatched '[]'; issues '[{"number":896,"title":"ci: build parallel","labels":[],"body":""}]'; prs '[]'; milestone_closed '[]'; pr_view '{}'; rm -f "$OPENCLAW_STATE_DIR/workspace/rift-release-requested.stamp"; }
 
 run() { out="$("$SCRIPT" 2>&1)"; rc=$?; }
 
@@ -283,6 +285,28 @@ prs '[{"number":950,"title":"chore(release): 1.0.1","body":"","headRefName":"rel
 run
 check "Exit 0 (Release laeuft)" "0" "$rc"
 check "kein Trigger, solange der Release-PR laeuft" "0" "$(grep -c '^trigger' "$ACTIONS")"
+
+echo
+echo "== Release-PR veraltet (Arbeit nach letztem Release-Commit) -> Gate-Turn ="
+reset
+issues '[{"number":724,"title":"[Epic]","labels":[],"body":""}]'
+prs '[{"number":950,"title":"chore(release): 1.0.1","body":"Closes #913","headRefName":"release/1.0.1","labels":[{"name":"release:human-merge"}]}]'
+milestone_closed '[{"number":913,"title":"grosses Feature","closedAt":"2026-09-24T12:00:00Z"}]'
+pr_view '{"commits":[{"committedDate":"2026-09-24T10:00:00Z"}]}'
+run
+check "Exit 0" "0" "$rc"
+check "Gate-Turn getriggert (Update)" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
+check "Log nennt veralteten PR" "1" "$(printf '%s' "$out" | grep -c 'veraltet')"
+
+echo
+echo "== Release-PR aktuell -> kein Trigger ="
+reset
+issues '[{"number":724,"title":"[Epic]","labels":[],"body":""}]'
+prs '[{"number":950,"title":"chore(release): 1.0.1","body":"Closes #913","headRefName":"release/1.0.1","labels":[{"name":"release:human-merge"}]}]'
+milestone_closed '[{"number":913,"title":"grosses Feature","closedAt":"2026-09-24T09:00:00Z"}]'
+pr_view '{"commits":[{"committedDate":"2026-09-24T10:00:00Z"}]}'
+run
+check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
 # R4: der Release-PR blockiert die Arbeit an einem offenen Issue NICHT (sonst friert die
 # Endabnahme genau dann alles ein, wenn ein Player-Test einen Retry braucht).
