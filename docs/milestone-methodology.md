@@ -129,6 +129,24 @@ Vor jeder Iteration, per Hand:
    kommt das Issue zurück in den Milestone; der nächste Release-Lauf aktualisiert denselben PR.
 5. Iteration beenden = **Milestone schließen** → der nächste wird automatisch Fokus.
 
+### Tag-/Semver-Hygiene
+
+- **Ein Tag = ein abgeschlossener Milestone.** Die Tag-Reihenfolge muss zur
+  Versions-Reihenfolge passen. **Nie einen Zukunfts-Milestone taggen** — sonst lügen die Tags
+  über die Reihenfolge.
+- **Negativbeispiel (2026-09-24):** `v1.1.0` wurde zwei Tage **vor** `v1.0.1` getaggt und
+  zeigte auf einen _älteren_ Commit. Prod lief dadurch auf einem Commit, der älter war als
+  `v1.0.1`. Der Tag wurde am 2026-09-24 entfernt (per API, s. u.).
+- **Tag-Push = Prod-Deploy** (`deploy.yml`, Env `prod`, wartet auf Freigabe).
+- **Tag löschen NIE per `git push origin :refs/tags/<tag>`** — das feuert den `push`-Trigger
+  auf `tags: v*` und startet einen ungewollten (wenn auch env-gated) Deploy-Lauf. Stattdessen
+  per API:
+  ```sh
+  gh api -X DELETE repos/<owner>/<repo>/git/refs/tags/<tag>
+  ```
+- Erstellen/Löschen von Tags ist per Ruleset `release-tags-protected` geschützt (Bypass nur
+  Admin-Rolle und `momokli`).
+
 ## 7 · Aufräumen, Stand 2026-09-23
 
 Einmalig per Hand erledigt (die Automatik kann das nicht):
