@@ -246,6 +246,16 @@ setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"
 run
 want "SKIP 401 linked-pr-open" "laufender Worker schützt auch bei rotem PR"
 nomut "keine Mutationen solange der PR bearbeitet wird"
+# Realer Fall #928/#933: der PR selbst erzeugt Referenzen (Commits + Cross-Reference) NACH
+# dem Dispatch. Früher blockierte S4 (Aktivität) den RED-BLOCKED-Retry → toter Code.
+TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)"
+          "$(ev_referenced "$(ago_iso 60)")"
+          "$(ev_xref "$(ago_iso 40)" 412 open 1)")
+SESSIONS=("$(sess triage-401 done "$(ago_ms 45)")")
+setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"Closes #401","mergeStateStatus":"BLOCKED"}]' "$LABELS_NO_RD"
+run
+want "RED-BLOCKED 401" "roter PR + Aktivität (Commits/Cross-Ref) → trotzdem Retry-Fall"
+want "REDISPATCH 401 attempts=1" "roter PR + Aktivität + fertigem Worker → Retry statt Stillstand"
 TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)"
           "$(ev_xref "$(ago_iso 80)" 355 closed 1)")
 setup "$ISSUE_DISPATCHED" "$PRS_NONE" "$LABELS_NO_RD"

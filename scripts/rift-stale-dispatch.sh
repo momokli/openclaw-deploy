@@ -285,6 +285,7 @@ for n in $CANDIDATES; do
   fi
 
   # S3: offener PR verlinkt (Konvention ODER Timeline-Cross-Reference)?
+  red_blocked=0
   xref_open="$(printf '%s' "$tl" | jq -r '
     [ .[] | select(.event == "cross-referenced")
           | select(.source.issue.pull_request != null)
@@ -294,6 +295,7 @@ for n in $CANDIDATES; do
     # Ausnahme (siehe Header): rot gelaufener PR ohne laufenden Worker ⇒ Retry-Pfad.
     if red_blocked_pr "$n" && [ "$(worker_state "$n" "$dispatch_ep")" != "running" ]; then
       note "RED-BLOCKED $n (PR offen, Required-Check rot) → Retry-Pfad"
+      red_blocked=1
     else
       note "SKIP $n linked-pr-open"; skipped=$((skipped + 1)); continue
     fi
@@ -327,7 +329,12 @@ for n in $CANDIDATES; do
                        and ((.user.type // "") != "Bot")
                        and (((.body // "") | test($m)) | not)))
           | select((.created_at | fromdateiso8601) > $t) ] | length')"
-  if [ "$activity" -gt 0 ]; then
+  # Der RED-BLOCKED-Pfad (S3-Ausnahme) ist von S4 ausgenommen: der PR selbst erzeugt
+  # Cross-References/Commit-Referenzen NACH dem Dispatch — würde S4 hier greifen, wäre die
+  # S3-Ausnahme toter Code (real: #928/#933 hing ~1,5 h mit rotem PR + nur
+  # `orchestrator:dispatched`, kein Handoff-Label → der Slot blieb belegt).
+  # Ein laufender Worker schützt weiterhin (siehe S3-Bedingung: worker_state != running).
+  if [ "$activity" -gt 0 ] && [ "$red_blocked" != 1 ]; then
     note "SKIP $n activity-since-dispatch"; skipped=$((skipped + 1)); continue
   fi
 
