@@ -89,6 +89,13 @@ alle 5 min  rift-pr-gate-tick  (Shell)  → aktionabler Fokus-PR?    → sonst E
   `<OPENCLAW_STATE_DIR>/workspace/rift-triage-decision.md`; der Agent-Turn liest sie (Schritt 0 des
   Prompts, gültig < 15 min) und **wählt nicht mehr selbst**. Grund: `openclaw automations run
 <id>` nimmt keine Parameter — die Datei ist der Kanal.
+- **Slot-Belegung beim Dispatch (deterministisch):** Bevor der Tick den Agent-Turn triggert, setzt
+  er auf dem gewählten Issue `orchestrator:dispatched` und nimmt `triage:implement` ab. Sonst nahm
+  Schritt 2b im nächsten Tick das Dispatch-Label wieder weg (weil `triage:implement` noch klebte)
+  und dasselbe Issue wurde doppelt dispatcht (real: #929 — der Rework-Worker lief, der Slot sah
+  trotzdem frei aus). Er schreibt außerdem ein **eindeutiges Worker-Label** `triage-<n>-<epoch>` ins
+  Decision-File: `sessions_spawn` verweigert wiederverwendete Labels (`label already in use`, real:
+  `triage-929`), ein Retry/Rework mit statischem Label fiel deshalb aus.
 - **`rift-pr-gate-tick` mergt deterministisch:** bei `[VERDICT: APPROVE]` + `CLEAN` +
   ausschliesslich grünen Checks `gh pr merge --squash --delete-branch` (0 Tokens). Nur wenn
   Review/Rebase nötig ist, geht es an den Agent-Turn.

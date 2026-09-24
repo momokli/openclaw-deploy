@@ -60,6 +60,7 @@ case "$1 $2" in
       *)                         cat "$FX/issues.json" ;;
     esac ;;
   "pr list") cat "$FX/prs.json" ;;
+  "issue edit") printf 'issue-edit %s\n' "$*" >> "$ACTIONS" ;;
 esac
 exit 0
 SHIM
@@ -197,6 +198,27 @@ run
 check "Exit 0" "0" "$rc"
 check "Handoff-Buchhaltung geloggt" "1" "$(printf '%s' "$out" | grep -c 'Handoff #909')"
 check "Retry wird dispatcht" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+
+echo
+echo "== Dispatch belegt den Slot deterministisch + nimmt triage:implement ab =="
+# Regression #929: der Tick muss den Slot VOR dem Agent-Turn belegen und `triage:implement`
+# abnehmen — sonst nimmt Schritt 2b im naechsten Lauf `orchestrator:dispatched` wieder ab
+# (weil triage:implement klebt) und derselbe Rework-Worker wird doppelt gestartet.
+reset
+issues '[{"number":896,"title":"ci: build parallel","labels":[{"name":"triage:implement"}],"body":""}]'
+: > "$ACTIONS"
+run
+check "Exit 0" "0" "$rc"
+check "Agent-Turn getriggert" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+check "Dispatch belegt Slot + nimmt triage:implement ab" "1" \
+  "$(grep -c 'issue-edit issue edit 896 .*--add-label orchestrator:dispatched .*--remove-label triage:implement' "$ACTIONS")"
+check "Decision-File nennt das eindeutige Worker-Label" "1" \
+  "$(grep -c 'Worker-Label: triage-896-' "$DECISION" 2>/dev/null || echo 0)"
+# Naechster Tick: das Issue traegt jetzt `orchestrator:dispatched` -> KEIN zweiter Dispatch.
+dispatched '[{"number":896}]'
+: > "$ACTIONS"
+run
+check "zweiter Tick dispatcht nicht (Slot belegt)" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
 echo
 echo "== Gate-Uebergabe (triage:implement): offener PR blockiert den Retry NICHT =="

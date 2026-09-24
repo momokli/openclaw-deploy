@@ -34,6 +34,7 @@ Slot belegt → **nichts dispatchen**, im Status-Log „awaiting slot: #<n>/PR #
    Nennt die Datei einen **bestehenden offenen PR**, arbeite auf DESSEN Branch weiter und öffne
    **keinen** zweiten PR — ein zweiter offener PR zum selben Issue würde den WIP=1-Slot erneut
    belegen (der Retry wäre wirkungslos).
+   Nennt die Datei ein **Worker-Label**, verwende **genau dieses** für `sessions_spawn`.
 
 1. **Fokus ermitteln** (oben). Bei Exit ≠ 0 → Stop.
 2. **Stale-Guard** (Pflicht, genau einmal): `rift-stale-dispatch.sh -m <fokus-title>`. Gibt hängende Dispatches frei (Details: `--help`). `REDISPATCH`- und `summary`-Zeilen ins Status-Log. Scheitert der Aufruf (Exit ≠ 0), Fehler vermerken und normal weitermachen — der Guard ist Zusatzsicherung, kein Blocker.
@@ -75,7 +76,10 @@ Slot belegt → **nichts dispatchen**, im Status-Log „awaiting slot: #<n>/PR #
      Zeile `[ALREADY-DONE]` ist, mit Beleg (PR-Nr., Merge-Commit, Check-Status). Letzter
      Turn ist ein Text-Report."
      Agent: `coding-orchestrator` (Code/Bug/Feature) bzw. `planning-orchestrator` (freigegebener Spike).
-9. **Nach dem Dispatch**: `orchestrator:dispatched` aufs Issue setzen (`clanker-gh issue edit <n> --add-label orchestrator:dispatched`).
+9. **Nach dem Dispatch**: den Slot belegen — `clanker-gh issue edit <n> --add-label orchestrator:dispatched --remove-label triage:implement`.
+   `triage:implement` MUSS dabei abgenommen werden: bleibt es kleben, nimmt der Tick (Schritt 2b)
+   im nächsten Lauf `orchestrator:dispatched` wieder ab und dasselbe Issue wird doppelt dispatcht
+   (real: #929 — der Rework-Worker lief, der Slot sah trotzdem frei aus).
 10. **Kein Review, kein Merge** — das ist ausschließlich der `rift-pr-gate`.
 
 ## Basis-Branch (Stack)
@@ -97,7 +101,12 @@ Der `rift-pr-gate` mergt selbst, gibt aber den Rebase danach zurück. Findet er 
 ## Regeln
 
 - **Modell bei `sessions_spawn` IMMER explizit setzen** (nie vererben lassen): `openrouter/deepseek/deepseek-v4.1-flash`.
-- **Label-Schema bei `sessions_spawn` (Pflicht, die Stale-Erkennung liest es):** `triage-<n>` (coding-orchestrator), `research-<n>` (planning-orchestrator), `triage-<n>-rework` (Rework). Die Issue-Nummer muss als eigener Token im Label stehen (Ziffer mit Nicht-Ziffer davor/danach) — sonst kann der Guard den Worker nicht zuordnen.
+- **Label-Schema bei `sessions_spawn` (Pflicht, die Stale-Erkennung liest es):** `triage-<n>-<epoch>`
+  (coding-orchestrator) bzw. `research-<n>-<epoch>` (planning-orchestrator). Die Issue-Nummer muss
+  als eigener Token im Label stehen (Ziffer mit Nicht-Ziffer davor/danach) — sonst kann der Guard
+  den Worker nicht zuordnen. Das Label muss **pro Dispatch eindeutig** sein: `sessions_spawn`
+  verweigert ein bereits benutztes Label (`label already in use`, real: `triage-929`). Nimm das
+  `Worker-Label` aus dem Decision-File; ohne Datei `triage-<n>-$(date +%s)`.
 - Isolated, frischer Start, KEIN Kontext-Aufbau.
 - Status-Log: `$HOME/.openclaw/workspace/rift-triage-status.md` (Zeitstempel, Fokus-Milestone, Slot-Status, dispatched, awaiting human, awaiting slot, Guard-summary).
 - Antwort: `NO_REPLY` — außer es gab einen Dispatch, dann kurze Meldung (max 6 Zeilen, Deutsch).

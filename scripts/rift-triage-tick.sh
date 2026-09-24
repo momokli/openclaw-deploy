@@ -87,7 +87,44 @@ fi
 ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
   --json number,title,labels,body 2>/dev/null)" || die "issue list fehlgeschlagen"
 PRS="$("$GH" pr list --repo "$REPO" --state open --limit 100 \
-  --json number,title,body,headRefName,labels 2>/dev/null)" || die "pr list fehlgeschlagen"
+  --json number,title,body,headRefName,labels,comments 2>/dev/null)" || die "pr list fehlgeschlagen"
+
+# 4b) Gate-Handback deterministisch nachziehen (0 Tokens).
+#     Ein offener Fokus-PR mit letztem `[VERDICT: REQUEST_CHANGES]` heisst: **A muss
+#     nachbessern**. Setzt der Gate das Handoff-Label `triage:implement` nicht, haengt der
+#     Slot in Schritt 5 (offener Fokus-PR ohne Handoff-Ausnahme) — real: #929/#938.
+#     Nur wenn KEIN Dispatch laeuft (kein `orchestrator:dispatched`): sonst Finger weg,
+#     dann greift der Guard (rift-stale-dispatch.sh) bzw. die 2b-Buchhaltung.
+HANDBACK="$(jq -nr --argjson issues "$ISSUES" --argjson prs "$PRS" '
+  [ $prs[]
+    | select((([.labels[]?.name] | index("release:human-merge")) == null))
+    | { verdict: ( [ .comments[]? | (.body // "")
+                    | capture("\\[VERDICT:[ \\t]*(?<v>[A-Za-z_]+)")? ]
+                  | last // {} | (.v // "") ),
+        refs: ( ((.headRefName // "") | [scan("(?:^|[/_-])([0-9]+)(?=[/_-]|$)")] | map(.[0] | tonumber))
+              + ((.body // "")
+                 | [scan("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|relate[sd]?|part of|addresses)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]
+                 | map(.[0] | tonumber)) ) }
+    | select(.verdict == "REQUEST_CHANGES")
+    | .refs[]
+  ] as $refs
+  | $issues[]
+  | select((.labels | map(.name) | index("triage:implement")) == null)
+  | select((.labels | map(.name) | index("orchestrator:dispatched")) == null)
+  | select(.number as $x | ($refs | index($x)) != null)
+  | .number  | tostring')" || die "Handback-Auswahl fehlgeschlagen"
+for hn in $HANDBACK; do
+  if "$GH" issue edit "$hn" --repo "$REPO" --add-label "triage:implement" >/dev/null 2>&1; then
+    log "Handback #$hn: Gate-Reject ohne Handoff-Label → triage:implement gesetzt (Fixer dispatchbar)"
+  else
+    log "WARNUNG: triage:implement auf #$hn nicht setzbar (Handback)"
+  fi
+done
+if [ -n "$HANDBACK" ]; then
+  # Liste neu holen, damit Schritt 5 die Handoff-Ausnahme sieht (gleicher Lauf).
+  ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
+    --json number,title,labels,body 2>/dev/null)" || die "issue list (refresh) fehlgeschlagen"
+fi
 
 # 5) Offener PR mit Bezug auf ein Fokus-Issue? (Slot belegt)
 #    AUSNAHMEN, in denen ein offener PR NICHT blockiert:
@@ -230,6 +267,10 @@ EXIST_PR="$(jq -nr --argjson prs "$PRS" --argjson c "$CHOSEN" '
   def refs: ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
             | [scan("#([0-9]+)")] | flatten | map(tonumber);
   [ $prs[] | select(refs | index($c)) | .number ] | .[0] // ""')"
+# Eindeutiges Worker-Label (Pflicht): `sessions_spawn` verweigert ein bereits benutztes Label
+# ("label already in use") — ein Retry/Rework mit statischem `triage-<n>` fiel real aus (#929).
+# Der Stale-Guard liest nur den Nummern-Token; der Epoch-Suffix stoert ihn nicht.
+WORKER_LABEL="triage-${CHOSEN}-$(date -u +%s)"
 {
   printf '# Triage-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
   printf -- '- Zeit: %s\n' "$(date -Is)"
@@ -240,14 +281,23 @@ EXIST_PR="$(jq -nr --argjson prs "$PRS" --argjson c "$CHOSEN" '
   if [ -n "$EXIST_PR" ]; then
     printf -- '- Bestehender offener PR: #%s — auf DESSEN Branch weiterarbeiten (keinen zweiten PR öffnen).\n' "$EXIST_PR"
   fi
+  printf -- '- Worker-Label: %s (PFLICHT fuer `sessions_spawn`; pro Dispatch eindeutig).\n' "$WORKER_LABEL"
   printf '\n**Diese Auswahl ist verbindlich** — keine Neuauswahl, kein Slot-/Leaf-Re-Check im Agent-Turn.\n'
   printf 'Ist das Issue bereits erledigt: kein PR, sondern Kommentar + Label `triage:no-action`.\n'
 } > "$DECISION_FILE" 2>/dev/null || log "WARNUNG: Decision-File ($DECISION_FILE) nicht schreibbar"
 
-# 7) Agent-Turn anstoßen (über declaration-key, damit ein Re-Create egal ist).
+# 7) Dispatch-Marker deterministisch setzen, BEVOR der Agent-Turn startet: der Slot ist damit
+#    sofort belegt (kein zweiter Dispatch im 5-min-Fenster) und `triage:implement` wird
+#    abgenommen. Bleibt es kleben, nimmt Schritt 2b im naechsten Tick `orchestrator:dispatched`
+#    wieder weg (weil `triage:implement` noch dran ist) und dasselbe Issue wird doppelt
+#    dispatcht (real: #929 — der Rework-Worker lief, der Slot sah trotzdem frei aus).
 if [ "${RIFT_TICK_DRY:-0}" = "1" ]; then
   log "DRY-RUN: dispatchbar ($TITLE), Issue #$CHOSEN gewählt (Decision-File geschrieben), würde $SELF_KEY triggern"
   exit 0
+fi
+if ! "$GH" issue edit "$CHOSEN" --repo "$REPO" \
+     --add-label orchestrator:dispatched --remove-label triage:implement >/dev/null 2>&1; then
+  die "Dispatch-Label fuer #$CHOSEN (+orchestrator:dispatched -triage:implement) fehlgeschlagen"
 fi
 ID="$(openclaw automations list --all --json 2>/dev/null \
       | jq -r --arg k "$SELF_KEY" '.jobs[] | select(.declarationKey == $k) | .id' | head -1)"
