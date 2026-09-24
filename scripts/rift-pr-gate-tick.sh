@@ -115,7 +115,7 @@ while read -r num state; do
 
   # Letztes Review-Verdict lesen (der Reviewer postet es als Kommentar-Anfang).
   detail="$("$GH" pr view "$num" --repo "$REPO" \
-    --json comments,statusCheckRollup,mergeStateStatus 2>/dev/null)" || { needs_agent=$((needs_agent+1)); continue; }
+    --json comments,statusCheckRollup,mergeStateStatus,commits 2>/dev/null)" || { needs_agent=$((needs_agent+1)); continue; }
 
   verdict="$(printf '%s' "$detail" | jq -r '
     [ .comments[]? | select((.body // "") | startswith("[VERDICT:")) | .body ] | last // ""' \
@@ -127,6 +127,8 @@ while read -r num state; do
     [ .statusCheckRollup[]? | select(.__typename == "CheckRun")
       | (.conclusion // "PENDING") ]
     | all(. == "SUCCESS" or . == "SKIPPED" or . == "NEUTRAL")')"
+  # Juengster Commit (fuer die „Re-Review nur bei neuen Commits"-Regel des Prompts).
+  head_at="$(printf '%s' "$detail" | jq -r '[ .commits[]? | (.committedDate // "") ] | last // ""')"
 
   if printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
      && [ "$state" = "CLEAN" ] && [ "$checks_ok" = "true" ]; then
@@ -148,6 +150,12 @@ while read -r num state; do
     # 11x fuer denselben PR (#915) in Folge, weil der Worker noch nicht nachgeliefert hat.
     # Ein APPROVE-Verdict faellt bewusst NICHT hierher (Checks koennen noch laufen).
     log "SKIP #$num cooldown ($state, letztes Verdict vor $(( (NOW - vep) / 60 ))min)"
+  elif [ -n "$verdict_at" ] && ! printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
+       && [ -n "$head_at" ] && [[ "$head_at" < "$verdict_at" || "$head_at" == "$verdict_at" ]]; then
+    # Es gibt ein Verdict und seither KEINEN neuen Commit: ein weiterer Review waere eine
+    # reine Wiederholung. Der Prompt fordert Re-Review nur bei neuen Commits — hier wird
+    # das deterministisch durchgesetzt (real: stuendliche Leerlauf-Reviews auf #917).
+    log "SKIP #$num nichts Neues seit dem Review ($verdict_at)"
   else
     needs_agent=$((needs_agent+1))
   fi

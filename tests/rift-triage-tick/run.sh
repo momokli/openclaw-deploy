@@ -187,6 +187,18 @@ check "Decision-File nennt #896" "1" "$(grep -c 'Issue: #896' "$DECISION" 2>/dev
 check "Decision-File nennt bestehenden PR #900" "1" "$(grep -c 'Bestehender offener PR: #900' "$DECISION" 2>/dev/null || echo 0)"
 
 echo
+echo "== Handoff klebrig: triage:implement + orchestrator:dispatched -> Tick raeumt ab =="
+# Der Gate gibt nach REQUEST_CHANGES an A zurueck; vergisst er das Abnehmen des
+# Dispatch-Labels, bleibt der WIP=1-Slot belegt und A kommt nie ran (real: #909, 3,5 h).
+reset
+issues '[{"number":909,"title":"[Feature] Parked Solo","labels":[{"name":"triage:implement"},{"name":"orchestrator:dispatched"}],"body":""}]'
+prs '[{"number":917,"title":"feat(#909): Parked Solo","body":"Closes #909","headRefName":"feat/909-x"}]'
+run
+check "Exit 0" "0" "$rc"
+check "Handoff-Buchhaltung geloggt" "1" "$(printf '%s' "$out" | grep -c 'Handoff #909')"
+check "Retry wird dispatcht" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+
+echo
 echo "== Gate-Uebergabe (triage:implement): offener PR blockiert den Retry NICHT =="
 # Der Gate gibt nach REQUEST_CHANGES an Runner A zurueck (`orchestrator:dispatched` weg,
 # `triage:implement` drauf). Ohne diese Ausnahme in Schritt 5 waere das eine Sackgasse:

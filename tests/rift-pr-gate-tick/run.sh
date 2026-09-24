@@ -152,6 +152,27 @@ check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
 check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
 
 echo
+echo "== Verdict da, aber seither KEIN neuer Commit -> kein Leerlauf-Re-Review =="
+# Der Prompt fordert Re-Review nur bei neuen Commits; der Tick setzt das jetzt durch
+# (real: stuendliche Leerlauf-Reviews auf #917).
+reset
+vloc="$(iso_ago 200)"; vver="$(iso_ago 120)"
+prs '[{"number":901,"title":"ci(#896): build","body":"Closes #896","headRefName":"ci/896-x","isDraft":false,"mergeStateStatus":"CLEAN"}]'
+prview 901 '{"mergeStateStatus":"CLEAN","statusCheckRollup":[{"__typename":"CheckRun","conclusion":"SUCCESS"}],"comments":[{"body":"[VERDICT: REQUEST_CHANGES]\nREC","createdAt":"'"$vver"'"}],"commits":[{"committedDate":"'"$vloc"'"}]}'
+run
+check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Log nennt 'nichts Neues'" "1" "$(printf '%s' "$out" | grep -c 'nichts Neues seit dem Review')"
+
+echo
+echo "== Verdict da UND neuer Commit -> Agent-Turn =="
+reset
+vloc="$(iso_ago 10)"; vver="$(iso_ago 120)"
+prs '[{"number":901,"title":"ci(#896): build","body":"Closes #896","headRefName":"ci/896-x","isDraft":false,"mergeStateStatus":"CLEAN"}]'
+prview 901 '{"mergeStateStatus":"CLEAN","statusCheckRollup":[{"__typename":"CheckRun","conclusion":"SUCCESS"}],"comments":[{"body":"[VERDICT: REQUEST_CHANGES]\nREC","createdAt":"'"$vver"'"}],"commits":[{"committedDate":"'"$vloc"'"}]}'
+run
+check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
+
+echo
 echo "== APPROVE, aber BEHIND (Rebase fällig) -> KEIN Merge, Agent-Turn =="
 reset; focuspr BEHIND all approve
 run

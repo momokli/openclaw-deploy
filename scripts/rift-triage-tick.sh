@@ -55,6 +55,21 @@ else
   log "WARNUNG: rift-triage-cleanup.sh fehlt — Cleanup übersprungen"
 fi
 
+# 2b) Handoff-Buchhaltung: der Gate gibt nach `REQUEST_CHANGES` an Runner A zurueck, indem er
+#     `triage:implement` setzt und `orchestrator:dispatched` entfernt. Vergisst der Agent das
+#     Abnehmen, klebt der WIP=1-Slot und A kommt nie ran — real 3,5 h Stillstand (#909/#917).
+#     Das ist reine Buchhaltung, also deterministisch hier (0 Tokens).
+HANDOFF="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" \
+  --label "triage:implement" --limit 100 --json number,labels 2>/dev/null \
+  | jq -r '.[] | select(([.labels[].name] | index("orchestrator:dispatched")) != null) | .number')"
+for hn in $HANDOFF; do
+  if "$GH" issue edit "$hn" --repo "$REPO" --remove-label "orchestrator:dispatched" >/dev/null 2>&1; then
+    log "Handoff #$hn: Dispatch-Label entfernt (Gate hat Korrektur angefordert) → Slot frei"
+  else
+    log "WARNUNG: Dispatch-Label von #$hn nicht entfernbar (Handoff)"
+  fi
+done
+
 # 3) Slot frei? Kein `orchestrator:dispatched` im Fokus (nach dem Aufräumen).
 DISPATCHED="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" \
   --label orchestrator:dispatched --limit 100 --json number 2>/dev/null)" \
