@@ -295,13 +295,15 @@ if [ "${RIFT_TICK_DRY:-0}" = "1" ]; then
   log "DRY-RUN: dispatchbar ($TITLE), Issue #$CHOSEN gewählt (Decision-File geschrieben), würde $SELF_KEY triggern"
   exit 0
 fi
+ID="$(openclaw automations list --all --json 2>/dev/null \
+      | jq -r --arg k "$SELF_KEY" '.jobs[] | select(.declarationKey == $k) | .id' | head -1)"
+[ -n "$ID" ] && [ "$ID" != "null" ] || die "Agent-Job $SELF_KEY nicht gefunden"
+# Erst wenn der Trigger sicher möglich ist, den Slot im Repo belegen (sonst bliebe bei einem
+# Fehler ein Dispatch-Label ohne Worker stehen — der Guard muesste es nach 20 min muehsam loesen).
 if ! "$GH" issue edit "$CHOSEN" --repo "$REPO" \
      --add-label orchestrator:dispatched --remove-label triage:implement >/dev/null 2>&1; then
   die "Dispatch-Label fuer #$CHOSEN (+orchestrator:dispatched -triage:implement) fehlgeschlagen"
 fi
-ID="$(openclaw automations list --all --json 2>/dev/null \
-      | jq -r --arg k "$SELF_KEY" '.jobs[] | select(.declarationKey == $k) | .id' | head -1)"
-[ -n "$ID" ] && [ "$ID" != "null" ] || die "Agent-Job $SELF_KEY nicht gefunden"
 
 log "DISPATCHBAR ($TITLE) → Issue #$CHOSEN ($CHOSEN_TITLE); triggere $SELF_KEY ($ID)"
 openclaw automations run "$ID" 2>&1 | tail -3
