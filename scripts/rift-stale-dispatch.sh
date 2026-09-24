@@ -156,7 +156,7 @@ CANDIDATES="$(printf '%s' "$ISSUES_JSON" \
 # (Required-Check `BLOCKED`) von einem „arbeitet noch daran" unterscheiden. `labels`
 # brauchen wir, um den Release-PR (`release:human-merge`) auszusortieren.
 PRS_JSON="$("$GH" pr list --repo "$REPO" --state open --limit 200 \
-  --json number,headRefName,body,mergeStateStatus,labels)" \
+  --json number,headRefName,body,mergeStateStatus,labels,comments)" \
   || api_die "PR-Liste lesen fehlgeschlagen"
 
 # Eine Liste {num,state,refs}: `headRefName`/`body` werden zu je einer Liste von
@@ -166,6 +166,9 @@ PRS_JSON="$("$GH" pr list --repo "$REPO" --state open --limit 200 \
 PR_INFO="$(printf '%s' "$PRS_JSON" | jq -c '
   [ .[] | select((([.labels[]?.name] | index("release:human-merge")) == null))
         | { num: .number, state: (.mergeStateStatus // ""),
+            verdict: ( [ .comments[]? | (.body // "")
+                        | capture("\\[VERDICT:[ \\t]*(?<v>[A-Za-z_]+)")? ]
+                      | last // {} | (.v // "") ),
             refs: ( ((.headRefName // "") | [scan("(?:^|[/_-])([0-9]+)(?=[/_-]|$)")] | map(.[0] | tonumber))
                   + ((.body // "")
                      | [scan("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|relate[sd]?|part of|addresses)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]
@@ -178,6 +181,12 @@ has_linked_pr() { printf '%s' "$PR_INFO" | jq -e --argjson n "$1" \
 # Rot gelaufener Required-Check: der PR ist offen, aber das Ergebnis ist unbrauchbar.
 red_blocked_pr() { printf '%s' "$PR_INFO" | jq -e --argjson n "$1" \
   'any(.[]; ((.refs | index($n)) != null) and (.state == "BLOCKED"))' >/dev/null 2>&1; }
+
+# Review abgelehnt: letztes Gate-Verdict auf dem offenen PR ist `[VERDICT: REQUEST_CHANGES]`.
+# Real (#938/#929): der Gate-Handback (`orchestrator:dispatched` weg, `triage:implement` drauf)
+# fehlte, der PR war aber gruen/CLEAN — der rote-PR-Sonderweg griff nicht, der Slot blieb belegt.
+rejected_pr() { printf '%s' "$PR_INFO" | jq -e --argjson n "$1" \
+  'any(.[]; ((.refs | index($n)) != null) and (.verdict == "REQUEST_CHANGES"))' >/dev/null 2>&1; }
 
 # ── Worker-Runs (Sessions beider Orchestratoren) ────────────────────────────
 # `status` ist OpenClaws Lauf-Bewertung: `done` = deliverable, `failed` = u. a.
@@ -285,18 +294,26 @@ for n in $CANDIDATES; do
   fi
 
   # S3: offener PR verlinkt (Konvention ODER Timeline-Cross-Reference)?
-  red_blocked=0
+  retry_pr=0
   xref_open="$(printf '%s' "$tl" | jq -r '
     [ .[] | select(.event == "cross-referenced")
           | select(.source.issue.pull_request != null)
           | select(.source.issue.state == "open")
           | .source.issue.number ] | length')"
   if has_linked_pr "$n" || [ "$xref_open" -gt 0 ]; then
-    # Ausnahme (siehe Header): rot gelaufener PR ohne laufenden Worker ⇒ Retry-Pfad.
-    if red_blocked_pr "$n" && [ "$(worker_state "$n" "$dispatch_ep")" != "running" ]; then
-      note "RED-BLOCKED $n (PR offen, Required-Check rot) → Retry-Pfad"
-      red_blocked=1
-    else
+    # Ausnahmen (siehe Header): der PR ist offen, das Ergebnis aber unbrauchbar —
+    #   (a) Required-Check rot (`mergeStateStatus=BLOCKED`), oder
+    #   (b) letztes Gate-Verdict `[VERDICT: REQUEST_CHANGES]` (Handoff an A fehlte real: #938/#929).
+    # In beiden Faellen: Worker fertig ⇒ Retry statt Slot-Stillstand.
+    retry_pr=0
+    if [ "$(worker_state "$n" "$dispatch_ep")" != "running" ]; then
+      if red_blocked_pr "$n"; then
+        note "RED-BLOCKED $n (PR offen, Required-Check rot) → Retry-Pfad"; retry_pr=1
+      elif rejected_pr "$n"; then
+        note "REJECTED $n (PR offen, letztes Verdict REQUEST_CHANGES) → Retry-Pfad"; retry_pr=1
+      fi
+    fi
+    if [ "$retry_pr" != 1 ]; then
       note "SKIP $n linked-pr-open"; skipped=$((skipped + 1)); continue
     fi
   fi
@@ -334,7 +351,7 @@ for n in $CANDIDATES; do
   # S3-Ausnahme toter Code (real: #928/#933 hing ~1,5 h mit rotem PR + nur
   # `orchestrator:dispatched`, kein Handoff-Label → der Slot blieb belegt).
   # Ein laufender Worker schützt weiterhin (siehe S3-Bedingung: worker_state != running).
-  if [ "$activity" -gt 0 ] && [ "$red_blocked" != 1 ]; then
+  if [ "$activity" -gt 0 ] && [ "$retry_pr" != 1 ]; then
     note "SKIP $n activity-since-dispatch"; skipped=$((skipped + 1)); continue
   fi
 
@@ -352,8 +369,8 @@ for n in $CANDIDATES; do
       # Kein Sonderweg fuer Research/Spikes: auch dort ist "fertig ohne Outcome" ein
       # Zustand ohne Ausgang (die Spike-Issue bleibt offen, das Plan-Issue ist woanders).
       # Der Worker signalisiert den Abschluss per `triage:no-action` (dann greift S3b).
-      if red_blocked_pr "$n"; then
-        note "RED-BLOCKED $n (Session done, PR rot) → Retry statt parken"
+      if [ "$retry_pr" = 1 ]; then
+        note "RETRY-PR $n (Session done, PR offen + nicht abnehmbar) → Retry statt parken"
       else
         if [ "$DRY_RUN" = 1 ]; then
           note "BLOCKED $n worker-done-ohne-outcome (dry-run: Label weg + $BLOCKED_LABEL)"

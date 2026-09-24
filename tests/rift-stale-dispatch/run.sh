@@ -256,6 +256,22 @@ setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"
 run
 want "RED-BLOCKED 401" "roter PR + Aktivität (Commits/Cross-Ref) → trotzdem Retry-Fall"
 want "REDISPATCH 401 attempts=1" "roter PR + Aktivität + fertigem Worker → Retry statt Stillstand"
+# Real #938/#929: GRUENER PR (CLEAN) mit Review-Verdict `[VERDICT: REQUEST_CHANGES]`. Der
+# Gate-Handback (`orchestrator:dispatched` weg, `triage:implement` drauf) fehlte, und der
+# rote-PR-Sonderweg greift nicht (PR ist CLEAN) -> der Slot blieb ~1,5 h belegt.
+TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)"
+          "$(ev_referenced "$(ago_iso 60)")")
+SESSIONS=("$(sess triage-401 done "$(ago_ms 45)")")
+setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"Closes #401","mergeStateStatus":"CLEAN","comments":[{"body":"Kritischer Review\n\n[VERDICT: REQUEST_CHANGES]\n\nBlocker: X"}]}]' "$LABELS_NO_RD"
+run
+want "REJECTED 401" "gruener PR + REQUEST_CHANGES-Verdict → Retry-Fall"
+want "REDISPATCH 401 attempts=1" "REQUEST_CHANGES + fertigem Worker → Retry statt Stillstand"
+# Gegenprobe: APPROVE-Verdict auf gruenem PR → Finger weg (A hat nichts zu tun).
+TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)")
+SESSIONS=("$(sess triage-401 done "$(ago_ms 45)")")
+setup "$ISSUE_DISPATCHED" '[{"number":412,"headRefName":"feature/401-x","body":"Closes #401","mergeStateStatus":"CLEAN","comments":[{"body":"[VERDICT: APPROVE]"}]}]' "$LABELS_NO_RD"
+run
+want "SKIP 401 linked-pr-open" "APPROVE-Verdict → kein Retry"
 TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)"
           "$(ev_xref "$(ago_iso 80)" 355 closed 1)")
 setup "$ISSUE_DISPATCHED" "$PRS_NONE" "$LABELS_NO_RD"
