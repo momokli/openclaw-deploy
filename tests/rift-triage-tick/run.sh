@@ -261,9 +261,24 @@ check "Exit 0 (Skip)" "0" "$rc"
 check "kein Release-Trigger (Cleanup laeuft noch)" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
 echo
-echo "== Fokus erschoepft: kein Trigger =="
+echo "== Fokus erschoepft: code-complete -> Release faellig, KEIN Dispatch =="
+# Real (1.0.2): der Mensch schliesst das letzte Issue; open_issues faellt auf 0, aber es GIBT
+# geschlossene Arbeit. Dann ist der Milestone code-complete und der Gate baut den Release-PR —
+# der Tick darf hier NICHT "erschöpft" skippen (sonst blieb der Changelog-PR aus).
 reset
-focus '{"title":"1.0.1","number":12,"open_issues":0}'
+focus '{"title":"1.0.1","number":12,"open_issues":0,"closed_issues":18}'
+issues '[]'
+rm -f "$REL"
+run
+check "Exit 0" "0" "$rc"
+check "kein Triage-Trigger" "0" "$(grep -c 'trigger JOB-1' "$ACTIONS")"
+check "Gate-Turn getriggert (Release)" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
+check "Release-Decision nennt den Milestone" "1" "$(grep -c 'Milestone: 1.0.1' "$REL" 2>/dev/null || echo 0)"
+
+# Ein wirklich leerer Milestone (0 offen UND 0 geschlossen) hat nichts auszuliefern -> Skip.
+reset
+focus '{"title":"1.0.1","number":12,"open_issues":0,"closed_issues":0}'
+issues '[]'
 run
 check "Exit 0 (Skip)" "0" "$rc"
 check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"

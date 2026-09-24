@@ -36,7 +36,12 @@ OPEN="$(printf '%s' "$FOCUS" | jq -r '.open_issues // 0')"
 # Dispatch-Reihenfolge: Checkliste `- [ ] #NNN` aus der Milestone-Beschreibung.
 DESC="$(printf '%s' "$FOCUS" | jq -r '.description // ""')"
 [ -n "$N" ] || die "Fokus-Milestone nicht parsebar: $FOCUS"
-[ "${OPEN:-0}" -gt 0 ] || skip "Fokus $TITLE erschöpft"
+# 0 offene Issues heisst CODE-COMPLETE, nicht "nichts zu tun": NICHT hier skippen — sonst ist
+# der Release-/Changelog-Pfad weiter unten unerreichbar (real: 1.0.2 hing genau so fest, weil
+# der Mensch alle Issues geschlossen hatte). Nur ein wirklich leerer Milestone (0 offen UND
+# 0 geschlossen) hat nichts auszuliefern.
+CLOSED="$(printf '%s' "$FOCUS" | jq -r '.closed_issues // 0')"
+[ "$(( ${OPEN:-0} + ${CLOSED:-0} ))" -gt 0 ] || skip "Fokus $TITLE leer (keine Issues)"
 
 # 2) Buchhaltung (0 Tokens): Stale-Dispatch-Guard + Schritt-4-Cleanup.
 #    Beides MUSS laufen, AUCH wenn der Slot belegt ist — sonst klemmt ein

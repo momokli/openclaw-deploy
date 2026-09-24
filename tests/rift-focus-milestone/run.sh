@@ -72,19 +72,23 @@ echo "== Fokus erschöpft (wird NICHT übersprungen) =="
 run "$(ms '{"title":"1.1","number":11,"open_issues":19},{"title":"1.0.1","number":12,"open_issues":0}')"
 check "leerer Fokus-Milestone bleibt der Fokus" "1.0.1" "$out"
 
-run "$(ms '{"title":"1.1","number":11,"open_issues":19},{"title":"1.0.1","number":12,"open_issues":0}')" --json
-check "json meldet open_issues=0" '{"title":"1.0.1","number":12,"open_issues":0,"description":""}' "$out"
+run "$(ms '{"title":"1.1","number":11,"open_issues":19},{"title":"1.0.1","number":12,"open_issues":0,"closed_issues":18}')" --json
+check "json meldet open_issues=0" '{"title":"1.0.1","number":12,"open_issues":0,"closed_issues":18,"description":""}' "$out"
 
 echo
 echo "== --json / --list =="
 
-run "$(ms '{"title":"1.1","number":11,"open_issues":19},{"title":"1.0.1","number":12,"open_issues":11}')" --json
-check "json-Ausgabe" '{"title":"1.0.1","number":12,"open_issues":11,"description":""}' "$out"
+run "$(ms '{"title":"1.1","number":11,"open_issues":19},{"title":"1.0.1","number":12,"open_issues":11,"closed_issues":3}')" --json
+check "json-Ausgabe" '{"title":"1.0.1","number":12,"open_issues":11,"closed_issues":3,"description":""}' "$out"
+
+# `closed_issues` fehlt in der API-Antwort -> Default 0 (kein Fehler).
+run "$(ms '{"title":"1.0.1","number":12,"open_issues":0}')" --json
+check "json defaultet fehlendes closed_issues auf 0" '{"title":"1.0.1","number":12,"open_issues":0,"closed_issues":0,"description":""}' "$out"
 
 # Die Milestone-Beschreibung wird mitgeliefert — der Triage-Tick liest daraus die
 # Dispatch-Reihenfolge (Checkliste `- [ ] #NNN`).
 run "$(ms '{"title":"1.0.1","number":12,"open_issues":2,"description":"- [ ] #900\n- [ ] #901"}')" --json
-check "json liefert die Milestone-Beschreibung mit" '{"title":"1.0.1","number":12,"open_issues":2,"description":"- [ ] #900\n- [ ] #901"}' "$out"
+check "json liefert die Milestone-Beschreibung mit" '{"title":"1.0.1","number":12,"open_issues":2,"closed_issues":0,"description":"- [ ] #900\n- [ ] #901"}' "$out"
 
 run "$(ms '{"title":"1.1","number":11,"open_issues":19},{"title":"1.0.1","number":12,"open_issues":11},{"title":"soon","number":9,"open_issues":0}')" --list
 check "--list: aufsteigend, ohne Parkplatz" "1.0.1 number=12 open_issues=11

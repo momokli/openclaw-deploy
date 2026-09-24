@@ -9,14 +9,16 @@
 #     • Ein Fokus-Milestone mit 0 offenen Issues wird NICHT übersprungen: er
 #       meldet open_issues=0, damit der Runner wartet („Fokus erschöpft") statt
 #       in die nächste Iteration vorzujubeln. Den Fokus wechselt der Mensch —
-#       durch SCHLIESSEN des Milestones.
+#       durch SCHLIESSEN des Milestones. `closed_issues` wird mitgeliefert, damit
+#       der Tick „code-complete" (0 offen, >0 geschlossen) von einem wirklich
+#       leeren Milestone unterscheiden kann.
 #
 # Damit steht kein Milestone-Name mehr im Triage-/Gate-Prompt; der Prompt ruft
 # nur noch dieses Script auf und arbeitet mit dem Ergebnis.
 #
 # ── Ausgabe ─────────────────────────────────────────────────────────────────
 #   (default)  <title>                                    z. B. 1.0.1
-#   --json     {"title":"1.0.1","number":12,"open_issues":11,"description":"…"}
+#   --json     {"title":"1.0.1","number":12,"open_issues":11,"closed_issues":5,"description":"…"}
 #              (description = Milestone-Text; der Runner liest daraus die
 #               Dispatch-Reihenfolge als Checkliste `- [ ] #NNN`)
 #   --list     alle Kandidaten aufsteigend, je Zeile:
@@ -69,7 +71,7 @@ raw="$("$GH" api "repos/$REPO/milestones?state=open&per_page=100" 2>/dev/null)" 
   exit 3
 }
 
-json="$(printf '%s' "$raw" | jq -c '[.[] | {title, number, open_issues, description}]' 2>/dev/null)" || {
+json="$(printf '%s' "$raw" | jq -c '[.[] | {title, number, open_issues, closed_issues, description}]' 2>/dev/null)" || {
   echo "rift-focus-milestone: unerwartete API-Antwort (kein JSON-Array)" >&2
   exit 3
 }
@@ -95,6 +97,6 @@ focus="$(printf '%s' "$ordered" | head -1)"
 
 case "$MODE" in
   json) printf '%s' "$json" | jq -c --arg t "$focus" \
-          '.[] | select(.title == $t) | {title, number, open_issues, description: (.description // "")}' ;;
+          '.[] | select(.title == $t) | {title, number, open_issues, closed_issues: (.closed_issues // 0), description: (.description // "")}' ;;
   *)    printf '%s\n' "$focus" ;;
 esac
