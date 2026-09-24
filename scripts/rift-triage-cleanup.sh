@@ -51,6 +51,23 @@ ISSUES="$($GH issue list --repo "$REPO" --state open --milestone "$N" \
 COUNT="$(printf '%s' "$ISSUES" | jq 'length')"
 [ "$COUNT" -gt 0 ] || { log "nichts zu tun (kein offener Dispatch im Fokus)"; exit 0; }
 
+# Offene PRs: ein `triage:no-action`-Issue mit offenem, verlinktem PR ist ein Widerspruch —
+# der PR braucht noch Arbeit. Real: #930 (PR #948 offen + REQUEST_CHANGES) wurde als no-action
+# geschlossen -> der PR verwaiste (kein Besitzer: Gate skippt ihn, Triage sieht nur offene Issues).
+# Deshalb: nicht schliessen, sondern zurueck an A (Fixer) geben.
+PRS="$($GH pr list --repo "$REPO" --state open --limit 200 \
+  --json number,headRefName,body 2>/dev/null)" || PRS='[]'
+
+# Konservativer Link-Scan: Branch-Token ODER Closing-Keyword. Bewusst KEIN `Relates`/Prosa —
+# sonst wuerde jede beilaeufige Erwaehnung das Schliessen blockieren.
+linked_open_pr() {  # $1 issue number
+  printf '%s' "$PRS" | jq -e --argjson n "$1" '
+    any(.[];
+      (((.headRefName // "") | test("(^|[/_-])" + ($n | tostring) + "([/_-]|$)"))
+       or ((.body // "") | test("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#" + ($n | tostring) + "\\b"))))' \
+    >/dev/null 2>&1
+}
+
 acted=0
 for n in $(printf '%s' "$ISSUES" | jq -r '.[].number'); do
   [ "$acted" -lt "$MAX" ] || break
@@ -76,6 +93,21 @@ for n in $(printf '%s' "$ISSUES" | jq -r '.[].number'); do
   fi
 
   [ -n "$reason" ] || { log "SKIP #$n ($(printf '%s' "$ISSUES" | jq -r --argjson n "$n" '.[]|select(.number==$n)|.title' | cut -c1-50))"; continue; }
+
+  # Widerspruch: `triage:no-action` UND ein offener, verlinkter PR -> NICHT schliessen.
+  # Stattdessen zurueck an A (Fixer) geben (reiner Reconciler-Schritt, 0 Tokens).
+  if [ "$reason" = "triage:no-action" ] && linked_open_pr "$n"; then
+    if [ "$DRY" = 1 ]; then
+      log "DRY-RUN #$n: no-action MIT offenem PR -> nicht schliessen, triage:implement"
+      acted=$((acted + 1)); continue
+    fi
+    log "SKIP #$n no-action-but-open-pr -> triage:no-action weg + triage:implement (Fixer)"
+    "$GH" issue edit "$n" --repo "$REPO" \
+      --remove-label triage:no-action --add-label triage:implement >/dev/null 2>&1 \
+      && "$GH" issue edit "$n" --repo "$REPO" --remove-label "$DISPATCH_LABEL" >/dev/null 2>&1 \
+      || { log "WARNUNG: Flip fuer #$n unvollstaendig"; continue; }
+    acted=$((acted + 1)); continue
+  fi
 
   if [ "$DRY" = 1 ]; then
     log "DRY-RUN würde #$n schließen ($reason) + Label $DISPATCH_LABEL entfernen"

@@ -45,6 +45,10 @@ case "$1" in
       close) printf 'close %s\n' "$3" >> "$ACTIONS" ;;
       edit)  printf 'edit %s %s\n' "$3" "$*" >> "$ACTIONS" ;;
     esac ;;
+  pr)
+    case "$2" in
+      list) cat "$FX/prs.json" 2>/dev/null || echo '[]' ;;
+    esac ;;
 esac
 exit 0
 SHIM
@@ -59,7 +63,8 @@ milestone() { printf '[{"title":"1.0.1","number":12}]' > "$FX/milestones.json"; 
 notfound()  { printf '[]' > "$FX/milestones.json"; }
 issues()    { printf '%s' "$1" > "$FX/issues.json"; }
 timeline()  { printf '%s' "$1" > "$FX/timeline-$2.json"; }
-reset()     { : > "$ACTIONS"; milestone; }
+prs()       { printf '%s' "$1" > "$FX/prs.json"; }
+reset()     { : > "$ACTIONS"; milestone; prs '[]'; }
 
 run() { out="$("$SCRIPT" -m 1.0.1 "$@" 2>&1)"; rc=$?; }
 
@@ -70,6 +75,35 @@ timeline '[]' 101
 run
 check "schließt das Issue" "close 101" "$(head -1 "$ACTIONS")"
 check "entfernt das Dispatch-Label" "1" "$(grep -c 'orchestrator:dispatched' "$ACTIONS")"
+
+echo
+echo "== no-action MIT offenem verlinktem PR -> NICHT schliessen, zurueck an A (real: #930/#948) =="
+reset
+issues '[{"number":930,"title":"Solo-Button","labels":[{"name":"triage:no-action"}]}]'
+prs '[{"number":948,"headRefName":"feat/930-proxy-solo-self-send","body":"Closes #930"}]'
+timeline '[]' 930
+run
+check "kein close" "0" "$(grep -c '^close ' "$ACTIONS")"
+check "flippt auf triage:implement" "1" "$(grep -c 'add-label triage:implement' "$ACTIONS")"
+check "nimmt triage:no-action weg" "1" "$(grep -c 'remove-label triage:no-action' "$ACTIONS")"
+
+echo
+echo "== no-action mit UNVERLINKTEM offenem PR -> normal schliessen ="
+reset
+issues '[{"number":941,"title":"Y","labels":[{"name":"triage:no-action"}]}]'
+prs '[{"number":949,"headRefName":"feat/999-capsule-flow","body":"Closes #999"}]'
+timeline '[]' 941
+run
+check "schliesst das Issue" "close 941" "$(head -1 "$ACTIONS")"
+
+echo
+echo "== no-action + PR nennt nur 'Relates #n' (Prosa) -> NICHT blockieren ="
+reset
+issues '[{"number":942,"title":"Z","labels":[{"name":"triage:no-action"}]}]'
+prs '[{"number":950,"headRefName":"feat/998-x","body":"Relates #942"}]'
+timeline '[]' 942
+run
+check "schliesst das Issue" "close 942" "$(head -1 "$ACTIONS")"
 
 echo
 echo "== Pfad (a): [ALREADY-DONE]-Kommentar (Altpfad) =="

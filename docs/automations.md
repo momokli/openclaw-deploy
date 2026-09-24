@@ -192,6 +192,12 @@ mehr bei „gemergter PR erwähnt das Issue": eine Cross-Reference entsteht scho
 bloße Erwähnung (real: PR #660 → #623 falsch geschlossen). Der saubere Weg ist `Closes #<n>`
 im PR (schließt GitHub selbst) — erzwungen vom `pr-quality`-Check.
 
+**Ausnahme (23.09.):** `triage:no-action` **plus** ein offener, verlinkter PR (Branch-Token
+oder Closing-Keyword) ist ein Widerspruch — der PR braucht noch Arbeit. Dann wird **nicht**
+geschlossen, sondern das Issue zurück an A gegeben (`triage:no-action` weg, `triage:implement`
+drauf). Real: #930 wurde als no-action geschlossen, obwohl PR #948 offen + `REQUEST_CHANGES`
+war → der PR verwaiste (Gate skippt ihn, die Triage sieht nur offene Issues).
+
 **Loop-Bremse (eigene Caps, zusätzlich zur Triage-Protection):** max. 3 Freigaben je Issue
 (Zähler in den Marker-Kommentaren, nicht im Label — erneutes `--add-label` ist ein API-No-op);
 am Hard Cap wird **geparkt** (Label weg + `question`) statt nur eskaliert; 30 min Cooldown; max. 2
