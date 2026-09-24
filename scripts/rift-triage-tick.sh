@@ -292,6 +292,15 @@ EXIST_PR="$(jq -nr --argjson prs "$PRS" --argjson c "$CHOSEN" '
 # ("label already in use") — ein Retry/Rework mit statischem `triage-<n>` fiel real aus (#929).
 # Der Stale-Guard liest nur den Nummern-Token; der Epoch-Suffix stoert ihn nicht.
 WORKER_LABEL="triage-${CHOSEN}-$(date -u +%s)"
+# Offener Review-Blocker: der letzte `[VERDICT: REQUEST_CHANGES]`-Kommentar auf dem bestehenden
+# PR gehoert in den Auftrag. Real (#948): der Fixer wurde nur zum Rebase geschickt, waehrend der
+# Review die Pflicht-Screenshots (B1) verlangte — ohne das im Auftrag droht Rebase/Reject-Schleife.
+REVIEW_BODY=""
+if [ -n "$EXIST_PR" ]; then
+  REVIEW_BODY="$(printf '%s' "$PRS" | jq -r --argjson n "$EXIST_PR" '
+    [ .[] | select(.number == $n) | .comments[]? | (.body // "")
+      | select(test("^\\[VERDICT:[ \\t]*REQUEST_CHANGES\\]")) ] | last // ""')"
+fi
 {
   printf '# Triage-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
   printf -- '- Zeit: %s\n' "$(date -Is)"
@@ -303,6 +312,10 @@ WORKER_LABEL="triage-${CHOSEN}-$(date -u +%s)"
     printf -- '- Bestehender offener PR: #%s — auf DESSEN Branch weiterarbeiten (keinen zweiten PR öffnen).\n' "$EXIST_PR"
   fi
   printf -- '- Worker-Label: %s (PFLICHT fuer `sessions_spawn`; pro Dispatch eindeutig).\n' "$WORKER_LABEL"
+  if [ -n "$REVIEW_BODY" ]; then
+    printf '\n**Offener Review-Blocker (letzter `[VERDICT: REQUEST_CHANGES]` auf PR #%s) — MUSS im Rework adressiert werden:**\n\n' "$EXIST_PR"
+    printf '%s\n' "$REVIEW_BODY"
+  fi
   printf '\n**Diese Auswahl ist verbindlich** — keine Neuauswahl, kein Slot-/Leaf-Re-Check im Agent-Turn.\n'
   printf 'Ist das Issue bereits erledigt: kein PR, sondern Kommentar + Label `triage:no-action`.\n'
 } > "$DECISION_FILE" 2>/dev/null || log "WARNUNG: Decision-File ($DECISION_FILE) nicht schreibbar"

@@ -7,7 +7,8 @@
 # Repos:
 #   riftbreaker-battle-mod  → Fokus-Milestone wird zur LAUFZEIT ermittelt
 #                             (scripts/rift-focus-milestone.sh = kleinster offener
-#                             Milestone mit Versions-Titel); Takt 1h (A) / 30m (B)
+#                             Milestone mit Versions-Titel); Takt 6h (Fallback — die
+#                             Arbeit machen die 5-min-Shell-Ticks, siehe docs/automations.md)
 #   openclaw-deploy         → Label/Prio (kein Milestone), Takt 30m
 #
 # Kein Milestone-Name mehr im Prompt: der Platzhalter __RIFT_MILESTONE__ ist entfernt.
@@ -90,8 +91,8 @@ remove_stale() {
   done
 }
 
-apply "rift-triage"  "rift-triage:main"  "1h"  "rift-triage.prompt.md"
-apply "rift-pr-gate" "rift-pr-gate:main" "30m" "rift-pr-gate.prompt.md"
+apply "rift-triage"  "rift-triage:main"  "6h"  "rift-triage.prompt.md"
+apply "rift-pr-gate" "rift-pr-gate:main" "6h"  "rift-pr-gate.prompt.md"
 apply "ocd-triage"   "ocd-triage:main"   "30m" "ocd-triage.prompt.md"
 apply "ocd-pr-gate"  "ocd-pr-gate:main"  "30m" "ocd-pr-gate.prompt.md"
 

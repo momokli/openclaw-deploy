@@ -254,6 +254,17 @@ run
 check "kein bestehender PR aus Prosa-Erwaehnung" "0" "$(grep -c 'Bestehender offener PR' "$DECISION" 2>/dev/null || true)"
 
 echo
+echo "== Reject-PR: Review-Blocker landen im Entscheidungs-Auftrag ="
+reset
+issues '[{"number":930,"title":"Solo-Button","labels":[{"name":"triage:implement"}],"body":""}]'
+prs '[{"number":948,"title":"feat(#930)","body":"Closes #930","headRefName":"feat/930-x","labels":[],"comments":[{"body":"[VERDICT: APPROVE]\n\nok"},{"body":"[VERDICT: REQUEST_CHANGES]\n\nBlocker B1: Screenshots der Lobby fehlen."}]}]'
+run
+check "Exit 0" "0" "$rc"
+check "Blocker-Header im File" "1" "$(grep -c 'Offener Review-Blocker (letzter' "$DECISION" 2>/dev/null || true)"
+check "Blocker-Text im File" "1" "$(grep -c 'Blocker B1: Screenshots der Lobby fehlen' "$DECISION" 2>/dev/null || true)"
+check "letzter APPROVE wird nicht zitiert" "0" "$(grep -c '^ok$' "$DECISION" 2>/dev/null || true)"
+
+echo
 echo "== Code-complete (nur Epics/Spikes): Release-PR faellig -> Gate-Turn =="
 # Kein Leaf mehr heisst: der Milestone ist CODE-COMPLETE. Die letzte Aufgabe ist der
 # Release-PR (Changelog + Abnahme + Testplan) — den baut der GATE, nicht die Triage.
