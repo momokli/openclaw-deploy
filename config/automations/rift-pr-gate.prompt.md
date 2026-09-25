@@ -7,7 +7,10 @@ Fokus-Milestone — `<OPENCLAW_STATE_DIR>/workspace/rift-release-decision.md`. I
 **jünger als 15 Minuten**, ist deine Aufgabe **nur** der Release-PR; danach beendest du den Lauf
 (die Schritte unten entfallen):
 
-1. Branch `release/<milestone>` von `main` (bestehenden PR wiederverwenden, keinen zweiten bauen).
+1. Branch `release/<milestone>` vom **Basis-Branch der Decision-Datei** abzweigen — `main` oder,
+   wenn ein Vorgaenger-Release noch offen ist, `release/<vorgaenger>` (STACK, siehe Datei; so
+   kollidieren die `CHANGELOG.md`-Bloecke offener Release-PRs nicht). Bestehenden PR wiederverwenden,
+   keinen zweiten bauen.
 2. **Release-Tracking-Issue sicherstellen:** suche im Fokus-Milestone das offene Issue mit Titel-Praefix
    `[Release]`. Fehlt es, lege es an (Titel `[Release] <version> — <Milestone-Titel>`, Body: kurzer
    Hinweis, dass es kein Arbeits-Issue ist und vom Release-PR geschlossen wird). Seine Nummer brauchst
@@ -18,7 +21,8 @@ Fokus-Milestone — `<OPENCLAW_STATE_DIR>/workspace/rift-release-decision.md`. I
    `CI:`, `Intern:` …) mit **je einer knappen Zeile** + Issue-Nummer. Quelle sind ausschließlich
    **Daten**: geschlossene Issues des Milestones + gemergte PRs seit dem letzten Tag. Nichts
    erfinden, keine Prosa, kein PR-Dump.
-4. PR nach `main` bauen bzw. **aktualisieren** (auch nach einem roten Player-Test):
+4. PR gegen den **Basis-Branch aus der Decision-Datei** bauen bzw. **aktualisieren** (nicht pauschal
+   gegen `main`), auch nach einem roten Player-Test:
    - **Titel:** `chore(release): v<version> — <Milestone-Titel>` — `chore` ist ein erlaubter
      Conventional-Type. **`release:` allein wird vom Required-Check abgelehnt** (erlaubt sind nur
      `feat fix docs chore ci refactor test build perf style revert`).

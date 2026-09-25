@@ -178,10 +178,12 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
   if printf '%s' "$CLOSED_JSON" | jq -e 'any(.[]; .title | test("^\\[Release\\]"; "i"))' >/dev/null 2>&1; then
     skip "Release ausgeliefert ([Release]-Issue geschlossen) — Milestone schliessen"
   fi
-  # Release-PR offen: NUR skippen, wenn er den aktuellen Milestone-Stand schon abbildet.
-  # Sonst bliebe nach neu gemergter Arbeit der Changelog stehen — real: #951 entstand, als #930
-  # faelschlich zu war; nach dem #948-Merge haette ihn sonst niemand mehr aktualisiert.
-  REL_PR_NUM="$(printf '%s' "$PRS" | jq -r 'map(select(any(.labels[]?; .name == "release:human-merge")))[0].number // ""')"
+  # Release-PR des Fokus: NUR seinen eigenen (`release/<titel>`) betrachten — im Run-ahead
+  # koennen anderer Milestones Release-PRs offen sein, die hier nichts zu suchen haben.
+  # NUR skippen, wenn er den aktuellen Milestone-Stand schon abbildet; sonst bliebe nach neu
+  # gemergter Arbeit der Changelog stehen (real: #951 entstand, als #930 faelschlich zu war).
+  REL_PR_NUM="$(printf '%s' "$PRS" | jq -r --arg b "release/$TITLE" \
+    'map(select(any(.labels[]?; .name == "release:human-merge")) | select(.headRefName == $b))[0].number // ""')"
   if [ -n "$REL_PR_NUM" ]; then
     rel_commit="$($GH pr view "$REL_PR_NUM" --repo "$REPO" --json commits 2>/dev/null \
       | jq -r '[.commits[].committedDate] | max // ""')"
@@ -208,6 +210,20 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
     fi
   fi
   REL_FILE="${OPENCLAW_STATE_DIR:-/srv/openclaw}/workspace/rift-release-decision.md"
+  # Release-PRs stapeln: der neue Release-Branch zweigt vom Release-Branch des
+  # naechstkleineren offenen Release-PRs ab (sonst `main`) — so kollidieren mehrere
+  # offene Release-PRs nicht im CHANGELOG.md beim Mergen in Reihenfolge (Run-ahead).
+  REL_BASE="main"
+  rel_best=""
+  for v in $(printf '%s' "$PRS" | jq -r '.[] | select(any(.labels[]?; .name=="release:human-merge")) | .headRefName // empty' \
+             | sed -n 's#^release/##p'); do
+    [ "$v" = "$TITLE" ] && continue
+    [ "$(printf '%s\n%s\n' "$v" "$TITLE" | sort -V | head -1)" = "$v" ] || continue
+    if [ -z "$rel_best" ] || [ "$(printf '%s\n%s\n' "$v" "$rel_best" | sort -V | tail -1)" = "$v" ]; then
+      rel_best="$v"
+    fi
+  done
+  [ -n "$rel_best" ] && REL_BASE="release/$rel_best"
   {
     printf '# Release-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
     printf -- '- Zeit: %s\n' "$(date -Is)"
@@ -215,7 +231,10 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
     printf -- '- Tag-Vorschlag: v%s\n' "$TITLE"
     printf -- '- PR-Titel: chore(release): v%s — <Milestone-Titel> (erlaubter Conventional-Type)\n' "$TITLE"
     printf -- '- Release-Issue: offenes `[Release]`-Issue im Milestone (anlegen, falls es fehlt) — der PR-Body MUSS es per `Closes #<n>` schliessen (Required-Check).\n'
-    printf -- '- PR-Ziel: main · Marker-Label: %s\n' "release:human-merge"
+    printf -- '- Basis-Branch: %s · PR-Ziel: %s · Marker-Label: %s\n' "$REL_BASE" "$REL_BASE" "release:human-merge"
+    if [ "$REL_BASE" != "main" ]; then
+      printf -- '- STACK: Branch `release/%s` von `%s` abzweigen (Vorgaenger-Release noch offen) — NICHT von main.\n' "$TITLE" "$REL_BASE"
+    fi
     printf '\nDer Fokus-Milestone hat KEINE offenen Leaf-Kandidaten mehr (code-complete).\n'
     printf 'Aufgabe: Release-PR bauen bzw. aktualisieren — `CHANGELOG.md` schreiben (Factorio-Stil,\n'
     printf 'Kategorien + je eine knappe Zeile, AUS DATEN: geschlossene Milestone-Issues + gemergte PRs;\n'

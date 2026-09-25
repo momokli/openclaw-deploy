@@ -15,18 +15,38 @@ Es gibt immer genau **einen** Fokus-Milestone.
 
 ## 1 · Fokus-Regel (Runtime, kein Deploy)
 
-Fokus = **kleinster offener Milestone, dessen Titel eine Versionsform ist** (`^1\.`).
+Fokus = **kleinster offener Milestone, der alle drei Bedingungen erfüllt:**
 
-- `1.0.1` < `1.1` < `1.2` … → numerisch sortiert, **nicht** nach Milestone-Nummer.
-- Ein Parkplatz wie `soon` fällt raus, weil sein Titel keine Version ist.
-- **Den Fokus wechselst du, indem du den Fokus-Milestone schließt.** Kein Redeploy, kein
-  Repo-Eingriff — der Fortschritt ist der Schalter.
-- Ermittelt wird das pro Lauf von `scripts/rift-focus-milestone.sh` (deterministisch,
-  offline testbar — Muster wie `rift-stale-dispatch.sh`). Der Prompt enthält danach keinen
-  Milestone-Namen mehr, sondern nur den Aufruf.
+1. **Versions-Titel** (Default `^1\.`): `1.0.1` < `1.0.10` < `1.1` — numerisch sortiert, **nicht**
+   nach Milestone-Nummer. Ein Parkplatz wie `soon` fällt raus.
+2. **Freigegeben** — der Milestone-Text enthält eine eigene Zeile `Freigabe: ja`
+   (`(?im)^\s*freigabe\s*:\s*(ja|yes|true)\s*$`). Sammelbecken wie `1.1` bleiben ohne Marker →
+   **gesperrt**. Die Roadmap wird inkrementell geplant: den nächsten Milestone freigeben heißt,
+   diese Zeile in den Milestone-Text zu schreiben. Kein Redeploy, kein Repo-Eingriff.
+3. **Noch Arbeit bzw. ein (Re-)Release nötig** — siehe Run-ahead.
 
-Damit gilt: **immer genau ein Fokus** (der kleinste). Größere Milestones liegen offen
-daneben und sind automatisch inaktiv.
+Ermittelt pro Lauf von `scripts/rift-focus-milestone.sh` (deterministisch, offline testbar —
+Muster wie `rift-stale-dispatch.sh`). Der Prompt enthält danach keinen Milestone-Namen mehr,
+nur den Aufruf.
+
+**Run-ahead (statt „warten auf den Menschen").** Ein Milestone, dessen Release-PR **offen oder
+gemergt** ist, wird **übersprungen** — der Fokus rückt auf den nächsten freigegebenen Milestone,
+statt stillzustehen. Zwei Ausnahmen halten den Fokus bei diesem Milestone:
+
+- er hat noch **offene Leaf-Issues** (z. B. ein Player-Test-Fix kam in den Milestone zurück), oder
+- sein offener Release-PR ist **veraltet** (seit dem letzten Release-Commit wurde ein Issue im
+  Milestone geschlossen) → der Tick zieht den Release-PR nach.
+
+So arbeitet der Runner mehrere freigegebene Milestones vor, bis ihm die Freigaben ausgehen:
+gebremst wird nicht durch eine Zahl, sondern durch das, was du freigegeben hast.
+
+**Release-PRs stapeln.** Jeder fertige Milestone bekommt sofort seinen Release-PR, aber
+`release/1.0.4` zweigt von `release/1.0.3` ab (nicht von `main`), solange dessen Release noch
+offen ist — so kollidieren die `CHANGELOG.md`-Blöcke beim Mergen in Reihenfolge nicht, und
+GitHub retargetet den oberen PR beim Merge des unteren automatisch auf `main`. Die Basis steht
+in der Release-Entscheidung (`rift-release-decision.md`), die der Tick schreibt.
+
+Nur ein **geschlossener** (nicht gemergter) Release-PR blockiert nicht — dann wird neu gebaut.
 
 ## 2 · Struktur je Iteration
 
@@ -117,17 +137,23 @@ Vor jeder Iteration, per Hand:
 
 1. Fokus-Milestone anlegen (Versions-Titel): Zielbild, Abnahme und die geordnete
    Sub-Issue-Checkliste (`- [ ] #NNN`) in die **Milestone-Beschreibung**; Sub-Issues schreiben.
-   Ein Epic-Issue ist dafür nicht mehr nötig.
+   Ein Epic-Issue ist dafür nicht mehr nötig. **Zum Vorarbeiten freigeben = eine Zeile
+   `Freigabe: ja` in den Text** (ohne sie ist der Milestone für den Runner gesperrt,
+   z. B. das Sammelbecken `1.1`).
 2. Nur **verifizierte** Issues hinein. Nichts importieren, ohne den aktuellen Stand zu
    prüfen — der Ist-Zustand driftet (Beispiel **#372**: als Bug in 1.0 geführt, war längst
    erledigt).
 3. Was nicht in die Iteration gehört: in den nächsten Milestone oder zurück in den Parkplatz.
-4. **Code-complete ⇒ Release-PR.** Sobald kein offener Leaf-Kandidat mehr im Milestone ist,
-   baut der Gate den Release-PR (`CHANGELOG.md` + Abnahme + Testplan, Label `release:human-merge`).
-   Der gehört **nie** automergt: Merge, Milestone-Schließen und `git tag v<x.y.z>` (→ Prod-Deploy,
-   wartet am `prod`-Environment auf Freigabe) sind Menschenschritte. Fällt ein Player-Test durch,
-   kommt das Issue zurück in den Milestone; der nächste Release-Lauf aktualisiert denselben PR.
-5. Iteration beenden = **Milestone schließen** → der nächste wird automatisch Fokus.
+4. **Code-complete ⇒ Release-PR** (gestapelt, s. o.). Sobald kein offener Leaf-Kandidat mehr im
+   Milestone ist, baut der Gate den Release-PR (`CHANGELOG.md` + Abnahme + Testplan, Label
+   `release:human-merge`). Der gehört **nie** automergt: Merge, Milestone-Schließen und
+   `git tag v<x.y.z>` (→ Prod-Deploy, wartet am `prod`-Environment auf Freigabe) sind
+   Menschenschritte. Fällt ein Player-Test durch, kommt das Issue zurück in den Milestone — der
+   Runner nimmt ihn wieder als Fokus (offene Leaves) und der Release-PR wird nachgezogen.
+5. **Weiterlaufen statt warten:** ist ein freigegebener Milestone fertig (Release-PR offen), rückt
+   der Fokus automatisch auf den **nächsten freigegebenen** Milestone. Du bremst über die
+   Freigaben, nicht über das Schließen: `Freigabe: ja` beim nächsten Milestone entfernen/weglassen
+   = der Runner hält dort an. Milestone schließen heißt nur noch „Release ist gemergt + getaggt".
 
 ### Tag-/Semver-Hygiene
 

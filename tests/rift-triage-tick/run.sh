@@ -319,6 +319,21 @@ pr_view '{"commits":[{"committedDate":"2026-09-24T10:00:00Z"}]}'
 run
 check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
+echo
+echo "== Stacking: neuer Release-PR zweigt vom Vorgaenger-Release ab ="
+reset
+focus '{"title":"1.0.4","number":15,"open_issues":0,"closed_issues":1,"description":""}'
+issues '[{"number":724,"title":"[Epic]","labels":[],"body":""}]'
+prs '[{"number":950,"title":"chore(release): v1.0.3","body":"","headRefName":"release/1.0.3","labels":[{"name":"release:human-merge"}]}]'
+milestone_closed '[{"number":913,"title":"grosses Feature","closedAt":"2026-09-24T09:00:00Z"}]'
+rm -f "$REL"
+: > "$ACTIONS"
+run
+check "Exit 0" "0" "$rc"
+check "Gate getriggert" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
+check "Basis-Branch ist der Vorgaenger-Release" "1" "$(grep -c 'Basis-Branch: release/1.0.3' "$REL" 2>/dev/null || true)"
+check "STACK-Hinweis im File" "1" "$(grep -c 'STACK:' "$REL" 2>/dev/null || true)"
+
 # R4: der Release-PR blockiert die Arbeit an einem offenen Issue NICHT (sonst friert die
 # Endabnahme genau dann alles ein, wenn ein Player-Test einen Retry braucht).
 reset
