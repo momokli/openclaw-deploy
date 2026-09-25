@@ -132,7 +132,9 @@ has_open_leaves() {
         --json number,title,labels,body 2>/dev/null)" || out='[]'
   printf '%s' "$out" | jq -e '
     [ .[]
-      | select((.title | test("^\\[(Epic|Umbrella|Milestone|Release)\\]"; "i")) | not)
+      | select((.title | test("^\\[(Epic|Umbrella|Milestone|Release|Design)\\]"; "i")) | not)
+      | select(( (.title | test("^\\[Spike\\]"; "i"))
+                 and (([.labels[].name] | index("triage:research")) == null) ) | not)
       | select(([.labels[].name] | any(. == "claimed" or . == "needs:player-test"
           or . == "follow-up" or . == "hold" or . == "question"
           or . == "triage:no-action")) | not)

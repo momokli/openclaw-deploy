@@ -265,18 +265,41 @@ check "Blocker-Text im File" "1" "$(grep -c 'Blocker B1: Screenshots der Lobby f
 check "letzter APPROVE wird nicht zitiert" "0" "$(grep -c '^ok$' "$DECISION" 2>/dev/null || true)"
 
 echo
-echo "== Code-complete (nur Epics/Spikes): Release-PR faellig -> Gate-Turn =="
+echo "== Code-complete (nur Epics): Release-PR faellig -> Gate-Turn =="
 # Kein Leaf mehr heisst: der Milestone ist CODE-COMPLETE. Die letzte Aufgabe ist der
 # Release-PR (Changelog + Abnahme + Testplan) — den baut der GATE, nicht die Triage.
 REL="$OPENCLAW_STATE_DIR/workspace/rift-release-decision.md"
 reset
-issues '[{"number":724,"title":"[Epic] 1.0.1","labels":[],"body":""},{"number":486,"title":"[Spike] X","labels":[{"name":"research"}],"body":""}]'
+issues '[{"number":724,"title":"[Epic] 1.0.1","labels":[],"body":""}]'
 run
 check "Exit 0" "0" "$rc"
 check "Gate-Turn getriggert (nicht Triage)" "trigger JOB-2" "$(grep '^trigger' "$ACTIONS")"
 check "kein Triage-Trigger" "0" "$(grep -c 'trigger JOB-1' "$ACTIONS")"
 check "Release-Decision nennt den Milestone" "1" "$(grep -c 'Milestone: 1.0.1' "$REL" 2>/dev/null || echo 0)"
 check "Release-Decision nennt das Tag" "1" "$(grep -c 'Tag-Vorschlag: v1.0.1' "$REL" 2>/dev/null || echo 0)"
+
+echo
+echo "== [Design]/[Spike] sind KEINE Leaves und loesen KEINEN Release aus ="
+# Ein design-only Milestone (z. B. 1.0.8) darf nicht als code-complete gelten.
+reset
+issues '[{"number":941,"title":"[Design] Player-Layer","labels":[{"name":"enhancement"}],"body":""}]'
+rm -f "$REL"
+run
+check "Exit 0" "0" "$rc"
+check "kein Trigger (weder Triage noch Release)" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Log nennt mensch-gatede Arbeit" "1" "$(printf '%s' "$out" | grep -c 'mensch-gated')"
+
+# [Spike] ohne `triage:research` ist mensch-gated.
+reset
+issues '[{"number":939,"title":"[Spike] Chat-Format messen","labels":[{"name":"enhancement"}],"body":""}]'
+run
+check "Spike ohne triage:research -> kein Dispatch" "0" "$(grep -c '^trigger' "$ACTIONS")"
+
+# [Spike] MIT `triage:research` ist dispatchbar.
+reset
+issues '[{"number":939,"title":"[Spike] Chat-Format messen","labels":[{"name":"enhancement"},{"name":"triage:research"}],"body":""}]'
+run
+check "Spike mit triage:research -> Dispatch" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
 
 # Ein zweiter Tick innerhalb der Sperre darf NICHT erneut triggern (Token-Schutz):
 # der Gate-Turn braucht Minuten (Branch + CHANGELOG + PR).

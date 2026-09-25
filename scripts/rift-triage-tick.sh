@@ -151,7 +151,9 @@ PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson issues "$ISSUES" '
 # 6) ≥1 dispatchbarer Leaf-Kandidat? (Spiegel des Leaf-Gates im Prompt)
 LEAF="$(printf '%s' "$ISSUES" | jq -c '
   [ .[]
-    | select((.title | test("^\\[(Epic|Umbrella|Milestone|Release)\\]"; "i")) | not)
+    | select((.title | test("^\\[(Epic|Umbrella|Milestone|Release|Design)\\]"; "i")) | not)
+    | select(( (.title | test("^\\[Spike\\]"; "i"))
+               and (([.labels[].name] | index("triage:research")) == null) ) | not)
     | select(([.labels[].name] | any(. == "claimed" or . == "needs:player-test"
         or . == "follow-up" or . == "hold" or . == "question"
         or . == "triage:no-action")) | not)
@@ -177,6 +179,20 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
       --json number,title,closedAt 2>/dev/null)" || CLOSED_JSON='[]'
   if printf '%s' "$CLOSED_JSON" | jq -e 'any(.[]; .title | test("^\\[Release\\]"; "i"))' >/dev/null 2>&1; then
     skip "Release ausgeliefert ([Release]-Issue geschlossen) — Milestone schliessen"
+  fi
+  # Keine dispatchbaren Leaves — aber es steht noch MENSCH-gatede Arbeit offen
+  # ([Design], [Spike] ohne triage:research, hold/question). Dann ist der Milestone NICHT
+  # code-complete: kein Release-PR, sondern warten (Design/Freigabe/Test). Ohne diesen Guard
+  # wuerde ein design-only Milestone (z. B. 1.0.8) faelschlich als Release gebaut.
+  HUMAN_GATED="$(printf '%s' "$ISSUES" | jq -c '
+    [ .[] | select(
+        (.title | test("^\\[Design\\]"; "i"))
+        or ( (.title | test("^\\[Spike\\]"; "i"))
+             and (([.labels[].name] | index("triage:research")) == null) )
+        or ([.labels[].name] | any(. == "hold" or . == "question")) )
+      | .number ]')"
+  if [ "$(printf '%s' "$HUMAN_GATED" | jq 'length' 2>/dev/null)" != "0" ]; then
+    skip "kein Leaf-Kandidat, aber mensch-gatede Arbeit offen: $(printf '%s' "$HUMAN_GATED" | jq -r 'map("#\(.)")|join(",")') (Design/Spike/hold)"
   fi
   # Release-PR des Fokus: NUR seinen eigenen (`release/<titel>`) betrachten — im Run-ahead
   # koennen anderer Milestones Release-PRs offen sein, die hier nichts zu suchen haben.
