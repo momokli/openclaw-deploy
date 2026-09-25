@@ -10,13 +10,13 @@
 
 ## 0 · Setup (einmalig)
 
-| # | Was | Wert |
-|---|---|---|
-| 1 | Spiel | Riftbreaker (Steam **oder GOG**), Windows, aktueller Patch |
-| 2 | Mod | *zu bestätigen*: reicht das Basis-Spiel, oder muss der Client-Mod (`rbbattle`) installiert werden? |
-| 3 | Connect-Host | **`rift.projectmellon.de`** |
-| 4 | Lobby-Zugang | `https://proxy.rift.projectmellon.de` — HTTP basic_auth, User `operator`, **Passwort: von Momo** |
-| 5 | Cockpit (für `ready`) | `https://cockpit.staging.projectmellon.de` (Zugang von Momo) |
+| #   | Was                         | Wert                                                                                                  |
+| --- | --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1   | Spiel                       | Riftbreaker (Steam **oder GOG**), Windows, aktueller Patch                                            |
+| 2   | Mod                         | ✅ Client-Mod (`rbbattle`) ist installiert                                                            |
+| 3   | Connect-Host                | **`rift.projectmellon.de`**                                                                           |
+| 4   | Lobby-Zugang                | `https://proxy.rift.projectmellon.de` — HTTP basic_auth **`operator` / `zukka`**                      |
+| 5   | Cockpit (heute für `ready`) | `https://cockpit.drift.projectmellon.de` (dieselben Creds) — **soll mit dem Lobby-`READY` entfallen** |
 
 ---
 
@@ -29,7 +29,7 @@
 3. **Spielername** im Multiplayer setzen:
    - **`<name>-staging`** → du landest auf der **Staging**-Umgebung (so testen wir).
    - ohne Suffix → prod. `-dev` → dev.
-4. Verbinden. Der Client bleibt im **Loading** — das ist richtig: der Relay *hält* dich, bis
+4. Verbinden. Der Client bleibt im **Loading** — das ist richtig: der Relay _hält_ dich, bis
    der Test-Server bereit ist. (Der Client gibt nach ~20 s auf und verbindet neu — kurz
    warten ist normal.)
 
@@ -44,11 +44,13 @@
 
 ## 3 · Runde starten (`ready`)
 
-9. **`ready`** drücken — im Cockpit (`https://cockpit.staging.projectmellon.de` → Game Config
-   Editor → Button **`ready`**; der `capsule:`-Readout zeigt die Phase).
+9. **`ready`** drücken
    → Das Spiel resümiert: **Warmup → Runde läuft**.
-   - Sag kurz Bescheid, wenn du drin bist — dann drücken **wir** `ready`
-     (das `/ready`-von-Spielern-im-Chat kommt erst in 1.0.6).
+   - **Bis der Lobby-`READY`-Button steht** (im Bau): `ready` kommt heute aus dem Cockpit
+     (`https://cockpit.drift.projectmellon.de` → Game Config Editor → Button **`ready`**;
+     der `capsule:`-Readout zeigt die Phase). Sag kurz Bescheid, wenn du drin bist — dann
+     drücken **wir**.
+   - Danach läuft **ein Countdown („3…2…1 → GO")** in den Chat (Announcer, 1.0.7).
 10. Runde spielen. Nach dem Ende geht der Server **zurück in den Pool**.
 
 ---
@@ -67,16 +69,20 @@ Bitte **immer** mit: Uhrzeit, deinem Spielernamen, Umgebung (`-staging`).
 ## 5 · Bekannte Grenzen (kein Bug)
 
 - `ready` ist (noch) **Operator**-Sache → wir drücken es für dich.
-- **Chat-Anzeige** (Server-Nachrichten/Panel) ist erst **1.0.4** — noch nicht in diesem Test.
-- Mehrere Spieler in *einem* Solo-Spiel = **1.0.5**.
+- **Chat-Anzeige** (Server-Nachrichten/Panel) ist 1.0.4 (PRs #944/#945 noch offen) — der
+  Countdown-Text im Chat kommt damit.
+- Mehrere Spieler in _einem_ Solo-Spiel = **1.0.5**.
 - VS/Queue/ranked = 1.0.9/1.0.10.
 
 ---
 
 ## Für uns: Testing-Setup
 
-- **Ziel-Umgebung: Staging** (`planet :6323`, `cockpit.staging.projectmellon.de`) — Prod bleibt
-  unberührt.
+- **Solo-/Kapsel-Flow läuft aktuell auf DEV** (der Relay-Singleton zeigt auf den dev-Parked-Dienst
+  `127.0.0.1:9201`). Ein `[solo]`-Klick provisioniert also eine **dev**-Instanz. `-staging` im
+  Namen routet nur **Direkt-Joins** auf staging.
+- **Ports:** parked dev `9201`, Kapsel dev `9211` (Ports 8000–8500 sind host-weit von azuracast
+  belegt) — Issue #955/PR #956.
 - **Relay:** Singleton auf `proxy.rift.projectmellon.de`; Env-Wahl per **Spielnamen-Suffix**
   (`-staging`), nicht per Port.
 - **Kapsel-Flow:** Relay `POST /solo` → Kapsel-Dienst `POST /capsule/open` (Claim **ohne**
