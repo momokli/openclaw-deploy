@@ -5,13 +5,25 @@
 # Runner B ("pr-gate") = PR → rebase/review/merge/reject (kein Issue-Anlegen).
 #
 # Repos:
-#   riftbreaker-battle-mod  → Milestone aus GitHub (dynamisch), Takt 5m
-#   openclaw-deploy         → Label/Prio (kein Milestone),         Takt 30m
+#   riftbreaker-battle-mod  → Fokus-Milestone wird zur LAUFZEIT ermittelt
+#                             (scripts/rift-focus-milestone.sh = kleinster offener
+#                             Milestone mit Versions-Titel); Takt 6h (Fallback — die
+#                             Arbeit machen die 5-min-Shell-Ticks, siehe docs/automations.md)
+#   openclaw-deploy         → Label/Prio (kein Milestone), Takt 30m
+#
+# Kein Milestone-Name mehr im Prompt: der Platzhalter __RIFT_MILESTONE__ ist entfernt.
+# Den Fokus wechselt man, indem man den Fokus-Milestone SCHLIESST — kein Redeploy.
+# Methodik: docs/milestone-methodology.md
 #
 # Liest die Prompts aus config/automations/*.prompt.md und convergt die
 # Cron-Jobs über den laufenden Gateway (Runtime-Objekte, NICHT in openclaw.json).
 # `create`/`edit` ist idempotent über `--declaration-key`; stale Jobs der alten
 # Loop-Generation werden entfernt.
+#
+# Converge ist bewusst NICHT aktivierend: dieses Script setzt nur die Definition
+# (Name, Takt, Modell, Message). Aktivieren bleibt ein expliziter Schritt:
+#   openclaw automations enable <uuid>   # bzw. disable
+# Sonst würde jeder Deploy die Runner still einschalten.
 #
 # Nutzung (als Runtime-User, Gateway muss laufen):
 #   openclaw automations-apply          # oder: bash scripts/automations-apply.sh
@@ -23,8 +35,6 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODEL="openrouter/deepseek/deepseek-v4.1-flash"
-# Ziel-Milestone der rift-*-Runner (Name im GitHub-Milestone).
-RIFT_MILESTONE="${RIFT_MILESTONE:-1.0}"
 
 JOBS="$(openclaw automations list --all --json 2>/dev/null || echo '{"jobs":[]}')"
 
@@ -32,24 +42,26 @@ job_id() {
   printf '%s' "$JOBS" | jq -r --arg k "$1" '.jobs[] | select(.declarationKey == $k) | .id' | head -1
 }
 
-# apply NAME KEY EVERY PROMPT_FILE [MILESTONE]
+# apply NAME KEY EVERY PROMPT_FILE
 apply() {
-  local name="$1" key="$2" every="$3" prompt_file="$4" milestone="${5:-}"
+  local name="$1" key="$2" every="$3" prompt_file="$4"
   local msg id
   msg="$(cat "$DIR/config/automations/$prompt_file")"
-  if [ -n "$milestone" ]; then
-    msg="$(printf '%s' "$msg" | sed "s|__RIFT_MILESTONE__|$milestone|g")"
+  if printf '%s' "$msg" | grep -q '__RIFT_MILESTONE__'; then
+    echo "FEHLER: $prompt_file enthaelt noch __RIFT_MILESTONE__." >&2
+    echo "        Der Fokus kommt zur Laufzeit aus scripts/rift-focus-milestone.sh." >&2
+    exit 1
   fi
   id="$(job_id "$key")"
 
   if [ -n "$id" ]; then
     echo "edit  $name ($key)"
+    # Bewusst KEIN --enable (siehe Kopf): Converge definiert nur.
     openclaw automations edit "$id" \
       --name "$name" \
       --every "$every" \
       --model "$MODEL" \
       --no-deliver \
-      --enable \
       --message "$msg"
   else
     echo "apply $name ($key, every $every, isolated, $MODEL, delivery none)"
@@ -79,8 +91,8 @@ remove_stale() {
   done
 }
 
-apply "rift-triage"  "rift-triage:main"  "5m"  "rift-triage.prompt.md"  "$RIFT_MILESTONE"
-apply "rift-pr-gate" "rift-pr-gate:main" "5m"  "rift-pr-gate.prompt.md" "$RIFT_MILESTONE"
+apply "rift-triage"  "rift-triage:main"  "6h"  "rift-triage.prompt.md"
+apply "rift-pr-gate" "rift-pr-gate:main" "6h"  "rift-pr-gate.prompt.md"
 apply "ocd-triage"   "ocd-triage:main"   "30m" "ocd-triage.prompt.md"
 apply "ocd-pr-gate"  "ocd-pr-gate:main"  "30m" "ocd-pr-gate.prompt.md"
 

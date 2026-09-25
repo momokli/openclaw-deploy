@@ -21,6 +21,32 @@ Deshalb, in dieser Reihenfolge:
    nie still enden.
 4. **Blocker → Issue** (siehe unten): fehlendes Tool/Zugriff = Issue, kein stiller Abbruch.
 
+## Erst prüfen: ist der Dispatch noch gültig? (Pflicht)
+
+Die Triage dispatcht nach dem Milestone — der Ist-Stand kann älter sein als das Issue
+(Beispiel **#337**: der Fix-PR war seit Tagen gemergt, der Dispatch war veraltet). Kläre
+deshalb **zuerst** (~2 Minuten): gibt es schon einen **gemergten PR**, dessen Commits in
+`origin/main` sind, und ist der geforderte Check grün?
+
+**Wenn ja — nicht bauen:**
+
+1. Kommentar auf dem Issue, dessen **ERSTE Zeile exakt `[ALREADY-DONE]`** ist, gefolgt vom
+   **Beleg**: PR-Nr., Merge-Commit, `git log --oneline origin/main`-Zeile, Check-Status.
+2. **Und das Label `triage:no-action` setzen**
+   (`clanker-gh issue edit <n> --add-label triage:no-action`). Das ist das
+   **Maschinen-Signal**: der Triage-Runner schließt das Issue daraufhin und gibt den
+   WIP=1-Slot frei. Der Kommentar ist für Menschen, das Label für die Automation.
+3. **Kein Branch, kein PR, keine Pipeline-Stages.**
+4. Das Issue **nicht selbst schließen** — das macht der Triage-Runner.
+5. Letzter Turn ist ein kurzer Text-Report (Pflicht), der mit `[ALREADY-DONE] #<n>` beginnt.
+
+**Wenn der Dispatch aus einem anderen Grund nichts zu bauen hat** (Prämisse widerlegt,
+Frage geklärt, Aufwand steht in keinem Verhältnis): derselben Weg — Befund als Kommentar,
+Label `triage:no-action`, **kein** PR, kurzer Report. Ohne das Label bleibt der Slot belegt
+und der Fokus-Milestone steht still.
+
+**Wenn nein:** normale Pipeline.
+
 ## Pipeline
 
 1. feature-dev-planner: Spec in User Stories zerlegen
@@ -30,6 +56,16 @@ Deshalb, in dieser Reihenfolge:
 5. feature-dev-tester: Integration/E2E Tests
 6. feature-dev-developer: PR erstellen (Branch pushen)
 7. feature-dev-reviewer: Final Review
+
+## PR-Konvention (Pflicht)
+
+Der PR-Body MUSS den Issue mit einem **Closing-Keyword** referenzieren: `Closes #<n>`
+(bzw. `Fixes #<n>`). **Nicht** „Refs #<n>" und nicht nur „Issue #<n>" im Fließtext.
+
+Grund: Nur bei einem Closing-Keyword schließt GitHub das Issue beim Merge automatisch.
+Bleibt es offen, klebt das `orchestrator:dispatched`-Label daran, der Stale-Guard
+überspringt es dauerhaft (`activity-since-dispatch`) und der Triage-Slot bleibt blockiert
+— der ganze Fokus-Milestone steht dann still.
 
 ## Vorgehen
 
@@ -43,10 +79,10 @@ Deshalb, in dieser Reihenfolge:
 ## sessions_spawn Syntax (WICHTIG)
 
 sessions_spawn({
-  agentId: "feature-dev-planner",
-  label: "plan",
-  task: "Lies <repo>/progress-<branch>.md. Erstelle einen Plan...",
-  cwd: "/home/momo/repos/<repo-name>"
+agentId: "feature-dev-planner",
+label: "plan",
+task: "Lies <repo>/progress-<branch>.md. Erstelle einen Plan...",
+cwd: "/home/momo/repos/<repo-name>"
 })
 
 - KEIN mode-Parameter noetig (default run ist korrekt fuer subagents)

@@ -1,0 +1,198 @@
+# Milestone-Methodik — Fokus-Iterationen für die `rift-*`-Runner
+
+Stand: 2026-09-23. Source-of-Truth: dieses Repo.
+
+**Status:** Die Fokus-Regel ist noch **nicht live**. `config/automations/*.prompt.md` und
+`scripts/automations-apply.sh` arbeiten derzeit mit einem fest gesetzten `RIFT_MILESTONE`
+(= `1.0`). Dieses Dokument beschreibt den Zielzustand; die Umsetzung (Fokus-Script +
+Prompt-Diff) ist der nächste Schritt.
+
+## Idee
+
+Nicht „die Automatik arbeitet Issues ab", sondern: **du kuratierst eine Iteration, die
+Automatik arbeitet sie ab.** Der Milestone ist gleichzeitig Arbeitspaket und Freigabe.
+Es gibt immer genau **einen** Fokus-Milestone.
+
+## 1 · Fokus-Regel (Runtime, kein Deploy)
+
+Fokus = **kleinster offener Milestone, der alle drei Bedingungen erfüllt:**
+
+1. **Versions-Titel** (Default `^1\.`): `1.0.1` < `1.0.10` < `1.1` — numerisch sortiert, **nicht**
+   nach Milestone-Nummer. Ein Parkplatz wie `soon` fällt raus.
+2. **Freigegeben** — der Milestone-Text enthält eine eigene Zeile `Freigabe: ja`
+   (`(?im)^\s*freigabe\s*:\s*(ja|yes|true)\s*$`). Sammelbecken wie `1.1` bleiben ohne Marker →
+   **gesperrt**. Die Roadmap wird inkrementell geplant: den nächsten Milestone freigeben heißt,
+   diese Zeile in den Milestone-Text zu schreiben. Kein Redeploy, kein Repo-Eingriff.
+3. **Noch Arbeit bzw. ein (Re-)Release nötig** — siehe Run-ahead.
+
+Ermittelt pro Lauf von `scripts/rift-focus-milestone.sh` (deterministisch, offline testbar —
+Muster wie `rift-stale-dispatch.sh`). Der Prompt enthält danach keinen Milestone-Namen mehr,
+nur den Aufruf.
+
+**Run-ahead (statt „warten auf den Menschen").** Ein Milestone, dessen Release-PR **offen oder
+gemergt** ist, wird **übersprungen** — der Fokus rückt auf den nächsten freigegebenen Milestone,
+statt stillzustehen. Zwei Ausnahmen halten den Fokus bei diesem Milestone:
+
+- er hat noch **offene Leaf-Issues** (z. B. ein Player-Test-Fix kam in den Milestone zurück), oder
+- sein offener Release-PR ist **veraltet** (seit dem letzten Release-Commit wurde ein Issue im
+  Milestone geschlossen) → der Tick zieht den Release-PR nach.
+
+So arbeitet der Runner mehrere freigegebene Milestones vor, bis ihm die Freigaben ausgehen:
+gebremst wird nicht durch eine Zahl, sondern durch das, was du freigegeben hast.
+
+**Release-PRs stapeln.** Jeder fertige Milestone bekommt sofort seinen Release-PR, aber
+`release/1.0.4` zweigt von `release/1.0.3` ab (nicht von `main`), solange dessen Release noch
+offen ist — so kollidieren die `CHANGELOG.md`-Blöcke beim Mergen in Reihenfolge nicht, und
+GitHub retargetet den oberen PR beim Merge des unteren automatisch auf `main`. Die Basis steht
+in der Release-Entscheidung (`rift-release-decision.md`), die der Tick schreibt.
+
+Nur ein **geschlossener** (nicht gemergter) Release-PR blockiert nicht — dann wird neu gebaut.
+
+## 2 · Struktur je Iteration
+
+- **Der Milestone-Text trägt Zielbild, Abnahme und die geordnete Sub-Issue-Liste** als
+  Checkliste (`- [ ] #NNN`) — genau diese Checkliste liest der Runner als
+  **Dispatch-Reihenfolge** (oben → unten).
+- **Sub-Issues sind klein:** ein abgegrenztes Stück, Akzeptanzkriterien, ein PR.
+- Nur **Leaf-Issues** werden dispatcht. Wer Sub-Issues hat, ist ein Epic → nie Dispatch.
+- Ein `[Epic]`-Issue ist **optional** (Altbestand): ist eines da, dient seine Checkliste als
+  Fallback-Reihenfolge. Ohne beides gilt die aufsteigende Issue-Nummer.
+
+Die Reihenfolge ist die Checkliste im Milestone. Das ist die Kurations-Hand des Menschen.
+Wichtig: nur Checklisten-Zeilen zählen — `#NNN` in Prosa (z. B. „erledigt: #337, #393“)
+verändert die Reihenfolge nicht.
+
+## 3 · Gate der Triage (was dispatcht wird)
+
+Dispatcht wird nur, wenn **alle** Punkte zutreffen:
+
+1. Issue liegt im Fokus-Milestone.
+2. Es ist ein **Leaf** — kein Epic, keine Checkliste, kein „Umbrella"/„Sammel"-Issue.
+3. Kein Ausschluss-Marker: `claimed` (Mensch dran), `needs:player-test`, `follow-up`,
+   `hold`, Interview/Design (`question`), und Spikes nur mit explizitem Go.
+4. Der **Slot ist frei** (siehe 4).
+
+Alles andere wird nur im Status-Log geführt („awaiting human" / „awaiting slot").
+
+### Veralteter Dispatch (Issue längst erledigt)
+
+Der Milestone-Filter ist grob: ein Issue kann fertig sein und trotzdem im Fokus-Milestone
+liegen (Beispiel **#337** — der Fix-PR #343 war seit dem 13.09. gemergt). Dann dispatcht die
+Triage ins Leere, und weil der Worker `done` meldet, blockiert der Slot dauerhaft
+(WIP = 1) — der Stale-Guard greift bewusst nicht, ein `done`-Run gilt als gesund.
+
+Deshalb ein expliziter Pfad:
+
+1. **Der Worker prüft zuerst** (~2 Minuten): gibt es einen gemergten PR, dessen Commits in
+   `main` sind, und ist der geforderte Check grün? Wenn ja: Kommentar auf dem Issue, dessen
+   **ERSTE Zeile `[ALREADY-DONE]`** ist, mit Beleg (PR-Nr., Merge-Commit, Check-Status) —
+   **kein** Branch, **kein** PR, keine Pipeline-Stages.
+2. **Die Triage räumt auf:** Issues im Fokus-Milestone mit `orchestrator:dispatched`, deren
+   letzter Kommentar mit `[ALREADY-DONE]` beginnt, werden geschlossen + Label entfernt.
+   Das zählt **nicht** als Slot-Belegung — der Lauf dispatcht danach normal den nächsten
+   Kandidaten.
+
+Das ist der Ersatz für perfekte Kuration: die Pipeline erkennt ihren eigenen Irrtum und
+räumt ihn auf, statt stehen zu bleiben.
+
+## 4 · Slot: ein Worker, ein PR-Stack
+
+- **WIP = 1 Worker.** Immer höchstens ein Task gleichzeitig: kein Kollidieren, `planet`
+  wird nicht überfahren, und ein Task ist einzeln messbar.
+- **Stacktiefe ≤ 3.** Ein Worker, aber bis zu drei offene PRs — damit der Worker nie aufs
+  Review warten muss.
+- **Unabhängige Issues → Basis `main`.** Unabhängig mergebar, keine Kopplung.
+- **Abhängige Issues** (im Issue als `Depends on #n` deklariert) → Basis = Branch von #n;
+  so bildet sich ein Stack.
+
+### Stack-Regeln (hart)
+
+| Regel                                                                                        | Warum                                                                        |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Basis = Branch des Vorgängers, **nicht** `main`                                              | der PR zeigt nur seinen eigenen Diff                                         |
+| Merge **FIFO**: nur der unterste ungemergte PR ist merge-fähig                               | sonst zerfällt die Kette                                                     |
+| Nach jedem Merge: `git rebase --onto main <alter-base-head> <branch>` + `--force-with-lease` | **nicht** `gh pr update-branch` — sonst zeigt der PR wieder den ganzen Stack |
+| Stirbt ein unterer PR → alle oberen neu auf `main` basen                                     | sonst hängen sie an einer Leiche                                             |
+
+`--delete-branch` beim Merge ist Voraussetzung: GitHub retargetet die darüberliegenden PRs
+dann automatisch auf `main`.
+
+## 5 · Rollen und Takte
+
+| Runner             | Rolle                                                          | Takt |
+| ------------------ | -------------------------------------------------------------- | ---- |
+| `rift-triage` (A)  | Issue → Dispatch (kein Review/Merge)                           | 1 h  |
+| `rift-pr-gate` (B) | PR → rebase/review/merge/reject, **nur Fokus-Milestone**, FIFO | 30 m |
+
+- A = `momo-clanker[bot]` (`clanker-gh`/`clanker-git`), B = `momo-claw[bot]` (`claw-gh`/`claw-git`).
+- Der Gate merged selbst, aber **nie** `--admin` und nie unter Umgehung von Branch-Protection.
+- Den Rebase nach einem Merge gibt der Gate als Handoff an A zurück (History-Eingriff =
+  Writer-Rolle; B ist Reviewer).
+- Der Gate läuft häufiger als die Triage, weil ein tiefer Stack sonst auf dem untersten
+  PR aufläuft.
+
+## 6 · Kuratieren (Menschenarbeit, nicht Automatik)
+
+Vor jeder Iteration, per Hand:
+
+1. Fokus-Milestone anlegen (Versions-Titel): Zielbild, Abnahme und die geordnete
+   Sub-Issue-Checkliste (`- [ ] #NNN`) in die **Milestone-Beschreibung**; Sub-Issues schreiben.
+   Ein Epic-Issue ist dafür nicht mehr nötig. **Zum Vorarbeiten freigeben = eine Zeile
+   `Freigabe: ja` in den Text** (ohne sie ist der Milestone für den Runner gesperrt,
+   z. B. das Sammelbecken `1.1`).
+2. Nur **verifizierte** Issues hinein. Nichts importieren, ohne den aktuellen Stand zu
+   prüfen — der Ist-Zustand driftet (Beispiel **#372**: als Bug in 1.0 geführt, war längst
+   erledigt).
+3. Was nicht in die Iteration gehört: in den nächsten Milestone oder zurück in den Parkplatz.
+4. **Code-complete ⇒ Release-PR** (gestapelt, s. o.). Sobald kein offener Leaf-Kandidat mehr im
+   Milestone ist, baut der Gate den Release-PR (`CHANGELOG.md` + Abnahme + Testplan, Label
+   `release:human-merge`). Der gehört **nie** automergt: Merge, Milestone-Schließen und
+   `git tag v<x.y.z>` (→ Prod-Deploy, wartet am `prod`-Environment auf Freigabe) sind
+   Menschenschritte. Fällt ein Player-Test durch, kommt das Issue zurück in den Milestone — der
+   Runner nimmt ihn wieder als Fokus (offene Leaves) und der Release-PR wird nachgezogen.
+5. **Weiterlaufen statt warten:** ist ein freigegebener Milestone fertig (Release-PR offen), rückt
+   der Fokus automatisch auf den **nächsten freigegebenen** Milestone. Du bremst über die
+   Freigaben, nicht über das Schließen: `Freigabe: ja` beim nächsten Milestone entfernen/weglassen
+   = der Runner hält dort an. Milestone schließen heißt nur noch „Release ist gemergt + getaggt".
+
+### Tag-/Semver-Hygiene
+
+- **Ein Tag = ein abgeschlossener Milestone.** Die Tag-Reihenfolge muss zur
+  Versions-Reihenfolge passen. **Nie einen Zukunfts-Milestone taggen** — sonst lügen die Tags
+  über die Reihenfolge.
+- **Negativbeispiel (2026-09-24):** `v1.1.0` wurde zwei Tage **vor** `v1.0.1` getaggt und
+  zeigte auf einen _älteren_ Commit. Prod lief dadurch auf einem Commit, der älter war als
+  `v1.0.1`. Der Tag wurde am 2026-09-24 entfernt (per API, s. u.).
+- **Tag-Push = Prod-Deploy** (`deploy.yml`, Env `prod`, wartet auf Freigabe).
+- **Tag löschen NIE per `git push origin :refs/tags/<tag>`** — das feuert den `push`-Trigger
+  auf `tags: v*` und startet einen ungewollten (wenn auch env-gated) Deploy-Lauf. Stattdessen
+  per API:
+  ```sh
+  gh api -X DELETE repos/<owner>/<repo>/git/refs/tags/<tag>
+  ```
+- Erstellen/Löschen von Tags ist per Ruleset `release-tags-protected` geschützt (Bypass nur
+  Admin-Rolle und `momokli`).
+
+## 7 · Aufräumen, Stand 2026-09-23
+
+Einmalig per Hand erledigt (die Automatik kann das nicht):
+
+- 44× `orchestrator:dispatched` + 6× `triage:redispatch` entfernt — Freigabe-Marker ohne
+  offenen PR.
+- 23 Claims ohne PR entfernt — der Claim-Workflow (`.github/workflows/issue-claim.yml`)
+  hat **keinen Verfall**.
+- 163 Follow-up-Issues geschlossen; der `Follow-up-Issues`-Workflow ist deaktiviert und per
+  PR auf ein explizites `quality-sweep`-Label gegatet.
+- 8 fertige, aber nie geschlossene Issues geschlossen (11 gemergte PRs ohne Close).
+- `#337` als veralteten Dispatch erkannt (Fix-PR #343 war seit dem 13.09. gemergt) und
+  geschlossen → daraus entstand der `[ALREADY-DONE]`-Pfad oben.
+- `1.0` abgeschlossen, die Reste nach `1.0.1`/`1.1` umgesortiert.
+- Offene Issues: 271 → ~108.
+
+**Lehre:** Jeder Marker, der Arbeit signalisiert, braucht einen Verfall — sonst blockiert
+er lautlos.
+
+## Verwandt
+
+- `docs/automations.md` — Inventar, Sichtbarkeit, as-code vs. fluent.
+- `scripts/rift-stale-dispatch.sh` — Freigabe hängender Dispatches (Vorbild für den Fokus-Helper).

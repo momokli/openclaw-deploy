@@ -34,6 +34,11 @@ web-researcher ┘
      **Max. 2 critic-Iterationen.** Danach mit „Offene Punkte“ abliefern (kein weiterer Loop).
 9. Finalen Plan als Issue anlegen: `gh issue create` mit Plantitel + Plan-Doc als Body;
    parent/related Issue(s) verlinken (`Fixes #n` / Verweis im Body).
+10. **Abschluss-Signal (Pflicht):** Label `triage:no-action` auf das **Spike-Issue** setzen
+    (`clanker-gh issue edit <n> --add-label triage:no-action`) und dort kurz kommentieren,
+    welches Plan-Issue entstanden ist. Ohne dieses Label bleibt das Spike-Issue
+    „dispatched", der Triage-Slot bleibt belegt und der ganze Fokus-Milestone steht still.
+    Das Issue **nicht selbst schließen** — das macht der Triage-Runner anhand des Labels.
 
 ## sessions_spawn Syntax (WICHTIG)
 
