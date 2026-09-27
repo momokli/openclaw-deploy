@@ -16,6 +16,10 @@
 #   — der Fokus rückt auf den nächsten freigegebenen Milestone, statt auf den
 #   Menschen zu warten. Ausnahmen (dann bleibt/kommt er als Fokus):
 #     • er hat noch OFFENE LEAF-Issues (z. B. ein Player-Test-Fix kam zurück) → Arbeit,
+#     • ein offenes Issue hat einen OFFENEN, UNGEMERGTEN PR (auch `claimed`/`hold`/
+#       `question`) → der Milestone ist NICHT code-complete; kein Run-ahead. Grund:
+#       `claimed` heißt „nicht dispatchbar", NICHT „fertig" — ohne diese Regel lief der
+#       Fokus vor ungemergten Leaf-PRs weg (real: 1.0.4 mit offenen #944/#945 → 1.0.6),
 #     • sein offener Release-PR ist VERALTET (seit dem letzten Release-Commit wurde
 #       ein Issue im Milestone geschlossen) → der Tick zieht den Release-PR nach.
 #   Ein nur GESCHLOSSENER (nicht gemergter) Release-PR blockiert NICHT (Rebuild).
@@ -87,7 +91,7 @@ json="$(printf '%s' "$raw" | jq -c '[.[] | {title, number, open_issues, closed_i
 
 # Release-PRs (alle Zustände): `release/<titel>` sagt, ob ein Milestone schon
 # einen Release-PR hat.
-prs="$("$GH" pr list --repo "$REPO" --state all --limit 300 --json number,headRefName,state,labels 2>/dev/null)" \
+prs="$("$GH" pr list --repo "$REPO" --state all --limit 300 --json number,headRefName,state,labels,title,body 2>/dev/null)" \
   || prs='[]'
 relmap="$(printf '%s' "$prs" | jq -c '
   [ .[] | select(any(.labels[]?; .name == "release:human-merge"))
@@ -104,6 +108,12 @@ prsonly="$(printf '%s' "$prs" | jq -c '
   [ .[] | select(.state == "OPEN") | select(any(.labels[]?; .name == "release:human-merge"))
         | { number, headRefName } ]' 2>/dev/null)" || prsonly='[]'
 [ -n "$prsonly" ] || prsonly='[]'
+# Offene Arbeits-PRs (KEIN Release-Marker) — Grundlage der Run-ahead-Sperre unten.
+openprs="$(printf '%s' "$prs" | jq -c '
+  [ .[] | select(.state == "OPEN")
+        | select((([.labels[]?.name] | index("release:human-merge")) == null))
+        | { number, title, headRefName, body } ]' 2>/dev/null)" || openprs='[]'
+[ -n "$openprs" ] || openprs='[]'
 
 # Kandidaten: Versions-Titel, aufsteigend version-sortiert.
 ordered="$(printf '%s' "$json" \
@@ -143,6 +153,20 @@ has_open_leaves() {
       | select((.body // "" | [scan("(?m)^[ \t]*- \\[ \\][ \t]*#[0-9]+")] | length) < 2)
       | .number ] | length > 0' >/dev/null 2>&1
 }
+# has_open_unmerged_pr <milestone-number> — hat ein OFFENES Issue im Milestone einen
+# OFFENEN, ungemergten PR? Anders als `has_open_leaves` zählt das AUCH für `claimed`/
+# `hold`/`question`-Issues: der Anspruch heißt „nicht dispatchbar", NICHT „fertig". Solange
+# so ein PR offen ist, ist der Milestone nicht code-complete → kein Run-ahead.
+has_open_unmerged_pr() {
+  local out
+  out="$("$GH" issue list --repo "$REPO" --milestone "$1" --state open --limit 100 \
+        --json number 2>/dev/null)" || out='[]'
+  printf '%s' "$openprs" | jq -e --argjson issues "$out" '
+    def refs: ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
+              | [scan("#([0-9]+)")] | flatten | map(tonumber);
+    [ $issues[].number ] as $focus
+    | any(.[]; (refs | any(. as $n | $focus | index($n))))' >/dev/null 2>&1
+}
 # release_pr_is_current <title> — offener Release-PR schon auf dem aktuellen Stand?
 # (letzter Release-Commit >= neuestes `closedAt` im Milestone). Fehlt eine Zahl,
 # wird NICHT gesprungen (fail-open → Tick baut/aktualisiert).
@@ -181,6 +205,7 @@ while IFS= read -r t; do
       continue ;;
     open)
       if has_open_leaves "$mn"; then focus="$t"; break; fi        # neue Arbeit → dranbleiben
+      if has_open_unmerged_pr "$mn"; then focus="$t"; break; fi   # ungemergter Leaf-PR → kein Run-ahead
       if ! release_pr_is_current "$t"; then focus="$t"; break; fi # PR veraltet → nachziehen
       continue ;;                                                  # wartet auf den Menschen
     *)

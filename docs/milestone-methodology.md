@@ -31,9 +31,13 @@ nur den Aufruf.
 
 **Run-ahead (statt „warten auf den Menschen").** Ein Milestone, dessen Release-PR **offen oder
 gemergt** ist, wird **übersprungen** — der Fokus rückt auf den nächsten freigegebenen Milestone,
-statt stillzustehen. Zwei Ausnahmen halten den Fokus bei diesem Milestone:
+statt stillzustehen. Drei Ausnahmen halten den Fokus bei diesem Milestone:
 
-- er hat noch **offene Leaf-Issues** (z. B. ein Player-Test-Fix kam in den Milestone zurück), oder
+- er hat noch **offene Leaf-Issues** (z. B. ein Player-Test-Fix kam in den Milestone zurück),
+- ein offenes Issue hat einen **offenen, ungemergten PR** (auch wenn es `claimed`/`hold`/
+  `question` trägt) → der Milestone ist **nicht** code-complete; `claimed` heißt „nicht
+  dispatchbar", NICHT „fertig" (sonst lief der Fokus vor ungemergten Leaf-PRs weg — real:
+  1.0.4 mit offenen #944/#945 → 1.0.6), oder
 - sein offener Release-PR ist **veraltet** (seit dem letzten Release-Commit wurde ein Issue im
   Milestone geschlossen) → der Tick zieht den Release-PR nach.
 

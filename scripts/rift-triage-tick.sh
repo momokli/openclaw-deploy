@@ -83,6 +83,23 @@ if [ "$(printf '%s' "$DISPATCHED" | jq 'length' 2>/dev/null)" != "0" ]; then
   skip "Slot belegt (orchestrator:dispatched: $(printf '%s' "$DISPATCHED" | jq -r '[.[].number]|join(",")'))"
 fi
 
+# 3b) Claim/Handback-Widerspruch aufloesen (0 Tokens). `triage:implement` (Gate-/Fixer-
+#     Zuweisung) und `claimed` (Mensch dran, per `!claim`, OHNE Verfall) schliessen sich
+#     aus. Bleibt nach einem Gate-Handback ein `claimed` kleben, faellt das Issue aus dem
+#     Leaf-Set (Schritt 6) → der Fixer wird NIE dispatcht und der Milestone friert ein
+#     (real: #934/#935 mit REQUEST_CHANGES-PRs #944/#945, Fokus lief ins Leere). Die
+#     Fixer-Zuweisung gewinnt. Muss VOR Schritt 4 laufen, damit der Fetch es schon sieht.
+CLAIM_CONFLICT="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" \
+  --label "triage:implement" --limit 100 --json number,labels 2>/dev/null \
+  | jq -r '.[] | select(([.labels[].name] | index("claimed")) != null) | .number')"
+for cn in $CLAIM_CONFLICT; do
+  if "$GH" issue edit "$cn" --repo "$REPO" --remove-label "claimed" >/dev/null 2>&1; then
+    log "Claim-Konflikt #$cn: triage:implement vorhanden → claimed entfernt (Fixer wird dispatchbar)"
+  else
+    log "WARNUNG: claimed von #$cn nicht entfernbar (Claim-Konflikt)"
+  fi
+done
+
 # 4) Issues + offene PRs des Fokus holen.
 ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
   --json number,title,labels,body 2>/dev/null)" || die "issue list fehlgeschlagen"

@@ -236,6 +236,22 @@ check "Decision-File nennt #301" "1" "$(grep -c 'Issue: #301' "$DECISION" 2>/dev
 check "Decision-File nennt den bestehenden PR #915" "1" "$(grep -c 'Bestehender offener PR: #915' "$DECISION" 2>/dev/null || echo 0)"
 
 echo
+echo "== Claim/Handback-Konflikt: triage:implement schlaegt claimed =="
+# Bleibt nach einem Gate-Handback ein `claimed` (Mensch dran, ohne Verfall) kleben, faellt das
+# Issue aus dem Leaf-Set und der Fixer wird NIE dispatcht (real: #934/#935, PRs #944/#945).
+reset
+issues '[{"number":934,"title":"[Feature] Chat","labels":[{"name":"claimed"},{"name":"triage:implement"}],"body":""}]'
+: > "$ACTIONS"
+run
+check "Exit 0" "0" "$rc"
+check "claimed wird entfernt" "1" "$(grep -c 'issue-edit issue edit 934 .*--remove-label claimed' "$ACTIONS")"
+# Naechster Tick (Fixture ohne `claimed` — wie nach der echten Entfernung): jetzt Leaf -> Dispatch.
+issues '[{"number":934,"title":"[Feature] Chat","labels":[{"name":"triage:implement"}],"body":""}]'
+: > "$ACTIONS"
+run
+check "ohne claimed ist es ein Leaf (Dispatch)" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+
+echo
 echo "== Bestehender PR: Release-PR ignorieren, echten Feature-PR waehlen (real #951 vs #948) =="
 reset
 issues '[{"number":930,"title":"Solo-Button","labels":[{"name":"triage:implement"}],"body":""}]'

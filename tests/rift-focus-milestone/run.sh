@@ -81,6 +81,11 @@ mf() { printf '{"title":"%s","number":%s,"open_issues":%s}' "$1" "$2" "$3"; }
 rel() { # rel <title> <STATE>
   printf '{"headRefName":"release/%s","state":"%s","labels":[{"name":"release:human-merge"}]}' "$1" "$2"
 }
+# offener Arbeits-PR (kein Release-Marker), referenziert Issue #<ref> (z. B. via "Closes")
+wrk() { # wrk <number> <ref-issue> [state]
+  printf '{"number":%s,"title":"feat: x (#%s)","body":"Closes #%s","headRefName":"feat/%s-x","state":"%s","labels":[]}' \
+    "$1" "$2" "$2" "$2" "${3:-OPEN}"
+}
 
 echo "== Fokus-Regel =="
 
@@ -159,6 +164,26 @@ check "offener PR veraltet -> Milestone bleibt Fokus (Rebuild)" "1.0.3" "$out"
 CLOSED='[{"closedAt":"2026-09-24T09:00:00Z"}]'
 run "$(ms "$(m 1.0.3 14 0),$(m 1.0.4 15 3)")"
 check "offener PR aktuell -> nächster Fokus" "1.0.4" "$out"
+
+# Fakes zurücksetzen, damit die Folgetests Defaults sehen.
+LEAVES='[]'; CLOSED='[]'; PRVIEW='{"commits":[]}'
+PRS='[]'
+
+echo
+echo "== Run-ahead-Sperre: offener ungemergter Leaf-PR hält den Fokus =="
+
+# 1.0.3 hat einen offenen Release-PR und ist „aktuell", ABER das `claimed`-Issue #934 hat
+# den offenen, ungemergten PR #944 → 1.0.3 ist NICHT code-complete (kein Run-ahead).
+PRS="[$(rel 1.0.3 OPEN),$(wrk 944 934)]"
+LEAVES='[{"number":934,"title":"feat","labels":["claimed","triage:implement"],"body":""}]'
+CLOSED='[]'; PRVIEW='{"commits":[]}'
+run "$(ms "$(m 1.0.3 14 3),$(m 1.0.4 15 3)")"
+check "claimed-Issue mit offenem PR -> Milestone bleibt Fokus (kein Run-ahead)" "1.0.3" "$out"
+
+# PR referenziert ein Issue, das NICHT offen ist → kein Halten, Run-ahead normal.
+PRS="[$(rel 1.0.3 OPEN),$(wrk 944 9999)]"
+run "$(ms "$(m 1.0.3 14 3),$(m 1.0.4 15 3)")"
+check "PR ohne offenes Fokus-Issue -> Run-ahead normal" "1.0.4" "$out"
 
 # Fakes zurücksetzen, damit die Folgetests Defaults sehen.
 LEAVES='[]'; CLOSED='[]'; PRVIEW='{"commits":[]}'
