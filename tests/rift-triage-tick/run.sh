@@ -176,13 +176,32 @@ check "Exit 0 (Skip)" "0" "$rc"
 check "kein Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
 
 echo
+echo "== Fokus-PR zaehlt nur mit Closing-Keyword (nicht jede Erwaehnung) =="
+# Ein PR, der ein Fokus-Issue nur erwaehnt (Branch-Token/Prosa, kein Closes/Fixes/Resolves),
+# darf den Slot NICHT blockieren (real: ein Doku-PR nannte #966 und kaperte dessen Slot).
+reset
+issues '[{"number":896,"title":"ci","labels":[],"body":""}]'
+prs '[{"number":971,"title":"docs: x","body":"Refs #896","headRefName":"docs/896-x","labels":[]}]'
+: > "$ACTIONS"
+run
+check "Erwaehnung ohne Closing-Keyword -> Dispatch" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"
+
+# Closing-Keyword blockiert (echter Fokus-PR belegt den Slot).
+reset
+issues '[{"number":896,"title":"ci","labels":[],"body":""}]'
+prs '[{"number":944,"title":"feat","body":"Closes #896","headRefName":"feat/896-x","labels":[]}]'
+: > "$ACTIONS"
+run
+check "Closing-Keyword -> kein Trigger (offener Fokus-PR)" "0" "$(grep -c '^trigger' "$ACTIONS")"
+
+echo
 echo "== Guard-Retry (triage:redispatch): offener PR friert den Milestone NICHT ein =="
 # Real: PR #905 (roter boot-test) blockierte den kompletten 1.0.1-Fokus. Hat der Stale-Guard
 # das Issue für den Retry freigegeben, darf Schritt 5 nicht mehr greifen — und das
 # Decision-File muss den bestehenden PR als Arbeitsgrundlage nennen.
 reset
 issues '[{"number":896,"title":"ci: build parallel","labels":[{"name":"triage:redispatch"}],"body":""}]'
-prs '[{"number":900,"title":"fix","body":"Refs #896","headRefName":"fix/x"}]'
+prs '[{"number":900,"title":"fix","body":"Closes #896","headRefName":"fix/x"}]'
 run
 check "Exit 0" "0" "$rc"
 check "Agent-Turn getriggert" "trigger JOB-1" "$(grep '^trigger' "$ACTIONS")"

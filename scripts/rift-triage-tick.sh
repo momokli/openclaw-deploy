@@ -118,10 +118,9 @@ HANDBACK="$(jq -nr --argjson issues "$ISSUES" --argjson prs "$PRS" '
     | { verdict: ( [ .comments[]? | (.body // "")
                     | capture("\\[VERDICT:[ \\t]*(?<v>[A-Za-z_]+)")? ]
                   | last // {} | (.v // "") ),
-        refs: ( ((.headRefName // "") | [scan("(?:^|[/_-])([0-9]+)(?=[/_-]|$)")] | map(.[0] | tonumber))
-              + ((.body // "")
-                 | [scan("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|relate[sd]?|part of|addresses)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]
-                 | map(.[0] | tonumber)) ) }
+        refs: ( ((.title // "") + " " + (.body // ""))
+              | [scan("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]
+              | map(.[0] | tonumber) ) }
     | select(.verdict == "REQUEST_CHANGES")
     | .refs[]
   ] as $refs
@@ -152,8 +151,11 @@ fi
 #       Arbeit an einem Issue: er wartet auf den Menschen und darf den Slot nicht halten
 #       (sonst friert er genau dann alles ein, wenn ein Player-Test einen Retry braucht).
 PR_HIT="$(jq -nr --argjson prs "$PRS" --argjson issues "$ISSUES" '
-  def refs: ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
-            | [scan("#([0-9]+)")] | flatten | map(tonumber);
+  # Ein PR zaehlt nur dann als „PR zu diesem Issue", wenn er es per CLOSING-KEYWORD nennt
+  # (`Closes/Fixes/Resolves #N`) — blosse Erwaehnungen/Branch-Token reichen NICHT (sonst friert
+  # jeder PR, der ein Fokus-Issue nur nennt, den Slot ein; real: ein Doku-PR nannte #966).
+  def refs: ((.title // "") + " " + (.body // ""))
+            | [scan("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#([0-9]+)")] | map(.[0] | tonumber);
   [ $issues[] | .number ] as $focus
   | [ $issues[] | select((([.labels[].name] | index("triage:redispatch")) != null)) | .number ] as $retry
   | [ $issues[] | select((([.labels[].name] | index("triage:implement")) != null)) | .number ] as $handoff
@@ -327,19 +329,16 @@ CHOSEN_TITLE="$(printf '%s' "$ISSUES" | jq -r --argjson c "$CHOSEN" '.[]|select(
 # rotem Required-Check)? Dann ist der Branch die Arbeitsgrundlage — einen zweiten PR
 # aufzumachen würde den Slot erneut blockieren (Schritt 5 kennt nur „PR offen").
 EXIST_PR="$(jq -nr --argjson prs "$PRS" --argjson c "$CHOSEN" '
-  # Release-PRs sind nie Arbeitsgrundlage (real: #951 nannte `#930` im Text und wurde
-  # faelschlich als bestehender PR fuer #930 gewaehlt, statt des echten #948).
-  # Treffer mit Branch-Token/Closing-Keyword sind stark und schlagen blosse Erwaehnungen.
+  # Als Arbeits-PR zaehlt nur ein PR, der dieses Issue per CLOSING-KEYWORD (`Closes/Fixes/
+  # Resolves #N`) schliesst. Branch-Token und blosse Erwaehnungen sind KEIN Beweis, dass der
+  # PR dieses Issue bearbeitet (real: ein Doku-PR nannte #966 nur und wurde faelschlich als
+  # dessen bestehender Arbeits-PR gewaehlt). Release-PRs sind nie Arbeitsgrundlage (#951).
   [ $prs[]
     | select((([.labels[]?.name] | index("release:human-merge")) == null))
-    | { n: .number,
-        s: ( if ( ((.headRefName // "") | test("(^|[/_-])" + ($c | tostring) + "([/_-]|$)"))
-                  or ((.body // "") | test("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#" + ($c | tostring) + "\\b")) )
-             then 0 else 1 end ),
-        hit: ( ( ((.title // "") + " " + (.body // "") + " " + (.headRefName // ""))
-                 | [scan("#([0-9]+)")] | flatten | map(tonumber) | index($c) ) != null ) }
-    | select(.hit)
-  ] | sort_by(.s) | (.[0].n // "") | tostring')"
+    | select( ( ((.title // "") + " " + (.body // ""))
+                | test("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#" + ($c | tostring) + "\\b") ) )
+    | .number ]
+  | (.[0] // "") | tostring')"
 # Eindeutiges Worker-Label (Pflicht): `sessions_spawn` verweigert ein bereits benutztes Label
 # ("label already in use") — ein Retry/Rework mit statischem `triage-<n>` fiel real aus (#929).
 # Der Stale-Guard liest nur den Nummern-Token; der Epoch-Suffix stoert ihn nicht.
