@@ -1,0 +1,36 @@
+# Logrotation für OpenClaw (Gateway + Tick-Logs).
+#
+# Installation (root):
+#   sudo install -m 644 config/logrotate.openclaw /etc/logrotate.d/openclaw
+#   sudo logrotate -d /etc/logrotate.d/openclaw   # Trockenlauf
+#
+# Warum `copytruncate`: Gateway und Tick-Skripte halten ihre Log-FDs offen bzw.
+# schreiben per `>>`. Ein Signal-basiertes Rotieren würde die FD auf den alten
+# Inode zeigen lassen; `copytruncate` kopiert und leert die Datei in place.
+#
+# Größen (Stand 2026-09-23): Gateway-Log ~11 MB/Tag, Tick-Log ~1-2 kB/5 min.
+# `su momo momo`: die Dateien gehören dem Runtime-User, logrotate läuft als root.
+
+/srv/openclaw/logs/*.log {
+    daily
+    maxsize 10M
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su momo momo
+}
+
+/tmp/openclaw/*.log {
+    daily
+    maxsize 20M
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su momo momo
+}
