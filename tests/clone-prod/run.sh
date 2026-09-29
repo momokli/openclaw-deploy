@@ -59,6 +59,9 @@ if [ "${1:-}" = "rand" ]; then echo "stub-generated-pass"; exit 0; fi
 exit 0
 STUB
 chmod +x "$WORK/bin/"*
+# `flock` fehlt auf macOS (util-linux) — clone-prod.sh nutzt es als Sperre. Ohne Stub
+# bricht der Harness dort mit Exit 2 ab, bevor ueberhaupt Dateien angelegt werden.
+printf '#!/bin/bash\nexit 0\n' > "$WORK/bin/flock"; chmod +x "$WORK/bin/flock"
 export PATH="$WORK/bin:$PATH"
 
 : > "$WORK/docker_psa"       # leer = kein Container
@@ -106,7 +109,7 @@ check "config geklont" test -f "$TESTD/data/config/foo.toml"
 contains ".env MC_PORT=25582" "MC_PORT=25582" "$TESTD/.env"
 contains ".env CONTAINER_NAME=aero-test" "CONTAINER_NAME=aero-test" "$TESTD/.env"
 contains ".env RCON_PASSWORD=testpw42" "RCON_PASSWORD=testpw42" "$TESTD/.env"
-check ".env chmod 600" test "$(stat -c '%a' "$TESTD/.env")" = "600"
+check ".env chmod 600" test "$(stat -c '%a' "$TESTD/.env" 2>/dev/null || stat -f '%Lp' "$TESTD/.env")" = "600"
 contains "rcon-fix-Stub mit data-dir aufgerufen" "--data-dir $TESTD/data" "$WORK/rcon.log"
 contains "rcon-fix-Stub mit Passwort aufgerufen" "--password testpw42" "$WORK/rcon.log"
 

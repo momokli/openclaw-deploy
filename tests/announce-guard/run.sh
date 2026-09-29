@@ -105,8 +105,10 @@ utf="$(printf 'ä漢 %0.s' $(seq 1 1500))"; mkdir -p "$TMP/t08"; printf '%s' "$u
 run_script "$TMP/t08" --max-chars 1000 --state-file "$TMP/t08/seen" --detail-dir "$TMP/t08/detail" "$TMP/t08/in.md"
 detail8="$(ls "$TMP/t08/detail"/announce-*.md 2>/dev/null | head -n1)"
 if [ "$RC" = 0 ] && [ "${#OUT}" -le 1000 ]; then ok "UTF-8: Ausgabe ≤1000 Zeichen (${#OUT})"; else bad "UTF-8: ${#OUT} Zeichen, rc=$RC"; fi
-if printf '%s' "$OUT" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; then ok "UTF-8: Ausgabe ist gueltiges UTF-8 (kein halbes Zeichen)"; else bad "UTF-8: Ausgabe enthaelt kaputte Sequenz"; fi
-if [ -n "$detail8" ] && iconv -f UTF-8 -t UTF-8 <"$detail8" >/dev/null 2>&1; then ok "UTF-8: Detail-Datei gueltig"; else bad "UTF-8: Detail-Datei ungueltig"; fi
+# UTF-8-Validierung ueber Python statt `iconv`: das macOS-iconv scheitert hier auch an
+# gueltigem UTF-8 (ENOTTY) und war intermittierend.
+if printf '%s' "$OUT" | python3 -c 'import sys; sys.stdin.buffer.read().decode("utf-8")' 2>/dev/null; then ok "UTF-8: Ausgabe ist gueltiges UTF-8 (kein halbes Zeichen)"; else bad "UTF-8: Ausgabe enthaelt kaputte Sequenz"; fi
+if [ -n "$detail8" ] && python3 -c 'import sys; open(sys.argv[1],"rb").read().decode("utf-8")' "$detail8" 2>/dev/null; then ok "UTF-8: Detail-Datei gueltig"; else bad "UTF-8: Detail-Datei ungueltig"; fi
 
 # ── t09 Dedupe: identischer Report → zweiter Lauf Exit 10, keine Ausgabe ────
 r="Report A: identisch."; mkdir -p "$TMP/t09"; printf '%s' "$r" >"$TMP/t09/in.md"

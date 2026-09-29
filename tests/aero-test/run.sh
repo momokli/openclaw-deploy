@@ -86,14 +86,30 @@ expect_exit 3 "fehlendes Passwort -> Exit 3" \
   env -u RCON_PASSWORD "$SCRIPT" --data-dir "$WORK/data"
 
 # --- Compose-Template: YAML + RCON-Konfiguration ---
-check "Template parst als YAML" \
-  python3 -c 'import yaml,sys; yaml.safe_load(open(sys.argv[1]))' "$TEMPLATE"
-check "Template: ENABLE_RCON=TRUE" \
-  python3 -c 'import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); sys.exit(0 if d["services"]["aero-test"]["environment"]["ENABLE_RCON"]=="TRUE" else 1)' "$TEMPLATE"
-check "Template: RCON_PASSWORD verdrahtet" \
-  python3 -c 'import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); sys.exit(0 if "RCON_PASSWORD" in d["services"]["aero-test"]["environment"] else 1)' "$TEMPLATE"
-check "Template: stop_grace_period gesetzt" \
-  python3 -c 'import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); sys.exit(0 if "stop_grace_period" in d["services"]["aero-test"] else 1)' "$TEMPLATE"
+# YAML ohne PyYAML-Zwang parsen: PyYAML wenn vorhanden, sonst Rubys YAML (macOS-Stdlib).
+# Vorher brach der Harness auf Maschinen ohne PyYAML mit 4 Fehlern ab, obwohl das
+# Template korrekt war.
+yaml_kv() {
+  if python3 -c 'import yaml' 2>/dev/null; then
+    python3 - "$1" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+svc = d["services"]["aero-test"]
+env = svc.get("environment") or {}
+print("ENABLE_RCON=%s" % env.get("ENABLE_RCON"))
+print("HAS_RCON_PW=%s" % str("RCON_PASSWORD" in env).lower())
+print("HAS_GRACE=%s" % str("stop_grace_period" in svc).lower())
+PY
+  else
+    ruby -ryaml -e 'd=YAML.load_file(ARGV[0]); s=d["services"]["aero-test"]; e=s["environment"]||{}; puts "ENABLE_RCON=#{e["ENABLE_RCON"]}"; puts "HAS_RCON_PW=#{e.key?("RCON_PASSWORD")}"; puts "HAS_GRACE=#{s.key?("stop_grace_period")}"' "$1"
+  fi
+}
+KVF="$WORK/aero-kv.txt"
+yaml_kv "$TEMPLATE" > "$KVF" 2>/dev/null
+check "Template parst als YAML" test -s "$KVF"
+check "Template: ENABLE_RCON=TRUE" grep -q '^ENABLE_RCON=TRUE$' "$KVF"
+check "Template: RCON_PASSWORD verdrahtet" grep -q '^HAS_RCON_PW=true$' "$KVF"
+check "Template: stop_grace_period gesetzt" grep -q '^HAS_GRACE=true$' "$KVF"
 
 # --- Runbook dokumentiert den Fix ---
 check "Runbook nennt default-server.properties" grep -q "default-server.properties" "$RUNBOOK"
