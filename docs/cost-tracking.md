@@ -1,5 +1,10 @@
 # Kosten-Tracking — P1 messen
 
+> ⚠️ **Stand 2026-08-22; Anbieter seitdem gewechselt.** Die direkte DeepSeek-Nutzung ist
+> entfernt — heute **OpenRouter only** (`openrouter/deepseek/deepseek-v4.1-flash` / `-pro`).
+> Historische DeepSeek-Baseline-Zahlen unten bleiben als Momentaufnahme erhalten; die manuelle
+> Messung ist unten auf den nativen Gateway-Betrieb aktualisiert.
+
 Stand: 2026-08-22. Ziel: DeepSeek-Verbrauch objektiv messen, damit wir den Effekt der
 P1-Änderungen (Routing, Thinking, Kontext-Hygiene) sauber bewerten können.
 
@@ -31,7 +36,8 @@ cd /opt/apps/openclaw
 Oder manuell:
 
 ```sh
-docker compose exec -T -u node openclaw openclaw status --usage   # Balance
+export PATH="/home/momo/.local/bin:$PATH"; set -a; . ~/.openclaw/.env; set +a
+openclaw status --usage   # Balance
 ```
 
 ## Dashboard (live)
@@ -61,6 +67,6 @@ nicht nach einem Tag.
 
 ## Offene Hebel (Phase 2, falls P1 nicht reicht)
 
-- `models.providers.deepseek.models[].cost` → `/usage cost`-$-Schätzung (Schema erst prüfen).
+- `models.providers.openrouter.models[].cost` → `/usage cost`-$-Schätzung (Schema erst prüfen).
 - Free/Cheap-Fallback (Gemini Flash-Lite, `GEMINI_API_KEY` vorhanden).
 - ggf. LiteLLM mit hartem Monats-Budget, oder iblai-Scorer für `main`'s einfache Turns.

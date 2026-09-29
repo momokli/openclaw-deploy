@@ -1,3 +1,7 @@
+> ⚠️ **Historisch — Preise veraltet.** Preisforschung (Stand ~2026) zu direkten DeepSeek-/
+> Gemini-/OpenAI-Modellen. Die direkte DeepSeek-Nutzung ist entfernt (heute **OpenRouter only**);
+> die Preise sind Momentaufnahmen und nicht aktuell. Nur als historische Referenz behalten.
+
 ## Die günstigsten bezahlten Modelle (pro 1M Tokens)
 
 | Modell                            | Input  | Output | Gut für                                                 |

@@ -86,5 +86,5 @@ UTF-8-Grenze), Dedupe (Hash, TTL, `--no-dedupe`), Exit-Codes, stdin/Datei, Fehle
 ## Rollback
 
 Rein additiv (neues Script + Tests + Doku + je eine Prompt-Regel). Kein Prod-Pfad
-(Dockerfile/entrypoint/config/openclaw.json/ansible/compose) berührt →
+(natives Gateway: `config/openclaw.json` / `scripts/converge-openclaw-config.sh`) berührt →
 `git revert <sha>` genügt.

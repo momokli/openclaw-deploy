@@ -8,16 +8,15 @@ cd /opt/apps/openclaw
 HIST="/opt/apps/openclaw/cost-history.json"
 TODAY="$(date -u +%Y-%m-%d)"
 
-# 1. DeepSeek balance (from `openclaw status --usage`)
-BAL="$(docker compose exec -T -u node openclaw openclaw status --usage 2>/dev/null \
+# 1. OpenRouter balance (from `openclaw status --usage`)
+BAL="$(openclaw status --usage 2>/dev/null \
   | grep -iE 'balance' | grep -oE '[0-9]+(\.[0-9]+)?' | head -1 || true)"
 
 # 2. Per-call usage from the per-agent SQLite DBs (today, UTC).
 START="${TODAY}T00:00:00Z"
 END="$(date -u -d 'tomorrow' +%Y-%m-%d)T00:00:00Z"
-docker exec -i -u node \
-  -e "OC_START_UTC=$START" -e "OC_END_UTC=$END" \
-  openclaw node --input-type=module - < "$SCRIPT_DIR/oc-sqlite.mjs" \
+OC_START_UTC="$START" OC_END_UTC="$END" \
+  /opt/node/bin/node "$SCRIPT_DIR/oc-sqlite.mjs" \
   > /tmp/oc_sqlite.jsonl
 
 jq -c 'select(.kind == "usage")' /tmp/oc_sqlite.jsonl > /tmp/oc_calls.jsonl 2>/dev/null || echo '[]' > /tmp/oc_calls.jsonl

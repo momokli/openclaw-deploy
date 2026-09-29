@@ -14,9 +14,8 @@ Schnell-Check aller APIs:
 
 ## Voraussetzungen
 
-Die Secrets liegen auf `.149` in `/opt/apps/openclaw/config/.env` (gitignored, wird via
-docker-compose `env_file` + `entrypoint.sh` in den Container injiziert). Zum Testen lokal
-in die Shell laden:
+Die Secrets liegen auf `.149` in `/home/momo/.openclaw/.env` (gitignored, wird vom
+nativen Gateway-Daemon gelesen). Zum Testen lokal in die Shell laden:
 
 ```sh
 set -a; source config/.env; set +a
@@ -164,8 +163,8 @@ curl -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
 ## Best Practices
 
 - **Tokens nur via Env nutzen, nie committen.** Die echten Werte gehören ausschließlich
-  in `config/.env` auf `.149` — dort ist die Datei gitignored und wird von docker-compose
-  (`env_file`) + `entrypoint.sh` injiziert.
+  in `~/.openclaw/.env` auf `.149` — dort ist die Datei gitignored und wird vom nativen
+  Gateway-Daemon gelesen.
 - Keine Tokens/Passwörter in Shell-History, Logs oder Screenshots ausgeben.
 - Bei API-Fehlern zuerst prüfen, ob der Token noch gültig bzw. die IP erlaubt ist
   (Hetzner/Cloudflare unterstützen IP-Allowlists).

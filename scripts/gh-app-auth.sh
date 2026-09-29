@@ -2,15 +2,14 @@
 # gh-app-auth.sh — (re-)authenticate gh/git with a fresh GitHub App token.
 #
 # Installation tokens expire after ~1h. Call this script
-#   - at container start (entrypoint.sh step 5c, app mode), and
+#   - at gateway bootstrap (setup-native.sh app mode), and
 #   - from a coding agent whenever `gh auth status` / `git push` starts
 #     failing with 401 (token expired) — it takes <2s.
 #
-# It performs the same job as entrypoint.sh's PAT branch (hosts.yml +
-# credential helper), but with a token minted from the GitHub App:
+# It performs the same job as the PAT path (hosts.yml + credential helper),
+# but with a token minted from the GitHub App:
 #   1. fetch fresh installation token via generate-github-token.sh
-#   2. write /home/node/.config/gh/hosts.yml (bypasses `gh auth login`
-#      validation — same trick as entrypoint.sh step 5c)
+#   2. write ~/.config/gh/hosts.yml (bypasses `gh auth login` validation)
 #   3. wire up git's credential helper (gh auth setup-git)
 #   4. patch the runtime openclaw.json so the gh-issues skill's
 #      `.skills.entries["gh-issues"].apiKey` fallback is fresh too
@@ -60,7 +59,7 @@ BOT_LOGIN="$(curl -fsSL -H "Authorization: Bearer $TOKEN" \
 [ -n "$BOT_LOGIN" ] && [ "$BOT_LOGIN" != "null" ] || BOT_LOGIN="momo-bot[bot]"
 echo "[gh-app-auth] authenticated as: $BOT_LOGIN"
 
-# ── 3. Persist gh auth (hosts.yml) — dir must be node-owned ───────
+# ── 3. Persist gh auth (hosts.yml) — dir must be runtime-user-owned ──
 mkdir -p "$GH_DIR"
 cat > "$HOSTS_FILE" <<EOF
 github.com:
@@ -84,7 +83,7 @@ fi
 
 # ── 5. Patch runtime openclaw.json (gh-issues skill apiKey fallback) ──
 # The gh-issues skill reads `.skills.entries["gh-issues"].apiKey` when the
-# GH_TOKEN env var is not set. The runtime config lives in the named volume
+# GH_TOKEN env var is not set. The runtime config lives in ~/.openclaw
 # (NOT in git); patch it in place so the fallback carries a fresh token.
 OPENCLAW_JSON="${HOME}/.openclaw/openclaw.json"
 if [ -f "$OPENCLAW_JSON" ]; then

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Sync config/agents/*.md -> per-agent workspace AGENTS.md (native, user momo).
 #
-# Repliziert das Persona-Mapping aus entrypoint.sh (Docker-Aera), aber korrigiert:
+# Persona-Mapping:
 #   - critic          -> critic            (nicht feature-dev-critic)
 #   - web-researcher  -> web-researcher    (nicht feature-dev-web-researcher)
 #

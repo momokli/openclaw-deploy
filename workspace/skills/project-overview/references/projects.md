@@ -6,8 +6,9 @@
 ## Was das hier ist
 
 - Self-hosted AI-Agent-Gateway **"Molty"** 🦞 auf Momos Homelab.
-- Model: **DeepSeek V4 Flash** (primary) / **V4 Pro** (fallback + heavy coding).
-- Live: `https://openclaw.simonklimke.de` (Caddy → Docker auf `.149` = `192.168.178.149`).
+- Model: **OpenRouter only** — `openrouter/deepseek/deepseek-v4.1-flash` (primary) /
+  `openrouter/deepseek/deepseek-v4-pro` (fallback + heavy coding).
+- Live: `https://openclaw.simonklimke.de` (Caddy → natives Gateway auf `.149` = `192.168.178.149`).
 - Channels: **Telegram** (`@momomemos_bot`), DM-Pairing.
 - STT: **Groq Whisper + Deepgram** (Sprachnachrichten funktionieren).
 - Search: **Kagi** via curl (natives `web_search` ist disabled).
@@ -50,41 +51,30 @@ Internet
 
 ## Services auf `.149` + Deploy-Architektur
 
-**docker-compose.yml** (Projektname `openclaw`):
+**Natives Gateway** (systemd-User-Service `openclaw-gateway.service`, kein Docker):
 
-- `openclaw` — AI-Gateway, `image: ghcr.io/momokli/openclaw-deploy:latest`,
-  Port `127.0.0.1:18789:18789`, Netzwerke `default` + `caddy` (extern, `caddy_default`).
-- `obsidian-sync` — headless Client für `quill_data`, `image: ghcr.io/momokli/openclaw-obsidian-sync:latest`.
+- `openclaw` — AI-Gateway, `/opt/node/bin/node .../openclaw/dist/index.js gateway --port 18789`,
+  State `/home/momo/.openclaw/`, Caddy → `127.0.0.1:18789`.
 
-**Volumes (Runtime, NICHT in git):** `openclaw_home`, `openclaw_workspace`, `openclaw_repos`,
-`obsidian_config` (+ read-only `/opt/apps/lab:/lab:ro`, `/opt/apps/quill:/quill`).
-
-**GHCR-Deploy-Flow:**
+**Config-Converge-Flow (manuell oder per Code):**
 
 ```
-push GitHub (main)
-  └─ GitHub Actions (self-hosted runner auf projectmellon.de, Hetzner 20 cores)
-       ├─ docker build (openclaw + obsidian-sync) → push beide nach GHCR
-       └─ POST https://deploy.openclaw.simonklimke.de/deploy   # deploy webhook
-
-.149 (systemd timer alle 30min ODER sofort via webhook)
-  └─ scripts/build-and-deploy.sh
-       ├─ git pull origin main                        # config sync
-       ├─ docker pull beide Images aus GHCR           # image sync
-       ├─ docker compose up -d openclaw obsidian-sync
-       └─ hash-vergleich → skip wenn nichts neu
+git openclaw-deploy (deklarativer Seed: config/, workspace/)
+  → auf .149 gespielt:
+      sudo bash scripts/setup-native.sh momo              # Bootstrap
+      sudo bash scripts/converge-openclaw-config.sh momo  # Config → Runtime (Merge)
+      sudo bash scripts/sync-agent-personas.sh momo       # agents/*.md → workspaces/<id>/AGENTS.md
 ```
 
-- Build läuft in **GitHub Actions**, nicht mehr auf projectmellon.de.
-- `GHCR_TOKEN` (classic PAT, `write:packages`) weiterhin nötig — built-in `github.token`
-  scheitert an `permission_denied: write_package`.
+- Die laufende Installation auf `.149` ist Source-of-Truth für Runtime-State;
+  das Repo liefert den deklarativen Seed.
 
 ## OpenClaw-Komponenten
 
-**Agenten** (`config/openclaw.json` → `agents.list`):
+**Agenten** (`config/openclaw.json` → `agents.entries`):
 
-- `main` — DeepSeek V4 Flash.
-- `coding-orchestrator` — DeepSeek V4 Pro.
+- `main` — OpenRouter V4.1 Flash.
+- `coding-orchestrator` — OpenRouter V4.1 Flash.
 - `feature-dev-*` (Flash): `planner`, `setup`, `developer`, `verifier`, `tester`, `reviewer`.
 
 Defaults: Sub-Agents erlaubt (`maxSpawnDepth: 2`), `memorySearch` via `ollama` /
@@ -107,21 +97,17 @@ Mention-Patterns `@molty`/`@openclaw`).
 ## Offene Baustellen / To-dos
 
 - **Gemini Vision Key provisionieren:** Config ist gefixt (`image`-Model + `image.enabled`),
-  aber `GEMINI_API_KEY` muss noch in `config/.env` auf `.149` (via Ansible + `.env.example`).
+  `GEMINI_API_KEY` liegt in `~/.openclaw/.env` auf `.149` (via `.env.example`).
 - **Server-Branch `feat/separate-state-config` → `main`** umstellen (braucht Approval).
-- **Dockerfile base image pinnen** (`openclaw/openclaw:slim` floatet).
-- **GHCR-Flow nur teilweise im Repo:** README dokumentiert noch den alten Flow
-  (scp → projectmellon → save/load); kein Runner-Setup/Doku für projectmellon.de;
-  `scripts/test-branch.sh` noch auf altem local-build-Flow + altem Volume-Layout;
-  `ansible/deploy.yml` broken (falsche Pfade) + alter `.env`-Writer.
 
 ## Gotchas
 
 - **Nomad ist TOD.** HashiStack (Nomad, Consul, Vault) dekommissioniert; alles läuft jetzt via
-  Docker Compose oder systemd. Alte Nomad-Configs im `lab/`-Repo ignorieren.
-- **`/lab` ist read-only** (`/opt/apps/lab:/lab:ro`) — `lab/` ist nur noch ein Mount, keine
-  Source-of-Truth mehr.
-- **Secrets nur in `config/.env` auf `.149`** (gitignored, DIE Secret-Datei). Repo-Root-`.env`
-  ist nur lokaler Scratch auf dem Mac und wird NICHT deployt — Keys dort bewirken nichts im Container.
-- **Config vs Runtime trennen:** Git = read-only (`config/`, `workspace/`); Runtime = Named Volumes
-  (nicht in git). `entrypoint.sh` kopiert/synct die git-Dateien in den Container.
+  Docker Compose (Fremd-Services) oder systemd (OpenClaw natives Gateway). Alte Nomad-Configs im
+  `lab/`-Repo ignorieren.
+- **`/lab` ist read-only** — `lab/` ist nur noch ein Mount/Referenz, keine Source-of-Truth mehr.
+- **Secrets nur in `~/.openclaw/.env` auf `.149`** (gitignored, DIE Secret-Datei). Repo-Root-`.env`
+  ist nur lokaler Scratch auf dem Mac und wird NICHT deployt — Keys dort bewirken nichts im Gateway.
+- **Config vs Runtime trennen:** Git = deklarativer Seed (`config/`, `workspace/`); Runtime =
+  `~/.openclaw/` (nicht in git). `converge-openclaw-config.sh` merged die git-Config mit
+  Runtime-Feldern statt blind zu kopieren.

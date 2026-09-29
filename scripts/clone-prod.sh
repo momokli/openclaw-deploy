@@ -98,7 +98,7 @@ as_root() {
 
 # usage: druckt den Header-Kommentar (Zeile 2 bis vor `set -euo pipefail`).
 # Der letzte Treffer der Range wird verworfen, sonst leakt die `set`-Zeile in --help.
-usage() { sed -n '2,/^set /{/^set /d;p}' "$0"; }
+usage() { sed -n '2,/^set /{/^set /d;p;}' "$0"; }
 
 # --- Argumente --------------------------------------------------------------
 while [ $# -gt 0 ]; do

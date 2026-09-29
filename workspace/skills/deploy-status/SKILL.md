@@ -1,6 +1,6 @@
 ---
 name: deploy-status
-description: "OpenClaw-Deploy (GHCR-CI/CD, Deploy-Webhook, .149) und GitHub-Pages-Deploys prüfen/debuggen: Flow, API-Status-Checks, Gotchas."
+description: "OpenClaw-Deployment (natives Gateway auf .149, Config-Converge) und GitHub-Pages-Deploys prüfen/debuggen: Flow, Status-Checks, Gotchas."
 metadata:
   {
     "openclaw":
@@ -12,56 +12,48 @@ metadata:
 
 # Deploy-Status (OpenClaw)
 
-Use für Status-Checks und Debugging des OpenClaw-Deployments: GHCR-CI/CD-Flow, Deploy-Webhook und `.149`.
+Use für Status-Checks und Debugging des OpenClaw-Deployments: natives Gateway auf `.149`,
+Config-Converge (git → Runtime) und `.149`.
 
 ## Flow (IST)
 
 ```text
-push main
-  → GitHub Actions (self-hosted Runner auf projectmellon.de, Hetzner)
-      ├ docker build openclaw + obsidian-sync
-      ├ push beide → GHCR
-      │   ghcr.io/momokli/openclaw-deploy / ghcr.io/momokli/openclaw-obsidian-sync
-      └ POST https://deploy.openclaw.simonklimke.de/deploy   (Authorization: Bearer $DEPLOY_TOKEN)
+git openclaw-deploy (deklarativer Seed: config/, workspace/)
+  → manuell oder per Code auf .149 gespielt:
+      sudo bash scripts/setup-native.sh momo              # Bootstrap (einmalig)
+      sudo bash scripts/converge-openclaw-config.sh momo  # Config → Runtime (Merge)
+      sudo bash scripts/sync-agent-personas.sh momo       # agents/*.md → workspaces/<id>/AGENTS.md
 
-.149: systemd-Timer alle 30min ODER sofort via Webhook
-  → /opt/apps/openclaw/scripts/build-and-deploy.sh
-      ├ git pull origin main
-      ├ docker pull beide Images aus GHCR
-      ├ Hash-Vergleich → skip wenn nichts neu
-      ├ docker compose up -d --force-recreate --remove-orphans openclaw obsidian-sync
-      ├ healthz-Check (fail-closed) → Caddy-Netzwerk reconnect → Hashes persistieren
+.149 — natives Gateway (systemd-User-Service openclaw-gateway.service)
+  ├ /opt/node/bin/node .../openclaw/dist/index.js gateway --port 18789
+  ├ State: /home/momo/.openclaw/
+  └ Caddy → 127.0.0.1:18789
+
+planet — Session-Host-Node (nativ gepaart, tools.exec.node = "planet")
 ```
+
+Kein Docker, kein GHCR, kein Auto-Deploy. Die laufende Installation auf `.149` ist
+Source-of-Truth für Runtime-State; das Repo liefert den deklarativen Seed.
 
 ## Zugriff
 
 - `.149` via Tailscale: `ssh momo@lan` (= `100.85.52.13`; LAN-IP `192.168.178.149`).
-- Deploy-Script: `/opt/apps/openclaw/scripts/build-and-deploy.sh`
-- Webhook-Receiver: `scripts/webhook.py` (Port `18791`), systemd-Unit `openclaw-deploy-webhook.service`.
-- Webhook startet `openclaw-build.service` → führt `build-and-deploy.sh` aus.
+- Config-Seed: `config/openclaw.json`, `config/agents/*.md` (dieses Repo).
+- Runtime-Config: `/home/momo/.openclaw/openclaw.json`.
 
 ## Status prüfen
 
-GitHub-Run (lokal, mit `GH_TOKEN`):
-
 ```bash
-gh run list --branch main
-gh run view <run-id> --log-failed
+ssh momo@lan 'systemctl --user status openclaw-gateway.service'
+ssh momo@lan 'curl -sf http://localhost:18789/healthz'
+ssh momo@lan 'journalctl --user -u openclaw-gateway.service -n 100'
 ```
 
-Auf `.149`:
+Gateway-Version + Provider/Model-Katalog:
 
 ```bash
-ssh momo@lan 'docker ps --filter name=openclaw'
-ssh momo@lan 'docker logs openclaw --tail 50'
-ssh momo@lan 'docker logs openclaw-obsidian-sync --tail 50'
-ssh momo@lan 'docker exec openclaw curl -sf http://localhost:18789/healthz'
-```
-
-Compose-Status (aus dem Deploy-Dir, Projektname ist fix `openclaw`):
-
-```bash
-ssh momo@lan 'cd /opt/apps/openclaw && docker compose ps'
+ssh momo@lan 'sudo -u momo -H openclaw gateway status'
+ssh momo@lan 'sudo -u momo -H openclaw models list --all | grep -iE "openrouter|gemini|groq|deepgram"'
 ```
 
 ## Pages-Deploy verifizieren (GitHub Pages)
@@ -101,19 +93,24 @@ Beispiele: `momokli/yogglez` (`https://momokli.github.io/yogglez/`, `build_type:
 
 ## Gotchas
 
-1. **Build NICHT mehr lokal auf projectmellon.de** — läuft in GitHub Actions (`runs-on: self-hosted`). projectmellon.de ist nur der Runner.
-2. **`.149` pullt NUR aus GHCR** — kein lokaler Build/Save-Load mehr.
-3. Push nach GHCR nur auf `main`; PRs bauen nur, pushen nicht.
-4. GHCR-Login nutzt `GHCR_TOKEN` (classic PAT, `write:packages`) — built-in `github.token` scheitert (`permission_denied: write_package`).
-5. Webhook-Shared-Secret: `/opt/apps/openclaw/webhook-token` (NICHT in git); GitHub hält denselben Wert als Repo-Secret `DEPLOY_TOKEN`. HTTP 401 = Token-Mismatch.
-6. Deploy-Skip basiert auf Hash-Files unter `/opt/apps/openclaw/`: `.deploy-git-hash`, `.deploy-img-hash`, `.deploy-obsidian-img-hash`. „No changes — skipping" heißt nur: alle drei gleich geblieben.
-7. Healthz-Check ist **fail-closed**: wird der Container nicht healthy, werden die Hashes NICHT persistiert → nächster Run versucht erneut.
-8. **Pages-Verifikation nur über die Build-Status-API** (Abschnitt „Pages-Deploy verifizieren"), nie per `sleep`/`curl | grep`. `pages/builds/latest` ist bis zum neuen Build der **alte**
+1. **Kein Docker/GHCR mehr** — natives Gateway (`openclaw-gateway.service`). Docker gibt es
+   auf `.149` nur noch für Fremd-Services (Stash, Paperless, …), NICHT für OpenClaw.
+2. **Config-Converge erhält Runtime-Felder** (`auth.profiles`, `plugins.entries`,
+   `meta.migrations`, `agents.entries.<id>.{agentDir,identity,name}`) — nie `config/openclaw.json`
+   blind kopieren.
+3. **Secrets** liegen in `~/.openclaw/.env` (gitignored); Template `.env.example`.
+4. **Provider** ist OpenRouter only (`openrouter/deepseek/deepseek-v4.1-flash` primary /
+   `deepseek-v4-pro` fallback) + `google/gemini-3.6-flash` (image), `groq`/`deepgram` (audio).
+5. **Pages-Verifikation nur über die Build-Status-API** (Abschnitt „Pages-Deploy verifizieren"),
+   nie per `sleep`/`curl | grep`. `pages/builds/latest` ist bis zum neuen Build der **alte**
    Build — ohne Baseline/`--commit` wäre ein nacktes „poll bis built" sofort grün (falsch).
 
 ## Stop-Regel
 
-Deploy „hängt" oder „No changes" obwohl ein Change erwartet wird → NICHT blind Webhook re-triggern oder `docker compose up` variieren. Erst: (1) `gh run list` + Run-Log, (2) Hash-Files + Image-IDs auf `.149` vergleichen, (3) Webhook 401/Token prüfen. Unklar → Momo fragen.
+Gateway „down"/Config driftet → NICHT blind neu booten oder Config überschreiben. Erst:
+(1) `systemctl --user status openclaw-gateway.service` + `journalctl` lesen, (2) prüfen ob
+`~/.openclaw/openclaw.json` parsebar ist (`jq .`), (3) `openclaw doctor --fix` in Betracht
+ziehen. Unklar → Momo fragen.
 
 Pages-Build `errored`/`cancelled` → NICHT weiter pollen. Ursache lesen:
 `gh api repos/<owner>/<repo>/pages/builds/latest --jq '.error.message'` + betroffenen

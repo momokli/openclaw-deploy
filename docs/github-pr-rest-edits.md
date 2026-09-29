@@ -121,4 +121,4 @@ Für Prod hieße das eine Token-Rotation in `config/.env` auf `.149` (Momo-Appro
 
 Reine Neu-Dateien (`scripts/pr-metadata.sh`, `tests/pr-metadata/run.sh`,
 dieses Runbook) + ein Status-Entry in `docs/equip-agents.md` (B2) →
-`git revert <sha>`. Kein Prod-Pfad (Dockerfile/entrypoint/config/ansible/compose) berührt.
+`git revert <sha>`. Kein Prod-Pfad (config/openclaw.json bzw. native Deploy-Scripts) berührt.

@@ -3,9 +3,11 @@
 Stand: 2026-08-21. Source of truth: dieses Repo.
 Grundlage: OpenClaw-Docs (memory, memory-search, groups, usage-tracking, hooks, config-agents, config-channels).
 
-## 💸 Kosten (korrigiert 2026-08-21 — DeepSeek Preiserhöhung)
+## 💸 Kosten (OpenRouter only, korrigiert 2026-08-21)
 
-Die früher notierten Preise waren **~3× zu niedrig**. Aktuell (offiziell `api-docs.deepseek.com`):
+Die früher notierten Preise waren **~3× zu niedrig**. Modelle laufen über OpenRouter
+(`openrouter/deepseek/deepseek-v4.1-flash` / `deepseek-v4-pro`); Preise vom Anbieter
+(offiziell `api-docs.deepseek.com`, DeepSeek-Basis unter OpenRouter):
 
 | Modell              | Input (cache miss)          | Input (cache hit)             | Output                      |
 | ------------------- | --------------------------- | ----------------------------- | --------------------------- |
@@ -18,24 +20,24 @@ Die früher notierten Preise waren **~3× zu niedrig**. Aktuell (offiziell `api-
 
 ### Routing (umgesetzt)
 
-- `main` → `deepseek/deepseek-v4-flash` (default); `coding-orchestrator` → `deepseek/deepseek-v4-pro` (heavy coding).
-- `feature-dev-*` (6 Agents) → `deepseek/deepseek-v4-flash` + `thinkingDefault: "low"`.
-- `agents.defaults.subagents.model` → `deepseek-v4-flash` (gespawnte Sub-Agents billig).
-- `agents.defaults.utilityModel` → `deepseek-v4-flash` (Titel/Klassifizierung billig).
-- `agents.defaults.compaction.model` → `deepseek-v4-flash` (Summaries billig).
+- `main` → `openrouter/deepseek/deepseek-v4.1-flash` (default); Fallback `deepseek-v4-pro` (heavy coding).
+- `feature-dev-*` (6 Agents) → `openrouter/deepseek/deepseek-v4.1-flash` + `thinkingDefault: "low"`.
+- `agents.defaults.subagents.model` → `openrouter/deepseek/deepseek-v4.1-flash` (gespawnte Sub-Agents billig).
+- `agents.defaults.utilityModel` → `openrouter/deepseek/deepseek-v4.1-flash` (Titel/Klassifizierung billig).
+- `agents.defaults.compaction.model` → `openrouter/deepseek/deepseek-v4.1-flash` (Summaries billig).
 - `agents.defaults.contextPruning: { mode: "cache-ttl" }` (alte Tool-Results trimmen).
 - `session.reset: { mode: "idle", idleMinutes: 120 }` + `session.maintenance` (Kontext-Hygiene).
 - `messages.responseUsage: "tokens"` → Usage-Footer sichtbar (`/usage cost`).
 
 ### Noch offen (Kosten)
 
-- `models.providers.deepseek.models[].cost` für `/usage cost`-$-Schätzung — Schema in v2026.7.1 unklar; erst prüfen, ob der DeepSeek-Plugin-Katalog die Preise schon mitliefert.
 - Free/Cheap-Fallback (Gemini Flash-Lite / Groq) als 2. Provider — Phase 2.
 - ggf. LiteLLM mit hartem Monats-Budget (Phase 2).
 
 ## ✅ Erledigt
 
-- **Deploy-Hook**: push `main` → CI → GHCR → HTTPS-Webhook → `.149` pull + recreate (ohne Tailscale/SSH).
+- **Native Deployment**: OpenClaw als systemd-User-Service (`openclaw-gateway.service`) auf `.149`;
+  Docker/GHCR/Ansible-Flow entfernt (2026-09-16).
 - **Semantisches Memory**: `memory.search.provider = "ollama"` (lokal, Modell `nomic-embed-text`) — self-hosted, kein externer Embedding-API-Call.
 
 ## ⬜ Offen (korrigiert nach Docs)

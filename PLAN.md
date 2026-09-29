@@ -1,6 +1,6 @@
 # PLAN — OpenClaw Native Cluster (lan Gateway + planet Session-Host)
 
-Stand: 2026-09-11 · Status: **IN ARBEIT** · Source-of-Truth: dieses Repo.
+Stand: 2026-09-16 · Status: **ABGESCHLOSSEN** · Source-of-Truth: dieses Repo.
 
 Ziel: OpenClaw von Docker auf **nativ** migrieren, `planet` als **Session-Host-Node**
 anbinden und das ganze Setup **as-code** machen — damit schwere Coding-Builds auf
@@ -27,6 +27,7 @@ planet       — Session-Host-Node (nativ): Worker-Turns (cargo/test)   [schwer]
 - [x] **Phase 5 — planet als Session-Host pairen:** `connect --service --session-host` durch; planet gepaart/approved/connected, `workerRuns` enabled + capacity 4 + isolation none.
 - [x] **Phase 6 — Cutover:** Docker-Gateway gestoppt, State gemoved, natives Gateway läuft (healthz/öffentlich 200).
 - [x] **Phase 7 — Cluster booten:** Loops as-code neu angelegt (`delivery: none`, disabled). **Routing-Klärung:** `deviceId`/`autoDevice` (Session-Hosting) gilt NICHT für isolated-Cron — nur für managed-worktree-Sessions. Der richtige Weg für schwere Builds ist `exec host=node` (`tools.exec.node: "planet"` gesetzt + mmm-loop-Prompt angepasst).
+- [x] **Phase 8 — Docker entfernen (2026-09-16):** Dockerfiles, compose, entrypoint.sh, GHCR-Workflow, Deploy-Webhook, Ansible entfernt. Installation auf `.149` ist Source-of-Truth; Config aus git wird per `setup-native.sh`/`converge-openclaw-config.sh` gespielt. Provider nur noch OpenRouter.
 
 ---
 
@@ -58,9 +59,9 @@ planet       — Session-Host-Node (nativ): Worker-Turns (cargo/test)   [schwer]
 
 ## Risiken
 
-1. `entrypoint.sh`-Logik (Config-Sync, Auth-Seed, Plugin-Install, Persona-Sync) muss nativ neu gebaut werden.
-2. Live-Gateway auf `.149` — Cutover darf Molty nicht lang down nehmen.
-3. `planet` ist geteilter Host (Media/Game-Server) → Worker-Capacity/CPU-Caps nötig.
+1. Live-Gateway auf `.149` — Änderungen an der Config dürfen Molty nicht lang down nehmen
+   (Converge-Merge erhält Runtime-Felder; Config wird atomar geschrieben).
+2. `planet` ist geteilter Host (Media/Game-Server) → Worker-Capacity/CPU-Caps nötig.
 
 ---
 

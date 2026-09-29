@@ -6,8 +6,7 @@ set -euo pipefail
 cd /opt/apps/openclaw
 HIST="/opt/apps/openclaw/cost-history.json"
 
-docker compose exec -T -u node openclaw sh -c \
-  'cat /home/node/.openclaw/agents/*/sessions/*.trajectory.jsonl 2>/dev/null' \
+cat /home/momo/.openclaw/agents/*/sessions/*.trajectory.jsonl 2>/dev/null \
   > /tmp/oc_raw.jsonl || true
 
 jq -s -c '[.[] | select(.type=="model.completed") | {ts, modelId, usage: .data.usage}]' \
