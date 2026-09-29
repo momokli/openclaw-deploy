@@ -145,6 +145,19 @@ check "kein Trigger (Cooldown)" "0" "$(grep -c '^trigger' "$ACTIONS")"
 check "Cooldown geloggt" "1" "$(printf '%s' "$out" | grep -c 'SKIP #901 cooldown')"
 
 echo
+echo "== REQUEST_CHANGES (frisch) ABER Rework-Commit -> Cooldown aufgehoben, Agent-Turn =="
+# Regression #1007: ein Rework-Commit NACH dem (frischen) REQUEST_CHANGES darf nicht bis
+# zum Cooldown-Ablauf warten — der naechste Tick muss re-reviewen.
+reset
+vloc="$(iso_ago 2)"; vver="$(iso_ago 5)"
+prs '[{"number":901,"title":"ci(#896): build","body":"Closes #896","headRefName":"ci/896-x","isDraft":false,"mergeStateStatus":"CLEAN"}]'
+prview 901 '{"mergeStateStatus":"CLEAN","statusCheckRollup":[{"__typename":"CheckRun","conclusion":"SUCCESS"}],"comments":[{"body":"[VERDICT: REQUEST_CHANGES]\nREC","createdAt":"'"$vver"'"}],"commits":[{"committedDate":"'"$vloc"'"}]}'
+run
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "Agent getriggert (Rework re-reviewt)" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
+check "kein Cooldown-Log" "0" "$(printf '%s' "$out" | grep -c 'cooldown')"
+
+echo
 echo "== REQUEST_CHANGES (altes Verdict) -> Agent-Turn (nachfassen) =="
 reset; focuspr CLEAN all changes 120
 run

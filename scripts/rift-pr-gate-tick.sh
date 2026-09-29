@@ -21,6 +21,10 @@
 # bewusst nicht hierher (dann können Checks noch laufen). Die Zustände BEHIND/UNSTABLE
 # ohne Verdict bleiben unverändert (immer Agent-Turn).
 #
+# Wichtig: Der Cooldown gilt NUR, solange seit dem Verdict KEIN neuer Commit gepusht
+# wurde. Ein Rework-Commit des Workers hebt ihn sofort auf — sonst wartete ein bereits
+# behobener Blocker eine volle Cooldown-Frist (real: #1007 hing ~1 h trotz Rework).
+#
 # Optionen:
 #   -h, --help          Diese Hilfe.
 #   --cooldown-min N    Cooldown-Frist in Minuten für „reviewt, aber nicht freigegeben"
@@ -129,6 +133,13 @@ while read -r num state; do
     | all(. == "SUCCESS" or . == "SKIPPED" or . == "NEUTRAL")')"
   # Juengster Commit (fuer die „Re-Review nur bei neuen Commits"-Regel des Prompts).
   head_at="$(printf '%s' "$detail" | jq -r '[ .commits[]? | (.committedDate // "") ] | last // ""')"
+  # Hat der Worker NACH dem Verdict einen neuen Commit gepusht? Nur dann darf ein Re-Review
+  # den Cooldown (REQUEST_CHANGES) ueberstimmen. Ohne Commit-Info gilt „kein Rework" (Token-
+  # Schutz vor Leerlauf-Reviews).
+  rework_after_verdict=0
+  if [ -n "$head_at" ] && [ -n "$verdict_at" ] && [[ "$verdict_at" < "$head_at" ]]; then
+    rework_after_verdict=1
+  fi
 
   if printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
      && [ "$state" = "CLEAN" ] && [ "$checks_ok" = "true" ]; then
@@ -143,11 +154,13 @@ while read -r num state; do
     actions=$((actions+1))
   elif [ -n "$verdict_at" ] \
        && ! printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
+       && [ "$rework_after_verdict" = 0 ] \
        && vep="$(iso_to_epoch "$verdict_at")" && [ -n "$vep" ] \
        && [ $(( (NOW - vep) / 60 )) -lt "$COOLDOWN_MIN" ]; then
-    # Schon bewertet und NICHT freigegeben (REQUEST_CHANGES): der Ball liegt beim Worker,
-    # nicht beim Gate. Erneut zu triggern wuerde nur denselben Review wiederholen — real
-    # 11x fuer denselben PR (#915) in Folge, weil der Worker noch nicht nachgeliefert hat.
+    # Schon bewertet und NICHT freigegeben (REQUEST_CHANGES), seither KEIN neuer Commit und
+    # juenger als der Cooldown: der Ball liegt beim Worker. Erneut zu triggern wuerde nur
+    # denselben Review wiederholen — real 11x fuer denselben PR #915. Ein Rework-Commit hebt
+    # den Cooldown auf (rework_after_verdict), dann greift dieser Zweig nicht mehr.
     # Ein APPROVE-Verdict faellt bewusst NICHT hierher (Checks koennen noch laufen).
     log "SKIP #$num cooldown ($state, letztes Verdict vor $(( (NOW - vep) / 60 ))min)"
   elif [ -n "$verdict_at" ] && ! printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
