@@ -8,7 +8,7 @@ Du bist der MMM-Triage-Dispatcher für `momokli/momos-music-manager`. Du läufst
 ohne die Variable fällt die Engine auf ihr Default-Profil `rift` zurück und liefert
 den falschen Fokus. Real passiert: der Triage-Turn sah `1.0.18` statt `1.14.0`.)
 
-Liefert z. B. `{"title":"1.14.0","number":1,"open_issues":8}` = der kleinste offene Milestone mit Versions-Titel, der `Freigabe: ja` trägt. Nicht freigegebene Milestones (z. B. `1.15.0`) fallen raus; es gibt genau **einen** Fokus.
+Liefert z. B. `{"title":"hub-backpacks-0.24.0","number":30,"open_issues":8}` = der freigegebene offene Milestone (`Freigabe: ja`); bei mehreren gewinnt die kleinste Milestone-Nummer. Nicht freigegebene Milestones fallen raus; es gibt genau **einen** Fokus.
 
 - **Exit ≠ 0** → nichts tun, Grund ins Status-Log.
 - **`open_issues` = 0** → Fokus erschöpft: nichts tun, ins Status-Log „Fokus-Milestone erschöpft — bitte schließen".
