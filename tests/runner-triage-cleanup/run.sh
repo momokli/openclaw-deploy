@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/rift-triage-cleanup/run.sh — Offline-Harness für scripts/rift-triage-cleanup.sh.
+# tests/runner-triage-cleanup/run.sh — Offline-Harness für scripts/runner-triage-cleanup.sh.
 #
 # Kein Netz, kein echtes `gh`: PATH-Shims antworten aus Fixtures und protokollieren
 # schreibende Aufrufe (`issue close`, `issue edit`) in eine Aktions-Datei. Geprüft wird,
@@ -7,7 +7,7 @@
 # geschlossen wird, was noch offen/offen-PR hat.
 #
 # Aufruf:
-#   bash tests/rift-triage-cleanup/run.sh
+#   bash tests/runner-triage-cleanup/run.sh
 #
 # Exit 0 = alle Tests grün.
 
@@ -15,7 +15,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-SCRIPT="${RIFT_TRIAGE_CLEANUP_SCRIPT:-$ROOT/scripts/rift-triage-cleanup.sh}"
+SCRIPT="${RIFT_TRIAGE_CLEANUP_SCRIPT:-$ROOT/scripts/runner-triage-cleanup.sh}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

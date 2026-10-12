@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/rift-pr-gate-tick/run.sh — Offline-Harness für scripts/rift-pr-gate-tick.sh.
+# tests/runner-pr-gate-tick/run.sh — Offline-Harness für scripts/runner-pr-gate-tick.sh.
 #
 # Dieser Tick **mergt** PRs — deshalb ist das hier der wichtigste Harness der Runner.
 # Kein Netz, kein `gh`/`openclaw`: PATH-Shims lesen Fixtures und protokollieren
@@ -8,7 +8,7 @@
 # Agent-Turn (Review/Rebase) angestossen wird oder gar nichts passiert.
 #
 # Aufruf:
-#   bash tests/rift-pr-gate-tick/run.sh
+#   bash tests/runner-pr-gate-tick/run.sh
 #
 # Exit 0 = alle Tests grün.
 
@@ -16,7 +16,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-SCRIPT="${RIFT_PR_GATE_TICK_SCRIPT:-$ROOT/scripts/rift-pr-gate-tick.sh}"
+SCRIPT="${RIFT_PR_GATE_TICK_SCRIPT:-$ROOT/scripts/runner-pr-gate-tick.sh}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -29,7 +29,7 @@ notok() { FAIL=$((FAIL+1)); printf 'FAIL %s\n' "$1"; }
 check() { if [ "$2" = "$3" ]; then ok "$1"; else notok "$1 (erwartet: $2 | ist: $3)"; fi; }
 
 # ── Shims ────────────────────────────────────────────────────────────────────
-cat > "$TMP/rift-focus-milestone.sh" <<'SHIM'
+cat > "$TMP/runner-focus-milestone.sh" <<'SHIM'
 #!/bin/bash
 cat "$FX/focus"
 SHIM
@@ -85,6 +85,7 @@ focuspr() {  # $1 mergeStateStatus  $2 checks(all|pending|failing)  $3 verdict(a
     all)     checks='[{"__typename":"CheckRun","conclusion":"SUCCESS"},{"__typename":"CheckRun","conclusion":"SKIPPED"}]' ;;
     pending) checks='[{"__typename":"CheckRun","conclusion":"SUCCESS"},{"__typename":"CheckRun","conclusion":null}]' ;;
     failing) checks='[{"__typename":"CheckRun","conclusion":"FAILURE"}]' ;;
+    none)    checks='[]' ;;
   esac
   local created
   if [ -n "${4:-}" ]; then created="$(iso_ago "$4")"; else created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; fi
@@ -123,8 +124,17 @@ check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
 check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
 
 echo
-echo "== APPROVE, aber Check FAILURE -> KEIN Merge, Agent-Turn =="
+ echo "== APPROVE, aber Check FAILURE -> KEIN Merge, Agent-Turn =="
 reset; focuspr CLEAN failing approve
+run
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
+
+echo
+echo "== APPROVE + CLEAN, aber NULL Checks -> KEIN Merge (fail-closed) =="
+# jq's `all` ist auf einem leeren Array true; ohne den Count-Guard würde ein Repo
+# ohne PR-CI (z. B. MMM vor Phase 3) auf APPROVE + CLEAN blind mergen.
+reset; focuspr CLEAN none approve
 run
 check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
 check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
@@ -199,6 +209,17 @@ run
 check "Exit 0" "0" "$rc"
 check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
 check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
+
+echo
+echo "== BLOCKED, aber Checks laufen noch -> KEIN Trigger (Token-Schutz) =="
+# BLOCKED heisst nur „ein Required-Check ist nicht erfolgreich" — laufende Checks
+# brauchen keinen Modell-Turn. Real: #108 wurde zweimal getriggert, dann gemergt.
+reset; focuspr BLOCKED pending none
+run
+check "Exit 0" "0" "$rc"
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "kein Agent-Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
+check "Skip geloggt" "1" "$(printf '%s' "$out" | grep -c 'kein Check fehlgeschlagen')"
 
 echo
 echo "== BLOCKED, frisches REQUEST_CHANGES -> Cooldown, KEIN Trigger =="

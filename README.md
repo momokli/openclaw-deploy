@@ -71,16 +71,16 @@ Die Secrets (`HETZNER_API_TOKEN_MITTELERDE`, `HETZNER_API_TOKEN_STORAGEBOXES`,
 
 ## Agents
 
-| Agent                 | Model          | Purpose                 |
-| --------------------- | -------------- | ----------------------- |
-| main                  | V4.1 Flash     | Default assistant       |
-| coding-orchestrator   | V4.1 Flash     | 7-stage coding pipeline |
-| feature-dev-planner   | V4.1 Flash     | Spec → user stories     |
-| feature-dev-setup     | V4.1 Flash     | Branch + build baseline |
-| feature-dev-developer | V4.1 Flash     | Code + tests            |
-| feature-dev-verifier  | V4.1 Flash     | Quality gate            |
-| feature-dev-tester    | V4.1 Flash     | Integration tests       |
-| feature-dev-reviewer  | V4.1 Flash     | Final PR review         |
+| Agent                 | Model      | Purpose                 |
+| --------------------- | ---------- | ----------------------- |
+| main                  | V4.1 Flash | Default assistant       |
+| coding-orchestrator   | V4.1 Flash | 7-stage coding pipeline |
+| feature-dev-planner   | V4.1 Flash | Spec → user stories     |
+| feature-dev-setup     | V4.1 Flash | Branch + build baseline |
+| feature-dev-developer | V4.1 Flash | Code + tests            |
+| feature-dev-verifier  | V4.1 Flash | Quality gate            |
+| feature-dev-tester    | V4.1 Flash | Integration tests       |
+| feature-dev-reviewer  | V4.1 Flash | Final PR review         |
 
 Modell-Routing: alle Agents laufen auf `openrouter/deepseek/deepseek-v4.1-flash`;
 Fallback + heavy coding = `openrouter/deepseek/deepseek-v4-pro` (siehe
@@ -96,14 +96,17 @@ Fallback + heavy coding = `openrouter/deepseek/deepseek-v4-pro` (siehe
 ├── config/
 │   ├── openclaw.json      # Gateway config, agents, channels, media tools
 │   ├── agents/            # Pipeline agent personas
-│   └── automations/       # A/B-Runner-Prompts (triage/pr-gate)
+│   ├── automations/       # Runner-Prompts A/B (rift-*, mmm-*, ocd-*)
+│   └── runners/           # Runner-Profile (Repo/Labels/Keys je Projekt)
 ├── workspace/             # SOUL.md, AGENTS.md, USER.md, MEMORY.md, skills/
 ├── scripts/
-│   ├── setup-native.sh            # Native Bootstrap (Node + OpenClaw + Plugins + Gateway-Service)
+│   ├── setup-native.sh            # Native Bootstrap (Node + OpenClaw + Plugins + Gateway-Service + Runner-Engine)
 │   ├── converge-openclaw-config.sh# Deklarative Config → Runtime (Merge, erhält Runtime-Felder)
 │   ├── sync-agent-personas.sh     # config/agents/*.md → workspaces/<id>/AGENTS.md
 │   ├── analytics.sh               # Event-Level-Report (Chats/Tools/Errors/Usage/Kosten)
-│   ├── automations-apply.sh       # Automation-Prompts as-code → Runtime
+│   ├── automations-apply.sh       # Automation-Prompts as-code → Runtime (inkl. Shell-Ticks)
+│   ├── runner-*.sh                # Geteilte Runner-Engine (Fokus/Guard/Cleanup/Ticks)
+│   ├── runner-profile.sh          # Profil-Auflösung (config/runners/<profil>.conf)
 │   ├── gh-bot-auth.sh             # GitHub-App Token-Mint + hosts.yml je Bot
 │   ├── {clanker,claw}-{gh,git}    # Bot-Identity-Wrapper
 │   └── ...

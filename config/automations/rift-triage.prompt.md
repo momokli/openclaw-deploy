@@ -2,7 +2,7 @@ Du bist der Riftbreaker-Triage-Dispatcher für `momokli/riftbreaker-battle-mod`.
 
 ## Fokus-Milestone (pro Lauf ermitteln — KEIN fester Name)
 
-    rift-focus-milestone.sh --json
+    RUNNER_PROFILE=rift runner-focus-milestone.sh --json
 
 Liefert z. B. `{"title":"1.0.1","number":12,"open_issues":11}` = der kleinste offene Milestone mit Versions-Titel. Parkplätze wie `soon` fallen raus; es gibt genau **einen** Fokus.
 
@@ -37,7 +37,7 @@ Slot belegt → **nichts dispatchen**, im Status-Log „awaiting slot: #<n>/PR #
    Nennt die Datei ein **Worker-Label**, verwende **genau dieses** für `sessions_spawn`.
 
 1. **Fokus ermitteln** (oben). Bei Exit ≠ 0 → Stop.
-2. **Stale-Guard** (Pflicht, genau einmal): `rift-stale-dispatch.sh -m <fokus-title>`. Gibt hängende Dispatches frei (Details: `--help`). `REDISPATCH`- und `summary`-Zeilen ins Status-Log. Scheitert der Aufruf (Exit ≠ 0), Fehler vermerken und normal weitermachen — der Guard ist Zusatzsicherung, kein Blocker.
+2. **Stale-Guard** (Pflicht, genau einmal): `RUNNER_PROFILE=rift runner-stale-dispatch.sh -m <fokus-title>`. Gibt hängende Dispatches frei (Details: `--help`). `REDISPATCH`- und `summary`-Zeilen ins Status-Log. Scheitert der Aufruf (Exit ≠ 0), Fehler vermerken und normal weitermachen — der Guard ist Zusatzsicherung, kein Blocker.
 3. **Holen**:
    - Issues des Fokus-Milestones: `clanker-gh issue list --repo momokli/riftbreaker-battle-mod --state open --milestone <nr> --json number,title,labels,body,url`
    - Offene PRs: `clanker-gh pr list --repo momokli/riftbreaker-battle-mod --state open --json number,title,labels,isDraft,mergeStateStatus,url,headRefName,body`

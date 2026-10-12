@@ -65,7 +65,14 @@ sudo -u "$RUN_USER" -H git config --global user.name "Molty 🦞"
 sudo -u "$RUN_USER" -H git config --global user.email "molty@openclaw.simonklimke.de"
 sudo -u "$RUN_USER" -H git config --global init.defaultBranch main
 
-# ── 6. Gateway als systemd-User-Service installieren ───────────────────────
+# ── 6. Runner-Engine + Shims + Profile -> ~/.local/bin ─────────────────────
+# Ausgelagert nach scripts/install-runner-engine.sh: dasselbe Skript läuft auch
+# allein auf einer LAUFENDEN Instanz (dieser Bootstrap hier syncht Config und
+# installiert den Gateway-Service — auf einem laufenden Host wäre das falsch).
+log "Installiere Runner-Engine + Profile -> $HOME_DIR/.local/bin"
+sudo -u "$RUN_USER" -H bash "$REPO_DIR/scripts/install-runner-engine.sh"
+
+# ── 7. Gateway als systemd-User-Service installieren ───────────────────────
 log "Installiere Gateway-Service..."
 sudo -u "$RUN_USER" -H openclaw gateway install || true
 loginctl enable-linger "$RUN_USER" || true

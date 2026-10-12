@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/rift-stale-dispatch/run.sh — Offline-Harness für scripts/rift-stale-dispatch.sh.
+# tests/runner-stale-dispatch/run.sh — Offline-Harness für scripts/runner-stale-dispatch.sh.
 #
 # Kein Netz, kein echtes `gh`/`openclaw`: beide werden durch PATH-Shims ersetzt, die aus
 # Fixtures lesen und Mutationen in ein Logfile schreiben. Geprüft werden die Stale-Signale
@@ -8,8 +8,8 @@
 # beobachteten Lock-Falls (3× `failed`, Label bleibt kleben → #401).
 #
 # Aufruf:
-#   bash tests/rift-stale-dispatch/run.sh          # grüner Lauf gegen das echte Script
-#   bash tests/rift-stale-dispatch/run.sh --red    # red-before-green: Fixture ohne Guard
+#   bash tests/runner-stale-dispatch/run.sh          # grüner Lauf gegen das echte Script
+#   bash tests/runner-stale-dispatch/run.sh --red    # red-before-green: Fixture ohne Guard
 #
 # Exit 0 = alle Tests grün.
 
@@ -17,7 +17,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-SCRIPT="${RIFT_STALE_DISPATCH_SCRIPT:-$ROOT/scripts/rift-stale-dispatch.sh}"
+SCRIPT="${RIFT_STALE_DISPATCH_SCRIPT:-$ROOT/scripts/runner-stale-dispatch.sh}"
 MODE="${1:-}"
 
 TMP="$(mktemp -d)"
@@ -388,7 +388,7 @@ case "$OUT" in *"scope=all"*) ok "Log nennt scope=all" ;; *) notok "Log: $OUT" ;
 run --milestone
 [ "$RC" = 2 ] && ok "fehlender Flagwert → Exit 2" || notok "Exit 2 erwartet, war $RC"
 run --help
-want "rift-stale-dispatch.sh" "--help funktioniert"
+want "runner-stale-dispatch.sh" "--help funktioniert"
 
 echo
 echo "== $PASS/$N Tests grün =="

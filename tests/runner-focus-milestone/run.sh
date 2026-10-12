@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# tests/rift-focus-milestone/run.sh — Offline-Harness für scripts/rift-focus-milestone.sh.
+# tests/runner-focus-milestone/run.sh — Offline-Harness für scripts/runner-focus-milestone.sh.
 #
 # Kein Netz, kein echtes `gh`: PATH-Shims antworten aus Fixtures. Geprüft wird die
 # Fokus-Regel:
-#   Fokus = kleinster offener Versions-Milestone, der FREIGEGEBEN ist
-#           (`Freigabe: ja` im Text) UND noch keinen Release-PR hat.
-# Dazu: Version-Sortierung, Run-ahead (offener/gemergter Release-PR wird
+#   Fokus = der FREIGEGEBENE offene Milestone (bei mehreren: kleinste Nummer),
+#           der noch ARBEIT hat bzw. ein (Re-)Release braucht.
+# Dazu: Nummer-Sortierung, Run-ahead (offener/gemergter Release-PR wird
 # übersprungen), Nicht-Freigabe (Sammelbecken wie 1.1), geschlossener
 # (nicht gemergter) Release-PR blockiert NICHT, Usage/Fehler-Exit-Codes.
 #
 # Aufruf:
-#   bash tests/rift-focus-milestone/run.sh
+#   bash tests/runner-focus-milestone/run.sh
 #
 # Exit 0 = alle Tests grün.
 
@@ -18,7 +18,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-SCRIPT="${RIFT_FOCUS_MILESTONE_SCRIPT:-$ROOT/scripts/rift-focus-milestone.sh}"
+SCRIPT="${RIFT_FOCUS_MILESTONE_SCRIPT:-$ROOT/scripts/runner-focus-milestone.sh}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -51,6 +51,8 @@ chmod +x "$TMP/gh"
 export PATH="$TMP:$PATH"
 export GH_BIN="$TMP/gh"
 export FX
+# Profil mit leerem Fokus-Filter (multi-strand Roadmap: hub-*, music-api-*, …).
+export RUNNER_PROFILE=mmm
 
 out=""; rc=0
 # Fake-Defaults (Tests überschreiben sie gezielt). NICHT als ${VAR:-{...}}-Default —
@@ -91,11 +93,11 @@ echo "== Fokus-Regel =="
 
 PRS="[]"
 run "$(ms "$(m 1.0.1 12 11),$(mf 1.1 11 19),$(mf soon 9 0)")"
-check "kleinster freigegebener Versions-Titel gewinnt" "1.0.1" "$out"
+check "kleinste freigegebene Nummer gewinnt" "1.0.1" "$out"
 check "Exit 0 bei Treffer" "0" "$rc"
 
 run "$(ms "$(mf soon 9 0)")"
-check "Parkplatz ohne Version liefert nichts" "" "$out"
+check "nicht freigegeben -> kein Kandidat" "" "$out"
 check "kein Kandidat -> Exit 4" "4" "$rc"
 
 run "$(ms "$(mf 1.0.1 12 11),$(mf 1.1 11 19)")"
@@ -110,14 +112,18 @@ run "$(ms "$(m 1.0.4 15 3),$(mf 1.1 11 19)")"
 check "1.0.4 freigegeben, 1.1 nicht -> 1.0.4" "1.0.4" "$out"
 
 echo
-echo "== Versions-Sortierung =="
+echo "== Nummer-Sortierung + kein Versions-Titel-Filter =="
 
 PRS="[]"
+# Nicht-Versions-Titel ist jetzt ein Kandidat (multi-strand Roadmap: hub-*, music-api-*, …).
+run "$(ms "$(m hub-backpacks-0.24.0 30 8)")"
+check "Nicht-Versions-Titel ist Kandidat" "hub-backpacks-0.24.0" "$out"
+
 run "$(ms "$(mf 1.1 11 19),$(m 1.0.10 15 1),$(m 1.0.2 14 3)")"
-check "numerisch statt lexikalisch (1.0.2 vor 1.0.10)" "1.0.2" "$out"
+check "kleinste Nummer gewinnt (1.0.2 #14 vor 1.0.10 #15)" "1.0.2" "$out"
 
 run "$(ms "$(m 1.0 8 0),$(m 1.0.1 12 11)")"
-check "1.0 sortiert vor 1.0.1" "1.0" "$out"
+check "kleinste Nummer gewinnt (1.0 #8 vor 1.0.1 #12)" "1.0" "$out"
 
 echo
 echo "== Run-ahead: Release-PR wird übersprungen =="
@@ -218,9 +224,10 @@ check "json liefert die Beschreibung mit (inkl. Checkliste)" "- [ ] #900
 
 PRS="[$(rel 1.0.3 OPEN)]"
 run "$(ms "$(mf 1.1 11 19),$(m 1.0.3 14 0),$(m 1.0.1 12 11),$(mf soon 9 0)")" --list
-check "--list: aufsteigend, mit Freigabe- und Release-Status" "1.0.1 number=12 open_issues=11 approved=1 release_pr=none
-1.0.3 number=14 open_issues=0 approved=1 release_pr=open
-1.1 number=11 open_issues=19 approved=0 release_pr=none" "$out"
+check "--list: nach Nummer, mit Freigabe- und Release-Status" "soon number=9 open_issues=0 approved=0 release_pr=none
+1.1 number=11 open_issues=19 approved=0 release_pr=none
+1.0.1 number=12 open_issues=11 approved=1 release_pr=none
+1.0.3 number=14 open_issues=0 approved=1 release_pr=open" "$out"
 
 echo
 echo "== Usage und Fehler =="
@@ -231,7 +238,7 @@ check "unbekanntes Argument -> Exit 2" "2" "$rc"
 
 run "$(ms "$(m 1.0.1 12 11)")" --help
 check "--help -> Exit 0" "0" "$rc"
-case "$out" in *rift-focus-milestone*) ok "--help nennt das Script" ;; *) notok "--help nennt das Script" ;; esac
+case "$out" in *runner-focus-milestone*) ok "--help nennt das Script" ;; *) notok "--help nennt das Script" ;; esac
 
 run 'das ist kein json'
 check "kaputte API-Antwort -> Exit 3" "3" "$rc"

@@ -41,22 +41,40 @@ openclaw automations runs            # Lauf-Historie
 openclaw automations status          # Scheduler-Status
 ```
 
-## Inventar (as-code, 23.09.): zwei Ebenen je Runner
+## Inventar (as-code, 01.10.): zwei Ebenen je Runner
+
+Ein **Runner = eine Instanz für ein Repo**: eigener Automation-Job, eigener Prompt,
+eigene State-/Decision-Files, eigenes enable/disable. Geteilt ist nur die Engine
+(`scripts/runner-*.sh`), gebunden über ein Profil (`config/runners/<profil>.conf`).
 
 Je Runner gibt es einen **billigen Shell-Tick** (5 min, 0 Tokens) und den **teuren
 Agent-Turn** (6 h Fallback, wird vom Tick getriggert):
 
-| Name                | declarationKey           | Art                 | Takt           | Repo                     | Rolle      |
+| Name                | declarationKey           | Art                 | Takt           | Repo / Profil            | Rolle      |
 | ------------------- | ------------------------ | ------------------- | -------------- | ------------------------ | ---------- |
 | `rift-triage-tick`  | `rift-triage-tick:main`  | Shell (`--command`) | 5 min          | `riftbreaker-battle-mod` | Precheck A |
 | `rift-pr-gate-tick` | `rift-pr-gate-tick:main` | Shell (`--command`) | 5 min          | `riftbreaker-battle-mod` | Precheck B |
 | `rift-triage`       | `rift-triage:main`       | Agent-Turn          | 6 h (Fallback) | `riftbreaker-battle-mod` | A          |
 | `rift-pr-gate`      | `rift-pr-gate:main`      | Agent-Turn          | 6 h (Fallback) | `riftbreaker-battle-mod` | B          |
+| `mmm-triage-tick`   | `mmm-triage-tick:main`   | Shell (`--command`) | 5 min          | `momos-music-manager`    | Precheck A |
+| `mmm-pr-gate-tick`  | `mmm-pr-gate-tick:main`  | Shell (`--command`) | 5 min          | `momos-music-manager`    | Precheck B |
+| `mmm-triage`        | `mmm-triage:main`        | Agent-Turn          | 6 h (Fallback) | `momos-music-manager`    | A          |
+| `mmm-pr-gate`       | `mmm-pr-gate:main`       | Agent-Turn          | 6 h (Fallback) | `momos-music-manager`    | B          |
 | `ocd-triage`        | `ocd-triage:main`        | Agent-Turn          | 30 min         | `openclaw-deploy`        | A          |
 | `ocd-pr-gate`       | `ocd-pr-gate:main`       | Agent-Turn          | 30 min         | `openclaw-deploy`        | B          |
 
-`ocd-*` sind **disabled**. Milestone-Quelle der `rift-*`-Runner ist zur Laufzeit
-`rift-focus-milestone.sh` (kleinster offener Versions-Titel) — kein Name im Prompt.
+Die `--command`-Payloads setzen `RUNNER_PROFILE` (`--command-env`, `rift`/`mmm`) und rufen
+die Engine; Milestone-Quelle beider Milestone-Runner ist zur Laufzeit
+`runner-focus-milestone.sh` (kleinster offener Versions-Titel) — kein Name im Prompt.
+
+Die MMM-Runner werden von `automations-apply.sh` **definiert**, sind aber **disabled**: erst
+Phase 3 (CI-Gate im MMM-Repo) gibt dem Gate echte Required-Checks, vorher wird nicht scharf
+geschaltet (`openclaw automations enable <uuid>`). `ocd-*` sind ebenfalls **disabled**.
+Der PR-Gate-Tick ist fail-closed: **null Check-Runs = kein Merge**.
+
+Profile: `config/runners/rift.conf` (`needs:player-test`, `[Release]`-Tracking-Issue) und
+`config/runners/mmm.conf` (`needs:manual-test`, kein Tracking-Issue, eigener Release-Hinweis).
+Der Fokus/Umsetzungsplan für MMM: [`mmm-runner-plan.md`](mmm-runner-plan.md).
 
 Daneben existieren noch **System-/Plugin-Jobs** (nicht in git, nicht von uns convergt):
 `heartbeat:main`, `memory-core` (Memory Dreaming), und `skill-collection-review:*`
@@ -72,21 +90,25 @@ aber **WIP = 1**, nicht der Takt: häufiger laufen = nur mehr Tokens.
 **Lösung:** Der deterministische Teil wanderte in **Shell** (`--command`-Payload, 0 Tokens):
 
 ```
-alle 5 min  rift-triage-tick   (Shell)  → Slot frei? Leaf-Kandidat? → sonst Exit 10
-alle 5 min  rift-pr-gate-tick  (Shell)  → aktionabler Fokus-PR?    → sonst Exit 10
-              └─ nur bei „ja": `openclaw automations run <agent-job-id>`
-                                    ↓
-            rift-triage / rift-pr-gate (Agent-Turn, Tokens)
+alle 5 min  <profil>-triage-tick   (Shell)  → Slot frei? Leaf-Kandidat? → sonst Exit 10
+ alle 5 min  <profil>-pr-gate-tick  (Shell)  → aktionabler Fokus-PR?    → sonst Exit 10
+               └─ nur bei „ja": `openclaw automations run <agent-job-id>`
+                                     ↓
+             <profil>-triage / <profil>-pr-gate (Agent-Turn, Tokens)
 ```
 
-- Skripte: `scripts/rift-triage-tick.sh`, `scripts/rift-pr-gate-tick.sh` (live in
-  `~/.local/bin`; brauchen `rift-focus-milestone.sh` und `clanker-gh` im PATH — die
-  `--command`-Payloads erben PATH und `OPENCLAW_STATE_DIR`/`OPENCLAW_CONFIG_PATH`
-  vom Gateway-Service).
+Das Profil (`rift`, `mmm`, …) wählt Repo, Bot-Wrapper, Trigger-Keys, State-Präfix und
+Hold-Labels; **jeder Runner hat eigene Jobs, eigene Schedules und eigene State-Files**.
+
+- Skripte: die geteilte Engine `scripts/runner-{focus-milestone,stale-dispatch,triage-tick,pr-gate-tick,triage-cleanup}.sh`
+  (live in `~/.local/bin`; brauchen `runner-profile.sh` + `runner-profiles/<profil>.env`
+  im selben Verzeichnis und `clanker-gh`/`claw-gh` im PATH — die `--command`-Payloads erben
+  PATH und `OPENCLAW_STATE_DIR`/`OPENCLAW_CONFIG_PATH` vom Gateway-Service).
+  `scripts/rift-*.sh` bleiben als Kompatibilitäts-Shims.
 - **`rift-triage-tick` entscheidet verbindlich.** Er läuft Guard + Schritt-4-Cleanup, prüft Slot
   und Leaf-Gate und wählt das Issue **deterministisch** (Checkliste aus der Milestone-Beschreibung
   von oben, Fallback: Epic-Checkliste, sonst aufsteigende Nummer). Die Auswahl schreibt er nach
-  `<OPENCLAW_STATE_DIR>/workspace/rift-triage-decision.md`; der Agent-Turn liest sie (Schritt 0 des
+  `<OPENCLAW_STATE_DIR>/workspace/<profil>-triage-decision.md`; der Agent-Turn liest sie (Schritt 0 des
   Prompts, gültig < 15 min) und **wählt nicht mehr selbst**. Grund: `openclaw automations run
 <id>` nimmt keine Parameter — die Datei ist der Kanal.
 - **Slot-Belegung beim Dispatch (deterministisch):** Bevor der Tick den Agent-Turn triggert, setzt
@@ -106,7 +128,7 @@ alle 5 min  rift-pr-gate-tick  (Shell)  → aktionabler Fokus-PR?    → sonst E
 ### Release-PR (`release:human-merge`, 23.09.)
 
 Ist der Fokus-Milestone **code-complete** (kein offener Leaf-Kandidat mehr), schreibt der Triage-Tick
-`<state>/workspace/rift-release-decision.md` und triggert **den Gate** (`rift-pr-gate:main`) — nicht
+`<state>/workspace/<profil>-release-decision.md` und triggert **den Gate** (`<profil>-pr-gate:main`) — nicht
 den Triage-Turn. Der Gate baut/aktualisiert dann den Release-PR:
 
 | Teil           | Inhalt                                                                                                                                                   |
@@ -174,8 +196,8 @@ nach dem Dispatch (z. B. `non_deliverable_terminal_turn` → Session-Status `fai
 Label kleben → die Triage fasst das Issue nie wieder an: kein PR, kein Retry. Es ist gelockt
 (real passiert mit #401: 3 fehlgeschlagene Dispatches, Label blieb).
 
-**Lösung:** `scripts/rift-stale-dispatch.sh`, aufgerufen als Schritt 0 des `rift-triage`-Prompts
-(`rift-stale-dispatch.sh -m <fokus-title>`, installiert in `~/.local/bin`). Es gibt stale Issues frei
+**Lösung:** `scripts/runner-stale-dispatch.sh`, aufgerufen als Schritt 0 des `rift-triage`-Prompts
+(`runner-stale-dispatch.sh -m <fokus-title>`, installiert in `~/.local/bin`). Es gibt stale Issues frei
 (`orchestrator:dispatched` weg + `triage:redispatch` + Marker-Kommentar); der normale
 Triage-Pfad dispatcht sie dann im selben Lauf.
 
@@ -195,7 +217,7 @@ innerhalb `--running-ttl-min`, weil verwaiste Records nach Crash/Restart ewig `r
   frei und ein Mensch entscheidet — statt (wie früher) `NOTE escalate` bei stehenbleibendem
   Label, denn genau das war selbst der Deadlock (real: #895).
 
-**Schritt 4 (Cleanup, `scripts/rift-triage-cleanup.sh`)** schließt ein Issue nur bei
+**Schritt 4 (Cleanup, `scripts/runner-triage-cleanup.sh`)** schließt ein Issue nur bei
 `triage:no-action` (Maschinen-Signal des Workers) oder `[ALREADY-DONE]` (Altpfad). **Nicht**
 mehr bei „gemergter PR erwähnt das Issue": eine Cross-Reference entsteht schon durch eine
 bloße Erwähnung (real: PR #660 → #623 falsch geschlossen). Der saubere Weg ist `Closes #<n>`
@@ -213,9 +235,14 @@ am Hard Cap wird **geparkt** (Label weg + `question`) statt nur eskaliert; 30 mi
 Freigaben pro Lauf.
 
 ```sh
-rift-stale-dispatch.sh -m 1.0.1 --dry-run    # Entscheidungen zeigen, nichts ändern
-bash tests/rift-stale-dispatch/run.sh      # Offline-Harness (43 Checks, ohne Netz)
-bash tests/rift-stale-dispatch/run.sh --red  # Beweis, dass der Guard-lose Fall durchfällt
+# rift (Default-Profil):
+runner-stale-dispatch.sh -m 1.0.1 --dry-run    # Entscheidungen zeigen, nichts ändern
+# MMM:
+RUNNER_PROFILE=mmm runner-stale-dispatch.sh -m 1.14.0 --dry-run
+
+bash tests/runner-stale-dispatch/run.sh        # Offline-Harness (58 Checks, ohne Netz)
+bash tests/runner-stale-dispatch/run.sh --red  # Beweis, dass der Guard-lose Fall durchfällt
+bash tests/runner-profile/run.sh               # Profil-Auflösung + kein Cross-Repo-Leak
 ```
 
 ## as-code vs. fluent
@@ -224,6 +251,7 @@ bash tests/rift-stale-dispatch/run.sh --red  # Beweis, dass der Guard-lose Fall 
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
 | `config/openclaw.json` (Gateway/Agents/Model/Tools)                                                                                                                                                    | Sessions/Transcripts                                                |
 | `config/agents/*.md` (Personas)                                                                                                                                                                        | Memory (runtime `MEMORY.md` + Index)                                |
+| `config/runners/*.conf` (Runner-Profile: Repo/Labels/Keys)                                                                                                                                             | —                                                                   |
 | `workspace/*.md` (SOUL/AGENTS/USER)                                                                                                                                                                    | Workspace-Runtime-Files                                             |
 | `workspace/skills/*`                                                                                                                                                                                   | Device-Pairing + Auth (gh/openrouter)                               |
 | Deployment: `config/*`, `workspace/*`, `scripts/setup-native.sh`, `scripts/converge-openclaw-config.sh`, `scripts/sync-agent-personas.sh`, `scripts/automations-apply.sh`, `config/logrotate.openclaw` | Plugins                                                             |
@@ -238,7 +266,7 @@ nicht deklarativ in `openclaw.json`).
 
 - Alte Loops `rbm-loop`, `rbbattle-overnight-loop`, `rbb-triage-loop`,
   `milestone-orchestrator`, `triage-loop`, `mmm-loop`, `ci-cd-fix-loop` → **ersetzt
-  bzw. entfernt** (die `rift-*`/`ocd-*`-Runner übernehmen deren Aufgabe).
+  bzw. entfernt** (die `runner-*`-Instanzen `rift-*`/`mmm-*`/`ocd-*` übernehmen deren Aufgabe).
 - `skill-collection-review` von **15× → 1×** reduziert (plugin-owned, redundant pro Agent).
 - Der `milestone-orchestrator`-Supervisor entfällt → behebt den „Automation kann
   rift-Triage nicht sehen"-Fehlalarm an der Wurzel.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/rift-triage-tick/run.sh — Offline-Harness für scripts/rift-triage-tick.sh.
+# tests/runner-triage-tick/run.sh — Offline-Harness für scripts/runner-triage-tick.sh.
 #
 # Kein Netz, kein `gh`/`openclaw`: PATH-Shims antworten aus Fixtures und protokollieren,
 # was der Tick tut. Geprüft wird die Trigger-Entscheidung (Agent-Turn ja/nein) UND die
@@ -11,7 +11,7 @@
 # daraus der Deadlock bei #393/#895.)
 #
 # Aufruf:
-#   bash tests/rift-triage-tick/run.sh
+#   bash tests/runner-triage-tick/run.sh
 #
 # Exit 0 = alle Tests grün.
 
@@ -19,7 +19,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-SCRIPT="${RIFT_TRIAGE_TICK_SCRIPT:-$ROOT/scripts/rift-triage-tick.sh}"
+SCRIPT="${RIFT_TRIAGE_TICK_SCRIPT:-$ROOT/scripts/runner-triage-tick.sh}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -32,19 +32,19 @@ notok() { FAIL=$((FAIL+1)); printf 'FAIL %s\n' "$1"; }
 check() { if [ "$2" = "$3" ]; then ok "$1"; else notok "$1 (erwartet: $2 | ist: $3)"; fi; }
 
 # ── Shims ────────────────────────────────────────────────────────────────────
-cat > "$TMP/rift-focus-milestone.sh" <<'SHIM'
+cat > "$TMP/runner-focus-milestone.sh" <<'SHIM'
 #!/bin/bash
 [ -f "$FX/focus" ] || exit 3
 cat "$FX/focus"
 SHIM
 
-cat > "$TMP/rift-stale-dispatch.sh" <<'SHIM'
+cat > "$TMP/runner-stale-dispatch.sh" <<'SHIM'
 #!/bin/bash
 printf 'guard\n' >> "$ACTIONS"
 echo "summary issues=0 stale=0 redispatched=0 capped=0 skipped=0"
 SHIM
 
-cat > "$TMP/rift-triage-cleanup.sh" <<'SHIM'
+cat > "$TMP/runner-triage-cleanup.sh" <<'SHIM'
 #!/bin/bash
 printf 'cleanup\n' >> "$ACTIONS"
 echo "nichts zu tun"

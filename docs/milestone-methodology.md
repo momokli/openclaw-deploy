@@ -2,10 +2,10 @@
 
 Stand: 2026-09-23. Source-of-Truth: dieses Repo.
 
-**Status:** Die Fokus-Regel ist noch **nicht live**. `config/automations/*.prompt.md` und
-`scripts/automations-apply.sh` arbeiten derzeit mit einem fest gesetzten `RIFT_MILESTONE`
-(= `1.0`). Dieses Dokument beschreibt den Zielzustand; die Umsetzung (Fokus-Script +
-Prompt-Diff) ist der nächste Schritt.
+**Status:** Die Fokus-Regel ist **live**. `config/automations/*.prompt.md` und
+`scripts/automations-apply.sh` arbeiten **ohne** Milestone-Namen: der Fokus kommt pro Lauf aus
+`scripts/runner-focus-milestone.sh` (Profil-gebunden, siehe `docs/automations.md`).
+Den Fokus wechselt man, indem man die `Freigabe: ja`-Zeile setzt/entfernt — kein Redeploy.
 
 ## Idee
 
@@ -25,8 +25,8 @@ Fokus = **kleinster offener Milestone, der alle drei Bedingungen erfüllt:**
    diese Zeile in den Milestone-Text zu schreiben. Kein Redeploy, kein Repo-Eingriff.
 3. **Noch Arbeit bzw. ein (Re-)Release nötig** — siehe Run-ahead.
 
-Ermittelt pro Lauf von `scripts/rift-focus-milestone.sh` (deterministisch, offline testbar —
-Muster wie `rift-stale-dispatch.sh`). Der Prompt enthält danach keinen Milestone-Namen mehr,
+Ermittelt pro Lauf von `scripts/runner-focus-milestone.sh` (deterministisch, offline testbar —
+Muster wie `runner-stale-dispatch.sh`). Der Prompt enthält danach keinen Milestone-Namen mehr,
 nur den Aufruf.
 
 **Run-ahead (statt „warten auf den Menschen").** Ein Milestone, dessen Release-PR **offen oder
@@ -48,7 +48,7 @@ gebremst wird nicht durch eine Zahl, sondern durch das, was du freigegeben hast.
 `release/1.0.4` zweigt von `release/1.0.3` ab (nicht von `main`), solange dessen Release noch
 offen ist — so kollidieren die `CHANGELOG.md`-Blöcke beim Mergen in Reihenfolge nicht, und
 GitHub retargetet den oberen PR beim Merge des unteren automatisch auf `main`. Die Basis steht
-in der Release-Entscheidung (`rift-release-decision.md`), die der Tick schreibt.
+in der Release-Entscheidung (`<profil>-release-decision.md`), die der Tick schreibt.
 
 Nur ein **geschlossener** (nicht gemergter) Release-PR blockiert nicht — dann wird neu gebaut.
 
@@ -199,4 +199,4 @@ er lautlos.
 ## Verwandt
 
 - `docs/automations.md` — Inventar, Sichtbarkeit, as-code vs. fluent.
-- `scripts/rift-stale-dispatch.sh` — Freigabe hängender Dispatches (Vorbild für den Fokus-Helper).
+- `scripts/runner-stale-dispatch.sh` — Freigabe hängender Dispatches (Vorbild für den Fokus-Helper).

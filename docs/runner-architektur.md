@@ -21,7 +21,7 @@ Am 2026-09-23 sind zwei WIP=1-Deadlocks aufgetreten (#393, #895). Beide haben di
 
 Zusätzlich ist die Slot-Prüfung **innerhalb** des Model-Turns gelaufen: jeder Tick kostete
 ~50k Tokens, auch wenn nichts zu tun war. Teilweise behoben durch die Shell-Ticks
-(`rift-triage-tick.sh`, `rift-pr-gate-tick.sh`, siehe `docs/automations.md`).
+(`runner-triage-tick.sh`, `runner-pr-gate-tick.sh`, siehe `docs/automations.md`).
 
 ## 2. Zielbild
 
@@ -89,7 +89,7 @@ Template-Text rendern.
 ## 4. Migrationsplan
 
 - **Schritt 1 — erledigt (2026-09-23).** Guard + Schritt-4-Cleanup in die Shell-Ebene gezogen:
-  `scripts/rift-triage-cleanup.sh` (+ Aufruf im `rift-triage-tick.sh`). Der Tick läuft die
+  `scripts/runner-triage-cleanup.sh` (+ Aufruf im `runner-triage-tick.sh`). Der Tick läuft die
   Buchhaltung jetzt **auch bei belegtem Slot** — behebt die Deadlock-Klasse „Aufräumen kam nie
   dran".
 - **Schritt 2 — erledigt (2026-09-23).**
@@ -100,15 +100,17 @@ Template-Text rendern.
     wird **geparkt** (Label weg + `question`, Slot frei) statt bis in alle Ewigkeit geskippt; am
     Hard Cap wird ebenfalls geparkt statt nur zu eskalieren. Beide Orchestrator-Personas
     (`coding-`, `planning-orchestrator`) tragen die Outcome-Pflicht.
-  - Harnesse: `tests/rift-stale-dispatch/run.sh` **44/44**, `tests/rift-triage-cleanup/run.sh`
-    **12/12**, `tests/rift-triage-tick/run.sh` **19/19**, `tests/rift-pr-gate-tick/run.sh` **20/20**.
+  - Harnesse (Stand 01.10.): `tests/runner-stale-dispatch/run.sh` **58/58**,
+    `tests/runner-triage-cleanup/run.sh` **17/17**, `tests/runner-triage-tick/run.sh` **84/84**,
+    `tests/runner-pr-gate-tick/run.sh` **42/42**, `tests/runner-focus-milestone/run.sh` **29/29**,
+    `tests/runner-profile/run.sh` **17/17** (Profil-Auflösung + kein Cross-Repo-Leak).
   - Learnings: Eine „gemergter PR erwähnt das Issue"-Regel im Cleanup war **falsch** — eine
     Cross-Reference entsteht schon durch bloße Erwähnung (PR #660 → #623 irrtümlich closed).
     Solche Heuristiken gehören nicht in einen Prozess, der Issues schließt.
 - **Schritt 3 — erledigt (23.09.), in der Shell-Variante.** Der `rift-triage-tick` wählt das
   Issue **deterministisch** (Checkliste aus der Milestone-Beschreibung, Fallback Epic-Reihenfolge,
   sonst aufsteigende Nummer, Leaf-Filter) und schreibt
-  die Auswahl verbindlich nach `<state>/workspace/rift-triage-decision.md`; der Agent-Turn liest
+  die Auswahl verbindlich nach `<state>/workspace/<profil>-triage-decision.md`; der Agent-Turn liest
   sie (Schritt 0 des Prompts) und **wählt nicht mehr** — er führt nur aus. Grund für den
   Datei-Kanal statt Trigger-Parameter: `openclaw automations run <id>` nimmt **keine** Argumente,
   und es gibt **kein** CLI-Äquivalent zu `sessions_spawn` (über RPC/HTTP per Default verboten).
@@ -131,7 +133,7 @@ bleibt inhaltlich gültig (Fokus-Regel, Leaf-Gate, Milestone-Reihenfolge, WIP=1,
 ## 5. Teststrategie
 
 Der Reconciler ist reine Funktion von (Milestone, Issues, PRs, Checks) → (Aktionen). Er lässt
-sich **offline** testen, wie `tests/rift-focus-milestone/` und `tests/rift-stale-dispatch/`
+sich **offline** testen, wie `tests/runner-focus-milestone/` und `tests/runner-stale-dispatch/`
 (gh-Shim, kein Netz). Das ist der Punkt: der teuerste und fehleranfälligste Teil des Systems
 wird der best-getestete.
 

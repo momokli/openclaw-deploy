@@ -49,7 +49,7 @@ Fehlt die Datei oder ist sie älter als 15 Minuten → normaler Gate-Betrieb wie
 
 ## Fokus-Milestone (pro Lauf ermitteln)
 
-    rift-focus-milestone.sh --json
+    RUNNER_PROFILE=rift runner-focus-milestone.sh --json
 
 Liefert z. B. `{"title":"1.0.1","number":12,"open_issues":11}`. Exit ≠ 0 → nichts tun, nur loggen.
 

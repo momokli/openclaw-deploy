@@ -94,6 +94,21 @@ Wichtig (OpenClaw-Verhalten, in `converge-openclaw-config.sh` umgesetzt):
   Snapshots mit einbeziehen (sonst wird `main` unterzählt); OpenClaws `usage.cost`-Feld nutzt
   andere Preise als die offiziellen Anbieter-Preise.
 
+## Runner (Triage A + PR-Gate B)
+
+- **Ein Runner pro Projekt**, gebunden über ein Profil in `config/runners/<profil>.conf`
+  (`rift`, `mmm`). Geteilt ist nur die Engine `scripts/runner-*.sh`.
+- Je Runner zwei Ebenen: Shell-Tick (`--command`, 5 min, 0 Tokens) → triggert den
+  Agent-Turn (Fallback 6 h). Prompts: `config/automations/<profil>-{triage,pr-gate}.prompt.md`.
+- Zustand liegt in GitHub (Labels), nicht im Gateway. Fokus = kleinster offener,
+  freigegebener (`Freigabe: ja`) Versions-Milestone.
+- WIP = 1, Stacktiefe ≤ 3; A = `momo-clanker[bot]` (`clanker-gh`), B = `momo-claw[bot]` (`claw-gh`).
+- **Deploy-Reihenfolge:** erst `setup-native.sh` (installiert Engine/Shims/Profile nach
+  `~/.local/bin`), dann `automations-apply.sh` (definiert Jobs, aktiviert **nicht** —
+  `enable` bleibt manuell).
+- Betrieb/Inventar: `docs/automations.md` · Methodik: `docs/milestone-methodology.md` ·
+  Zielbild: `docs/runner-architektur.md` · MMM-Umsetzung: `docs/mmm-runner-plan.md`.
+
 ## GitHub-App-Auth — Status
 
 - Persönliches PAT (`GH_TOKEN`) läuft weiterhin als Fallback. GitHub-App-Auth für
