@@ -75,6 +75,18 @@ case ":$PATH:" in
   *) PATH="$HOME/.local/bin:$PATH" ;;
 esac
 
+# Der Gateway läuft mit OPENCLAW_CONFIG_PATH=/srv/openclaw/openclaw.json. In
+# nicht-interaktiven Shells (manueller Aufruf) fehlt die Variable, dann liest die
+# CLI die falsche Config (~/.openclaw/openclaw.json, nur `main`) und kennt die
+# Orchestrator-Agents nicht → `sessions list --agent …` scheitert. Selbst heilen.
+if [ -z "${OPENCLAW_CONFIG_PATH:-}" ]; then
+  if [ -n "${OPENCLAW_STATE_DIR:-}" ] && [ -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
+    export OPENCLAW_CONFIG_PATH="$OPENCLAW_STATE_DIR/openclaw.json"
+  elif [ -f /srv/openclaw/openclaw.json ]; then
+    export OPENCLAW_CONFIG_PATH=/srv/openclaw/openclaw.json
+  fi
+fi
+
 # Repo + Labels aus dem Runner-Profil.
 # shellcheck source=/dev/null
 . "$(dirname "${BASH_SOURCE[0]}")/runner-profile.sh"
@@ -208,8 +220,14 @@ rejected_pr() { printf '%s' "$PR_INFO" | jq -e --argjson n "$1" \
 # `running` = (in dieser Installation praktisch nur noch) Zombie-Record.
 SESSIONS_JSONL=""
 for agent in $WORKER_AGENTS; do
-  raw="$("$OPENCLAW_BIN" sessions list --agent "$agent" --json --limit all 2>/dev/null)" \
-    || api_die "openclaw sessions list --agent $agent fehlgeschlagen"
+  # Ein unbekannter/leerer Agent-Store ist KEIN Fehler: er bedeutet schlicht „kein
+  # Worker-Run" (S5 ⇒ nicht gesund ⇒ stale ⇒ Freigabe). Nur echte Parse-Fehler sind
+  # fatal. Sonst blockiert ein fehlender Store den ganzen Guard (real: #348).
+  raw="$("$OPENCLAW_BIN" sessions list --agent "$agent" --json --limit all 2>/dev/null)" || raw=""
+  if [ -z "$raw" ]; then
+    note "WARN sessions list --agent $agent lieferte nichts (kein Store?) — als 'kein Run' gewertet"
+    continue
+  fi
   printf '%s' "$raw" | jq -e 'has("sessions")' >/dev/null 2>&1 \
     || api_die "unerwartete sessions-Ausgabe für Agent $agent"
   SESSIONS_JSONL="$SESSIONS_JSONL$(
