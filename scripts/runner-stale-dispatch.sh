@@ -341,10 +341,18 @@ for n in $CANDIDATES; do
        '.[] | select(.number == $n) | any(.labels[]?; .name == "triage:no-action")' >/dev/null 2>&1; then
     note "SKIP $n no-action-label (Cleanup schließt)"; skipped=$((skipped + 1)); continue
   fi
-  merged_ref="$(printf '%s' "$tl" | jq -r '
+  # Nur ein PR, der das Issue WIRKLICH schließt (Closing-Keyword `Fixes/Closes/Resolves #n`
+  # im Body), zählt als Outcome. Eine bloße Erwähnung (Timeline-Cross-Ref ohne
+  # Closing-Keyword) ist KEIN Outcome — sonst friert ein beiläufig erwähntes Issue den
+  # WIP=1-Slot ein (real: #348 wurde von PR #403 „No #348 … deliberately not included"
+  # referenziert und galt fälschlich als erledigt).
+  merged_ref="$(printf '%s' "$tl" | jq -r --argjson n "$n" '
     [ .[] | select(.event == "cross-referenced")
           | select(.source.issue.pull_request != null)
-          | select(.source.issue.pull_request.merged_at != null) ] | length')"
+          | select(.source.issue.pull_request.merged_at != null)
+          | select((.source.issue.body // "")
+                   | test("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#"
+                          + ($n | tostring) + "\\b")) ] | length')"
   if [ "${merged_ref:-0}" -gt 0 ]; then
     note "SKIP $n merged-pr (Cleanup schließt)"; skipped=$((skipped + 1)); continue
   fi
