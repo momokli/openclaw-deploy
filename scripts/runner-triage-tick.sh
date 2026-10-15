@@ -75,6 +75,15 @@ if command -v runner-triage-cleanup.sh >/dev/null 2>&1; then
 else
   log "WARNUNG: runner-triage-cleanup.sh fehlt — Cleanup übersprungen"
 fi
+# 2c) Milestone-Buchhaltung: fertige + ausgelieferte Milestones schließen (0 Tokens).
+#     Der Release-Pfad schließt den Fokus-Milestone beim Release; ein Milestone, den
+#     er nie erreicht (Legacy, oder der Fokus lief vorbei), bliebe sonst ewig offen.
+#     Offene Release-PRs werden ausgelassen (der Milestone wartet auf seinen Release).
+if command -v runner-close-milestones.sh >/dev/null 2>&1; then
+  runner-close-milestones.sh 2>&1 | sed 's/^/    /'
+else
+  log "WARNUNG: runner-close-milestones.sh fehlt — Milestone-Cleanup übersprungen"
+fi
 
 # 2b) Handoff-Buchhaltung: der Gate gibt nach `REQUEST_CHANGES` an Runner A zurueck, indem er
 #     `triage:implement` setzt und `orchestrator:dispatched` entfernt. Vergisst der Agent das
