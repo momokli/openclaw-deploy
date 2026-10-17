@@ -61,6 +61,8 @@ COOLDOWN_MIN="${RIFT_GATE_COOLDOWN_MIN:-${GATE_COOLDOWN_MIN:-60}}"
 # er wird gebaut/aktualisiert, aber NIE von der Automation gemergt — die Freigabe
 # ist der Mensch. Deshalb ist ein so markierter PR hier grundsaetzlich NICHT aktionabel.
 RELEASE_LABEL="$RUNNER_RELEASE_LABEL"
+# Opt-out: NUR dieser Label = Freigabe Mensch. release:auto ist actionabel.
+HUMAN_LABEL="release:human-merge"
 
 log()  { printf '%s %s-pr-gate-tick: %s\n' "$(date -Is)" "$RUNNER_STATE_PREFIX" "$*"; }
 skip() { log "SKIP $*"; exit 0; }
@@ -89,15 +91,25 @@ command -v jq >/dev/null 2>&1 || die "jq nicht im PATH"
 
 NOW="$(date -u +%s)"
 
-# 1) Fokus-Milestone.
-FOCUS="$(runner-focus-milestone.sh --json 2>/dev/null)" || skip "kein Fokus-Milestone"
-N="$(printf '%s' "$FOCUS" | jq -r '.number // empty')"
-TITLE="$(printf '%s' "$FOCUS" | jq -r '.title // empty')"
-[ -n "$N" ] || die "Fokus-Milestone nicht parsebar: $FOCUS"
+# 1) Fokus-Milestone (OPTIONAL).
+# Exit 4 ("alle released/awaiting review") ist ein regulaerer Zustand: dann sind offene
+# release:auto-PRs die einzige Arbeit (Schritt 3). Frueher brach der Tick hier ab, BEVOR
+# er den Release-Zweig erreichte — ein Release-Stack ohne Fokus hing damit fuer immer.
+FOCUS="$(runner-focus-milestone.sh --json 2>/dev/null)" || FOCUS=""
+N="$(printf '%s' "${FOCUS:-{}}" | jq -r '.number // empty' 2>/dev/null)"
+TITLE="$(printf '%s' "${FOCUS:-{}}" | jq -r '.title // empty' 2>/dev/null)"
+if [ -n "$FOCUS" ] && [ -z "$N" ]; then
+  die "Fokus-Milestone nicht parsebar: $FOCUS"
+fi
+[ -n "$N" ] || log "kein Fokus-Milestone — pruefe nur release:auto-PRs"
 
 # 2) Fokus-Issues + offene PRs.
-ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
-  --json number 2>/dev/null)" || die "issue list fehlgeschlagen"
+if [ -n "$N" ]; then
+  ISSUES="$("$GH" issue list --repo "$REPO" --state open --milestone "$N" --limit 100 \
+    --json number 2>/dev/null)" || die "issue list fehlgeschlagen"
+else
+  ISSUES='[]'
+fi
 PRS="$("$GH" pr list --repo "$REPO" --state open --limit 100 \
   --json number,title,body,headRefName,isDraft,mergeStateStatus,labels 2>/dev/null)" \
   || die "pr list fehlgeschlagen"
@@ -117,11 +129,22 @@ hits() { # aktionable Fokus-PRs, aufsteigend (FIFO = unterster Stack-PR zuerst)
 }
 
 HIT="$(hits)"
+
+# Offene release:auto-PRs sind ebenfalls actionabel (jeder Milestone, unabhaengig vom Fokus).
+REL_HIT="$(printf '%s' "$PRS" | jq -r --arg rel "$RELEASE_LABEL" --arg human "$HUMAN_LABEL" --arg re "$ACTIONABLE_STATES" '
+  [ .[] | select(.isDraft | not)
+    | select((([.labels[]?.name] | index($human)) == null))
+    | select((([.labels[]?.name] | index($rel)) != null))
+    | select((.mergeStateStatus // "") | test("^(" + $re + ")$")) ]
+  | sort_by(.number) | .[] | "\(.number) \(.mergeStateStatus)"')"
+if [ -n "$REL_HIT" ]; then
+  HIT="$(printf '%s\n%s' "$HIT" "$REL_HIT" | grep -v '^$' | sort -n -k1,1 -u)"
+fi
 if [ -z "$HIT" ]; then
   # Sichtbarkeit: ein Release-PR wartet bewusst auf den Menschen (kein Automerge).
   REL_OPEN="$(printf '%s' "$PRS" | jq -r --arg rel "$RELEASE_LABEL" \
     '[ .[] | select(any(.labels[]?; .name == $rel)) | .number ] | join(",")')"
-  [ -z "$REL_OPEN" ] || log "wartet auf den Menschen: Release-PR #$REL_OPEN ($RELEASE_LABEL)"
+  [ -z "$REL_OPEN" ] || log "wartet auf den Menschen: Release-PR #$REL_OPEN (release:human-merge)"
   skip "kein aktionabler Fokus-PR (nichts zu mergen/rebasen/reviewen)"
 fi
 
@@ -217,6 +240,6 @@ ID="$(openclaw automations list --all --json 2>/dev/null \
       | jq -r --arg k "$SELF_KEY" '.jobs[] | select(.declarationKey == $k) | .id' | head -1)"
 [ -n "$ID" ] && [ "$ID" != "null" ] || die "Agent-Job $SELF_KEY nicht gefunden"
 
-log "AKTION FÄLLIG ($TITLE): $HIT → $needs_agent brauchen den Agent-Turn, triggere $SELF_KEY ($ID)"
+log "AKTION FÄLLIG (${TITLE:-release-stack}): $HIT → $needs_agent brauchen den Agent-Turn, triggere $SELF_KEY ($ID)"
 openclaw automations run "$ID" 2>&1 | tail -3
 exit 0

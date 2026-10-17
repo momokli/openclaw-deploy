@@ -18,7 +18,7 @@ Der `mmm-triage-tick` schreibt bei **code-complete** — kein offener Leaf-Kandi
      - **Testplan** — aus den Issues mit Label `needs:manual-test` (gibt es keine, sag das und
        nenne die sinnvollsten manuellen Checks der geänderten Pfade).
 6. Label release:auto auf den PR setzen (idempotent). Trägt der PR release:human-merge, ist die Freigabe bewusst **menschlich** — dann NICHT mergen (Opt-out).
-7. **Mergen + taggen (auto).** Sobald mergeStateStatus == CLEAN und alle Checks grün sind: squash-merge (claw-gh pr merge PR-Nr. --squash --delete-branch), dann den **Komponenten-Tag** (z. B. hub-v0.24.0) via claw-git pushen (Komponente hub/api/kellner aus dem Milestone; Version = Semver am Milestone-Ende) — Tag-Push = Release. Danach den Milestone schließen. Fällt ein Test durch, kommt das Issue **zurück in den Milestone** (neu/reopen) — der nächste Release-Lauf aktualisiert **denselben** PR.
+7. **Mergen + taggen (auto).** Sobald mergeStateStatus == CLEAN und alle Checks grün sind: squash-merge (claw-gh pr merge PR-Nr. --squash (KEIN --delete-branch - die Basis ist evtl. ein anderer Release-PR im Stack)), dann den **Komponenten-Tag** (z. B. hub-v0.24.0) via claw-git pushen (Komponente hub/api/kellner aus dem Milestone; Version = Semver am Milestone-Ende) — Tag-Push = Release. Danach den Milestone schließen. Fällt ein Test durch, kommt das Issue **zurück in den Milestone** (neu/reopen) — der nächste Release-Lauf aktualisiert **denselben** PR.
 
 Fehlt die Datei oder ist sie älter als 15 Minuten → normaler Gate-Betrieb wie unten.
 
@@ -28,7 +28,7 @@ Fehlt die Datei oder ist sie älter als 15 Minuten → normaler Gate-Betrieb wie
 
 (`RUNNER_PROFILE=mmm` ist Pflicht — der Agent-Turn erbt kein Profil aus dem Tick.)
 
-Liefert z. B. `{"title":"1.14.0","number":1,"open_issues":8}`. Exit ≠ 0 → nichts tun, nur loggen.
+Liefert z. B. `{"title":"1.14.0","number":1,"open_issues":8}`. **Exit ≠ 0 = kein freigegebener Milestone mit Arbeit** (typisch: alles wartet auf seinen Release-PR). Dann läuft **nur** der Release-Teil (Schritt 4b) — Fokus-PRs gibt es dann keine. Gibt es auch keine offenen `release:auto`-PRs, tust du nichts und loggst nur.
 
 ## Scope (Pflicht)
 
@@ -44,6 +44,7 @@ Bearbeitet werden NUR PRs, deren zugehöriges **Issue im Fokus-Milestone** liegt
    `claw-gh pr list --repo momokli/momos-music-manager --state open --json number,title,body,headRefName,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,labels,url`
 3. Draft-PRs (`isDraft`) immer skippen.
 4. **FIFO / Stack (Pflicht):** Gehören mehrere PRs zu einem Stack (der `head`-Branch des unteren ist die Basis des nächsten), ist **nur der unterste ungemergte PR** merge-fähig. Alles darüber darf reviewed, aber **nie** gemergt werden.
+4b. **Release-PRs (Label release:auto, jeder Milestone):** actionabel, unabhaengig vom Fokus. Behandle den Release-Stack FIFO: nur der **unterste** ungemergte ist mergebar. Ist er CLEAN und alle Checks gruen: claw-gh pr merge (PR-Nr.) --squash (KEIN --delete-branch - die Basis ist evtl. ein anderer Release-PR im Stack), dann den **Komponenten-Tag** (z. B. hub-v0.24.0) pushen und den Milestone schliessen. Kein Review/Verdict noetig. release:human-merge = skip (Mensch).
 5. Pro PR (in Reihenfolge, **ein** PR pro Lauf aktiv, max. 3 Aktionen):
 
    a. **rebase nötig** — `mergeStateStatus` ist `BEHIND` oder `DIRTY` →
