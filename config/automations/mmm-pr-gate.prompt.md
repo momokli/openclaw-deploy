@@ -44,7 +44,10 @@ Bearbeitet werden NUR PRs, deren zugehöriges **Issue im Fokus-Milestone** liegt
    `claw-gh pr list --repo momokli/momos-music-manager --state open --json number,title,body,headRefName,isDraft,reviewDecision,statusCheckRollup,mergeStateStatus,labels,url`
 3. Draft-PRs (`isDraft`) immer skippen.
 4. **FIFO / Stack (Pflicht):** Gehören mehrere PRs zu einem Stack (der `head`-Branch des unteren ist die Basis des nächsten), ist **nur der unterste ungemergte PR** merge-fähig. Alles darüber darf reviewed, aber **nie** gemergt werden.
-4b. **Release-PRs (Label release:auto, jeder Milestone):** actionabel, unabhaengig vom Fokus. Behandle den Release-Stack FIFO: nur der **unterste** ungemergte ist mergebar. Ist er CLEAN und alle Checks gruen: claw-gh pr merge (PR-Nr.) --squash (KEIN --delete-branch - die Basis ist evtl. ein anderer Release-PR im Stack), dann den **Komponenten-Tag** (z. B. hub-v0.24.0) pushen und den Milestone schliessen. Kein Review/Verdict noetig. release:human-merge = skip (Mensch).
+4b. **Release-PRs (Label release:auto, jeder Milestone):** actionabel, unabhaengig vom Fokus. Behandle den Release-Stack FIFO: nur der **unterste** ungemergte ist mergebar.
+   - **Retarget ZUERST (Pflicht):** Ist `baseRefName` eines Release-PR **nicht** `main` und ist der Release-PR dieser Basis bereits gemergt (GitHub retargetet NICHT automatisch, weil die Release-Branch absichtlich bleibt), dann `claw-gh pr edit <nr> --base main`. In diesem Lauf **nicht** mergen — der naechste Lauf sieht den PR gegen main.
+   - **Merge nur wenn `baseRefName == main`**, `mergeStateStatus == CLEAN` und alle Checks gruen: claw-gh pr merge (PR-Nr.) --squash (KEIN --delete-branch - die Basis ist evtl. ein anderer Release-PR im Stack), dann den **Komponenten-Tag** (z. B. hub-v0.24.0) pushen und den Milestone schliessen. Kein Review/Verdict noetig. release:human-merge = skip (Mensch).
+   - **Nie in eine abgelaufene Stack-Basis mergen.** Ein Merge in `release/…` statt `main` ist ein stiller No-Op-Release — genau davor schuetzt der Retarget-Schritt.
 5. Pro PR (in Reihenfolge, **ein** PR pro Lauf aktiv, max. 3 Aktionen):
 
    a. **rebase nötig** — `mergeStateStatus` ist `BEHIND` oder `DIRTY` →
