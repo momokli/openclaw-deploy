@@ -298,7 +298,7 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
     printf '\nDer Fokus-Milestone hat KEINE offenen Leaf-Kandidaten mehr (code-complete).\n'
     printf 'Aufgabe: Release-PR bauen bzw. aktualisieren. **Abnahme** (DoD-Kriterien mit Beleg +\n'
     printf 'ehrlichem Status) und **Testplan** (aus den `%s`-Issues) im PR-Body abbilden.\n' "$RUNNER_MANUAL_TEST_LABEL"
-    printf 'Diesen PR NIE mergen — er ist die menschliche Freigabe (Label `%s`).\n' "$RELEASE_LABEL"
+    printf 'Mergen + Taggen (auto): der PR ist actionabel (Label `%s`); nur `release:human-merge` ist das menschliche Opt-out.\n' "$RELEASE_LABEL"
     printf '\nRepo-spezifisch:\n'
     printf '%s\n' "$RUNNER_RELEASE_HINT"
   } > "$REL_FILE" 2>/dev/null || log "WARNUNG: Release-File ($REL_FILE) nicht schreibbar"
