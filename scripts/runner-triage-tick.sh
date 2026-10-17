@@ -289,8 +289,9 @@ if [ "$(printf '%s' "$LEAF" | jq 'length' 2>/dev/null)" = "0" ]; then
     printf '# Release-Entscheidung (Shell-Reconciler, verbindlich)\n\n'
     printf -- '- Zeit: %s\n' "$(date -Is)"
     printf -- '- Milestone: %s (#%s)\n' "$TITLE" "$N"
-    printf -- '- Tag-Vorschlag: v%s\n' "$TITLE"
-    printf -- '- PR-Titel: chore(release): v%s — <Milestone-Titel> (erlaubter Conventional-Type)\n' "$TITLE"
+    printf -- '- Version: aktuelle Version der Komponenten-Cargo.toml (Basis-Branch) + 1 Minor — NICHT aus dem Milestone-Titel ableiten (Retro-Milestones wuerden die Version zuruecksetzen).\n'
+    printf -- '- Tag-Vorschlag: <komponente>-v<neue Version>\n'
+    printf -- '- PR-Titel: chore(release): v<neue Version> — <Milestone-Titel> (erlaubter Conventional-Type)\n'
     printf -- '- Basis-Branch: %s · PR-Ziel: %s · Marker-Label: %s\n' "$REL_BASE" "$REL_BASE" "$RELEASE_LABEL"
     if [ "$REL_BASE" != "main" ]; then
       printf -- '- STACK: Branch `release/%s` von `%s` abzweigen (Vorgaenger-Release noch offen) — NICHT von main.\n' "$TITLE" "$REL_BASE"

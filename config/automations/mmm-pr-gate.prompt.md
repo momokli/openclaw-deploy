@@ -6,7 +6,7 @@ Der `mmm-triage-tick` schreibt bei **code-complete** — kein offener Leaf-Kandi
 
 1. Branch `release/<milestone>` vom **Basis-Branch der Decision-Datei** abzweigen — `main` oder, wenn ein Vorgänger-Release noch offen ist, `release/<vorgaenger>` (STACK; so kollidieren die `CHANGELOG.md`-Blöcke offener Release-PRs nicht). Bestehenden PR wiederverwenden, keinen zweiten bauen.
 2. `CHANGELOG.md` **im bestehenden MMM-Format** (Keep a Changelog: `## [Unreleased]` bzw. `## [<version>]` mit `Added`/`Changed`/`Fixed`) ergänzen — **nur aus Daten**: geschlossene Issues des Milestones + gemergte PRs. Nichts erfinden, keine Prosa.
-3. **Versions-Bump** im selben PR: die Cargo.toml der **Komponente** anheben — music-hub/Cargo.toml (hub-*), music-api/Cargo.toml (music-api-*), kellner/Cargo.toml (kellner-*). Kein Root-Cargo.toml, kein site/Autoupdater (Stack-Versionierung: docs/stack-versioning.md).
+3. **Versions-Bump** im selben PR: die Cargo.toml der **Komponente** anheben — music-hub/Cargo.toml (hub-*), music-api/Cargo.toml (music-api-*), kellner/Cargo.toml (kellner-*). Die neue Version **aus dem Code ableiten**: aktuelle Version der Basis-Branch lesen und **+1 Minor** (z. B. 0.28.0 → 0.29.0, inkl. Cargo.lock). **NIE aus dem Milestone-Titel ableiten** — Milestones werden nicht in Versionsreihenfolge fertig; ein Retro-Milestone wie `hub-tag-clusters-0.18.0` hat real die Version von 0.28.0 auf 0.18.0 zurueckgesetzt (#481). Kein Root-Cargo.toml, kein site/Autoupdater (Stack-Versionierung: docs/stack-versioning.md).
 4. **Kein** `[Release]`-Tracking-Issue anlegen (MMM führt keins — der Release ist der Tag, nicht das Issue).
 5. PR gegen den **Basis-Branch aus der Decision-Datei** bauen bzw. **aktualisieren** (nicht pauschal gegen `main`):
    - **Titel:** `chore(release): v<version> — <Milestone-Titel>`. `chore` ist ein erlaubter
@@ -18,7 +18,7 @@ Der `mmm-triage-tick` schreibt bei **code-complete** — kein offener Leaf-Kandi
      - **Testplan** — aus den Issues mit Label `needs:manual-test` (gibt es keine, sag das und
        nenne die sinnvollsten manuellen Checks der geänderten Pfade).
 6. Label release:auto auf den PR setzen (idempotent). Trägt der PR release:human-merge, ist die Freigabe bewusst **menschlich** — dann NICHT mergen (Opt-out).
-7. **Mergen + taggen (auto).** Sobald mergeStateStatus == CLEAN und alle Checks grün sind: squash-merge (claw-gh pr merge PR-Nr. --squash (KEIN --delete-branch - die Basis ist evtl. ein anderer Release-PR im Stack)), dann den **Komponenten-Tag** (z. B. hub-v0.24.0) via claw-git pushen (Komponente hub/api/kellner aus dem Milestone; Version = Semver am Milestone-Ende) — Tag-Push = Release. Danach den Milestone schließen. Fällt ein Test durch, kommt das Issue **zurück in den Milestone** (neu/reopen) — der nächste Release-Lauf aktualisiert **denselben** PR.
+7. **Mergen + taggen (auto).** Sobald mergeStateStatus == CLEAN und alle Checks grün sind: squash-merge (claw-gh pr merge PR-Nr. --squash (KEIN --delete-branch - die Basis ist evtl. ein anderer Release-PR im Stack)), dann den **Komponenten-Tag** via claw-git pushen (**Tag = `<komponente>-v<Version aus der gebumpten Cargo.toml>`** — niemals der Milestone-Titel) — Tag-Push = Release. Danach den Milestone schließen. Fällt ein Test durch, kommt das Issue **zurück in den Milestone** (neu/reopen) — der nächste Release-Lauf aktualisiert **denselben** PR.
 
 Fehlt die Datei oder ist sie älter als 15 Minuten → normaler Gate-Betrieb wie unten.
 
