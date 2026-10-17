@@ -10,6 +10,9 @@
 # Label `release:auto`/`release:human-merge`) existiert — dann wartet der Milestone
 # auf seinen Release (Mensch/Stack); Schließen würde ihn überspringen. Nur wirklich
 # ausgelieferte/verwaiste Milestones werden geschlossen.
+# FREIGEGEBENE Milestones (Freigabe-Marker im Text) schließt ausschließlich der
+# Release-Pfad (pr-gate) NACH dem Release: hier lief das Skript dem Release-PR davon
+# (real: #26/#29/#41 wurden Minuten vor ihrem Release-PR geschlossen).
 #
 # Ausgabe: CLOSE <n> <title> | SKIP <n> <title> (offener Release-PR) | summary …
 # Exit: 0 = OK · 2 = Fehler (gh/jq) · 3 = API-Fehler
@@ -45,7 +48,7 @@ OPEN_REL="$("$GH" pr list --repo "$REPO" --state open --limit 200 \
 
 CLOSED=0
 SKIPPED=0
-for n in $(printf '%s' "$MS" | jq -r '.[] | select(.open_issues == 0) | .number'); do
+for n in $(printf '%s' "$MS" | jq -r --arg re "$RUNNER_APPROVE_RE" '.[] | select(.open_issues == 0) | select(((.description // "") | test($re)) | not) | .number'); do
   t="$(printf '%s' "$MS" | jq -r --argjson n "$n" '.[] | select(.number == $n) | .title')"
   if [ -n "$OPEN_REL" ] && printf '%s\n' "$OPEN_REL" | grep -qxF "$t"; then
     log "SKIP $n $t (offener Release-PR — wartet auf Release)"
