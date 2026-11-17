@@ -182,7 +182,7 @@ CANDIDATES="$(printf '%s' "$ISSUES_JSON" \
 # (Required-Check `BLOCKED`) von einem „arbeitet noch daran" unterscheiden. `labels`
 # brauchen wir, um den Release-PR (`release:human-merge`) auszusortieren.
 PRS_JSON="$("$GH" pr list --repo "$REPO" --state open --limit 200 \
-  --json number,headRefName,body,mergeStateStatus,labels,comments)" \
+  --json number,title,headRefName,body,mergeStateStatus,labels,comments)" \
   || api_die "PR-Liste lesen fehlgeschlagen"
 
 # Eine Liste {num,state,refs}: `headRefName`/`body` werden zu je einer Liste von
@@ -196,7 +196,7 @@ PR_INFO="$(printf '%s' "$PRS_JSON" | jq -c '
                         | capture("\\[VERDICT:[ \\t]*(?<v>[A-Za-z_]+)")? ]
                       | last // {} | (.v // "") ),
             refs: ( ((.headRefName // "") | [scan("(?:^|[/_-])([0-9]+)(?=[/_-]|$)")] | map(.[0] | tonumber))
-                  + ((.body // "")
+                  + (((.title // "") + "\n" + (.body // ""))
                      | [scan("(?i)\\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|relate[sd]?|part of|addresses)\\b[ \\t]*:?[ \\t]*#([0-9]+)")]
                      | map(.[0] | tonumber)) ) } ]')" \
   || api_die "PR-Links parsen fehlgeschlagen"
@@ -458,6 +458,11 @@ for n in $CANDIDATES; do
     note "SKIP $n cap-per-run"; skipped=$((skipped + 1)); continue
   fi
 
+  # Beweissicherung: die Marker-Zeile behauptet pauschal "kein verlinkter offener PR".
+  # Am 2026-11-16 traf das nicht zu (PR #517 war offen und nannte `Closes #511` im Body),
+  # die Ursache ist bis heute unbelegt. Diese Zeile haelt die Messwerte fest, damit der
+  # naechste Fall entscheidbar ist statt geraten.
+  note "EVIDENCE $n prs_open=$(printf '%s' "$PR_INFO" | jq 'length') linked=0 xref=$xref_open worker=$(worker_state "$n" "$dispatch_ep") age=${age_min}min"
   attempt=$((attempts + 1))
   if [ "$DRY_RUN" = 1 ]; then
     note "REDISPATCH $n attempts=$attempt dispatch_age=${age_min}min (dry-run)"

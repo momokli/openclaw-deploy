@@ -155,7 +155,7 @@ while read -r num state; do
 
   # Letztes Review-Verdict lesen (der Reviewer postet es als Kommentar-Anfang).
   detail="$("$GH" pr view "$num" --repo "$REPO" \
-    --json comments,statusCheckRollup,mergeStateStatus,commits 2>/dev/null)" || { needs_agent=$((needs_agent+1)); continue; }
+    --json comments,statusCheckRollup,mergeStateStatus,commits,headRefOid 2>/dev/null)" || { needs_agent=$((needs_agent+1)); continue; }
 
   verdict="$(printf '%s' "$detail" | jq -r '
     [ .comments[]? | select((.body // "") | startswith("[VERDICT:")) | .body ] | last // ""' \
@@ -163,6 +163,17 @@ while read -r num state; do
   # Zeitstempel des jüngsten Verdict-Kommentars (für den BLOCKED-Cooldown).
   verdict_at="$(printf '%s' "$detail" | jq -r '
     [ .comments[]? | select((.body // "") | startswith("[VERDICT:")) | (.createdAt // "") ] | last // ""')"
+  # Der Reviewer haelt den reviewten Commit in der Verdict-Zeile fest:
+  #   [VERDICT: APPROVE] 7781258
+  # Ohne diese Bindung ist ein APPROVE NICHT mergebar (fail-closed). Sonst geht ein
+  # Push zwischen Verdict und Merge ungeprueft live — real: #516 wurde auf 7781258
+  # approved und auf c0e78c8 gemergt, also auf einem nie reviewten Commit.
+  verdict_sha="$(printf '%s' "$verdict" | sed -n 's/^\[VERDICT:[^]]*\][[:space:]]*\([0-9a-fA-F]\{7,40\}\).*/\1/p' | head -1)"
+  head_oid="$(printf '%s' "$detail" | jq -r '.headRefOid // ""')"
+  sha_bound=0
+  if [ -n "$verdict_sha" ] && [ -n "$head_oid" ]; then
+    case "$head_oid" in "$verdict_sha"*) sha_bound=1 ;; esac
+  fi
   # Wichtig (fail-closed): NULL Check-Runs sind NICHT „alle grün" — jq's `all` ist auf
   # einem leeren Array `true`. Ohne diese Bedingung würde ein Repo OHNE PR-CI (noch kein
   # Required-Check) auf APPROVE + CLEAN blind mergen.
@@ -190,7 +201,7 @@ while read -r num state; do
   fi
 
   if printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
-     && [ "$state" = "CLEAN" ] && [ "$checks_ok" = "true" ]; then
+     && [ "$state" = "CLEAN" ] && [ "$checks_ok" = "true" ] && [ "$sha_bound" = "1" ]; then
     if [ "${RIFT_TICK_DRY:-0}" = "1" ]; then
       log "DRY-RUN: würde PR #$num mergen (APPROVE + CLEAN + Checks grün)"
     elif "$GH" pr merge "$num" --repo "$REPO" --squash --delete-branch >/dev/null 2>&1; then
@@ -200,6 +211,13 @@ while read -r num state; do
       needs_agent=$((needs_agent+1)); continue
     fi
     actions=$((actions+1))
+  elif printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
+       && [ "$state" = "CLEAN" ] && [ "$checks_ok" = "true" ]; then
+    # APPROVE + CLEAN + gruen, aber das Verdict haengt nicht am aktuellen Kopf:
+    # zwischen Review und Merge wurde gepusht (oder die Zeile traegt keine SHA).
+    # Fail-closed: nicht mergen, neu reviewen lassen.
+    log "SKIP #$num Verdict nicht an den Kopf gebunden (reviewed=${verdict_sha:-?} head=${head_oid:-?}) → Re-Review"
+    needs_agent=$((needs_agent+1))
   elif [ -n "$verdict_at" ] \
        && ! printf '%s' "$verdict" | grep -q '^\[VERDICT: APPROVE\]' \
        && [ "$rework_after_verdict" = 0 ] \

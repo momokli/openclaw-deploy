@@ -22,6 +22,9 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 FX="$TMP/fx"; mkdir -p "$FX"
 ACTIONS="$TMP/actions.log"
+# Reviewter Commit (SHA_A) vs. ein danach gepushter Kopf (SHA_B).
+SHA_A="7781258aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+SHA_B="c0e78c8bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 PASS=0; FAIL=0
 ok()    { PASS=$((PASS+1)); printf 'ok   %s\n' "$1"; }
@@ -89,13 +92,17 @@ focuspr() {  # $1 mergeStateStatus  $2 checks(all|pending|failing)  $3 verdict(a
   esac
   local created
   if [ -n "${4:-}" ]; then created="$(iso_ago "$4")"; else created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; fi
+  # $5 = aktueller Kopf (headRefOid). Das Verdict traegt SHA_A, d. h. der Merge ist nur
+  # gebunden, wenn der Kopf noch SHA_A ist.
+  local sha; sha="${5:-$SHA_A}"
   local comments
   case "$3" in
-    approve) comments='[{"body":"[VERDICT: APPROVE]\nok","createdAt":"'"$created"'"}]' ;;
-    changes) comments='[{"body":"[VERDICT: REQUEST_CHANGES]\nno","createdAt":"'"$created"'"}]' ;;
+    approve) comments='[{"body":"[VERDICT: APPROVE] '"$SHA_A"'\nok","createdAt":"'"$created"'"}]' ;;
+    approve_nosha) comments='[{"body":"[VERDICT: APPROVE]\nok","createdAt":"'"$created"'"}]' ;;
+    changes) comments='[{"body":"[VERDICT: REQUEST_CHANGES] '"$SHA_A"'\nno","createdAt":"'"$created"'"}]' ;;
     none)    comments='[]' ;;
   esac
-  prview 901 '{"mergeStateStatus":"'"$1"'","statusCheckRollup":'"$checks"',"comments":'"$comments"'}'
+  prview 901 '{"mergeStateStatus":"'"$1"'","statusCheckRollup":'"$checks"',"comments":'"$comments"',"headRefOid":"'"$sha"'"}'
 }
 
 echo "== APPROVE + CLEAN + alles grün -> deterministischer Merge (kein Agent) =="
@@ -104,6 +111,27 @@ run
 check "Exit 0" "0" "$rc"
 check "Merged" "MERGE 901" "$(grep '^MERGE' "$ACTIONS")"
 check "kein Agent-Trigger" "0" "$(grep -c '^trigger' "$ACTIONS")"
+
+echo
+echo "== APPROVE, aber seit dem Review wurde gepusht -> KEIN Merge, Re-Review =="
+# Real: #516 wurde auf 7781258 approved und danach auf c0e78c8 gemergt — auf einem
+# Commit, den niemand reviewt hatte. Der Kopf muss an das Verdict gebunden sein.
+reset; focuspr CLEAN all approve "" "$SHA_B"
+run
+check "Exit 0" "0" "$rc"
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
+check "Bindung im Log" "1" "$(printf '%s' "$out" | grep -c 'nicht an den Kopf gebunden')"
+
+echo
+echo "== APPROVE ohne Commit-Bindung (Alt-Verdict) -> fail-closed, Re-Review =="
+# Vor dieser Regel gepostete Verdicte tragen keine SHA. Fail-closed ist billiger als
+# ein Merge auf unbekanntem Stand: einmal nachreviewen, dann traegt die Zeile die SHA.
+reset; focuspr CLEAN all approve_nosha
+run
+check "Exit 0" "0" "$rc"
+check "kein Merge" "0" "$(grep -c '^MERGE' "$ACTIONS")"
+check "Agent getriggert" "trigger JOB-G" "$(grep '^trigger' "$ACTIONS")"
 
 echo
 echo "== Release-PR (release:human-merge): NIE automergen, wartet auf den Menschen =="

@@ -97,6 +97,17 @@ run
 check "schliesst das Issue" "close 941" "$(head -1 "$ACTIONS")"
 
 echo
+echo "== no-action + PR nennt das Issue nur im TITEL -> NICHT schliessen =="
+# Dieselbe Luecke wie im Stale-Guard: der Link-Scan las Branch + Body, nie den Titel.
+reset
+issues '[{"number":943,"title":"Titel-Fall","labels":[{"name":"triage:no-action"}]}]'
+prs '[{"number":951,"title":"feat: Closes #943","headRefName":"feat/x","body":"kein Keyword"}]'
+timeline '[]' 943
+run
+check "kein close" "0" "$(grep -c '^close ' "$ACTIONS")"
+check "flippt auf triage:implement" "1" "$(grep -c 'add-label triage:implement' "$ACTIONS")"
+
+echo
 echo "== no-action + PR nennt nur 'Relates #n' (Prosa) -> NICHT blockieren ="
 reset
 issues '[{"number":942,"title":"Z","labels":[{"name":"triage:no-action"}]}]'

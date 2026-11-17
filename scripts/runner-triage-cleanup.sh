@@ -68,7 +68,8 @@ COUNT="$(printf '%s' "$ISSUES" | jq 'length')"
 # geschlossen -> der PR verwaiste (kein Besitzer: Gate skippt ihn, Triage sieht nur offene Issues).
 # Deshalb: nicht schliessen, sondern zurueck an A (Fixer) geben.
 PRS="$($GH pr list --repo "$REPO" --state open --limit 200 \
-  --json number,headRefName,body 2>/dev/null)" || PRS='[]'
+  --json number,title,headRefName,body 2>/dev/null)" \
+  || { log "PR-Liste nicht lesbar — Cleanup uebersprungen (fail-closed)"; exit 2; }
 
 # Konservativer Link-Scan: Branch-Token ODER Closing-Keyword. Bewusst KEIN `Relates`/Prosa —
 # sonst wuerde jede beilaeufige Erwaehnung das Schliessen blockieren.
@@ -76,7 +77,7 @@ linked_open_pr() {  # $1 issue number
   printf '%s' "$PRS" | jq -e --argjson n "$1" '
     any(.[];
       (((.headRefName // "") | test("(^|[/_-])" + ($n | tostring) + "([/_-]|$)"))
-       or ((.body // "") | test("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#" + ($n | tostring) + "\\b"))))' \
+       or (((.title // "") + "\n" + (.body // "")) | test("(?i)\\b(?:fix(?:e[sd])?|clos(?:e[sd]?|ing)|resolve[sd]?)\\b[ \\t]*:?[ \\t]*#" + ($n | tostring) + "\\b"))))' \
     >/dev/null 2>&1
 }
 

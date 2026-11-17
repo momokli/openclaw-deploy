@@ -178,6 +178,7 @@ SESSIONS=("$(sess triage-401 failed "$(ago_ms 110)")"
 setup "$ISSUE_DISPATCHED" "$PRS_NONE" "$LABELS_NO_RD"
 run
 want "REDISPATCH 401 attempts=1 dispatch_age=95min" "stale Issue wird freigegeben (Alter ab letztem Dispatch)"
+want "EVIDENCE 401 prs_open=0 linked=0" "Beweissicherung: Messwerte stehen im Log"
 mut "POST-COMMENT 401 " "Marker-Kommentar wird VOR der Freigabe gepostet"
 mut "DELETE-LABEL repos/momokli/riftbreaker-battle-mod/issues/401/labels/orchestrator%3Adispatched" "orchestrator:dispatched wird entfernt"
 mut "POST-LABEL 401 " "triage:redispatch wird gesetzt"
@@ -201,12 +202,17 @@ nomut "keine Mutationen"
 
 # ── 4. S3: verlinkter offener PR (Branch-Konvention / Body-Keyword / xref) ──
 echo "== 4. S3: verlinkter offener PR → kein Retry =="
-for variant in branch body xref; do
+# `title` ist der Fall, der am 2026-11-16 gefehlt hat: PR #517 nannte `Closes #511`
+# im Body, aber die Erkennung las nur Branch + Body — und meldete trotzdem "kein
+# verlinkter offener PR". Der Titel wird jetzt mitgescannt, damit die Klasse
+# "Keyword nur im Titel" nicht wieder unsichtbar ist.
+for variant in branch body title xref; do
   TIMELINE=("$(ev_labeled "$(ago_iso 90)" orchestrator:dispatched)")
   PRS="$PRS_NONE"
   case "$variant" in
     branch) PRS='[{"number":412,"headRefName":"feature/401-ironium","body":"kein Keyword"}]' ;;
     body)   PRS='[{"number":412,"headRefName":"feature/x","body":"Fixes #401 (ironium readout)"}]' ;;
+    title)  PRS='[{"number":412,"title":"feat: Closes #401","headRefName":"feature/x","body":"kein Keyword"}]' ;;
     xref)   TIMELINE+=("$(ev_xref "$(ago_iso 60)" 412 open 1)") ;;
   esac
   setup "$ISSUE_DISPATCHED" "$PRS" "$LABELS_NO_RD"
