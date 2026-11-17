@@ -81,7 +81,10 @@ $4"; fi
 mf() { printf '{"title":"%s","number":%s,"open_issues":%s}' "$1" "$2" "$3"; }
 # Release-PR-Fixture
 rel() { # rel <title> <STATE>
-  printf '{"headRefName":"release/%s","state":"%s","labels":[{"name":"release:human-merge"}]}' "$1" "$2"
+  # Das Harness laeuft mit RUNNER_PROFILE=mmm, und mmm.conf setzt
+  # RUNNER_RELEASE_LABEL=release:auto (rift nutzt release:human-merge). Mit dem alten
+  # Label erkannte das Skript den Release-PR nicht — daher 6 falsche Erwartungen.
+  printf '{"headRefName":"release/%s","state":"%s","labels":[{"name":"release:auto"}]}' "$1" "$2"
 }
 # offener Arbeits-PR (kein Release-Marker), referenziert Issue #<ref> (z. B. via "Closes")
 wrk() { # wrk <number> <ref-issue> [state]

@@ -70,7 +70,7 @@ Bleibt es offen, klebt das `orchestrator:dispatched`-Label daran, der Stale-Guar
 ## Vorgehen
 
 1. Klone das Repo nach ~/repos/<name> (falls nicht schon da)
-2. Erstelle Progress-Datei <repo>/progress-<branch>.md
+2. Erstelle Progress-Datei <repo>/progress-<branch>.md — sie ist **Scratch**: NIE committen (`/progress-*.md` ist im Repo gitignored), nicht in den PR aufnehmen.
 3. Fuer jede Stage: sessions_spawn mit agentId, label, task UND cwd=<repo-pfad>
 4. Nach jedem Spawn: sessions_yield, auf Completion-Event warten
 5. Child-Result lesen, Progress-Datei updaten, naechste Stage spawnen
